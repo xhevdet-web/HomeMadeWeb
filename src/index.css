@@ -9,6 +9,8 @@
   --secondary: oklch(0.28 0.04 265);
   --muted-foreground: oklch(0.72 0.03 265);
   --border: oklch(1 0 0 / 12%);
+  --success: oklch(0.8 0.12 155);
+  --destructive: oklch(0.7 0.16 25);
 
   --gradient-fade: linear-gradient(
     90deg,
@@ -34,6 +36,8 @@
   --color-secondary: var(--secondary);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-success: var(--success);
+  --color-destructive: var(--destructive);
 
   --font-display: "Fraunces", Georgia, serif;
   --font-sans: "Manrope", system-ui, sans-serif;
@@ -69,6 +73,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
 }
 
 @utility bg-fade {
