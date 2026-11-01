@@ -1,5 +1,10 @@
-import type { Bounds } from "../data/studioCatalog";
-import { ART, type ArtId } from "./artworks";
+/** A rectangle as fractions (0–1) of the canvas. */
+export interface Bounds {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
 
 export type FontId = "classic" | "modern" | "script";
 export type TextColor = "navy" | "rose" | "gold" | "black" | "white";
@@ -17,12 +22,16 @@ export interface PlacedElement {
   z: number;
   /** Image height / width. */
   aspect: number;
+  /** Component image URL, or a local blob URL for the customer's own upload. */
   src?: string;
-  art?: ArtId;
+  /** Shown in lists and to assistive tech. */
+  name?: string;
+  /** The upload could not be restored after a reload; the customer must upload it again. */
+  missing?: boolean;
   /** Natural pixel width of an uploaded image, for the print-quality check. */
   pxWidth?: number;
   uploaded?: boolean;
-  /** Catalog id this element was added from, for pricing and stock. */
+  /** SubCategory id this element was added from (pricing, stock and saving). */
   ref?: string;
   text?: string;
   font?: FontId;
@@ -42,13 +51,17 @@ export const FONTS: Record<FontId, { label: string; family: string }> = {
   script: { label: "Script", family: "'Dancing Script', cursive" },
 };
 
+/** Text colours; `value` is the hex the API stores. */
 export const TEXT_COLORS: Record<TextColor, { name: string; value: string }> = {
-  navy: { name: "Navy", value: "oklch(0.32 0.08 265)" },
-  rose: { name: "Rose", value: "oklch(0.72 0.12 10)" },
-  gold: { name: "Gold", value: "oklch(0.8 0.13 85)" },
-  black: { name: "Black", value: "oklch(0.18 0 0)" },
-  white: { name: "White", value: "oklch(0.98 0 0)" },
+  navy: { name: "Navy", value: "#1E2A55" },
+  rose: { name: "Rose", value: "#E0798F" },
+  gold: { name: "Gold", value: "#D9A93F" },
+  black: { name: "Black", value: "#141414" },
+  white: { name: "White", value: "#FAFAFA" },
 };
+
+export const colorFromHex = (hex?: string): TextColor =>
+  (Object.keys(TEXT_COLORS) as TextColor[]).find((c) => TEXT_COLORS[c].value.toLowerCase() === hex?.toLowerCase()) ?? "gold";
 
 export const MIN_SCALE = 0.04;
 export const MAX_SCALE = 4;
@@ -70,8 +83,8 @@ export function imageElement(props: Partial<PlacedElement> & { aspect: number; s
 
 export function describeElement(el: PlacedElement) {
   if (el.kind === "text") return `Text “${el.text ?? ""}”`;
-  if (el.art) return ART[el.art].name;
-  return "Your image";
+  if (el.missing) return "Image to re-upload";
+  return el.name ?? (el.uploaded ? "Your image" : "Design");
 }
 
 /** True when an uploaded image has too few pixels per printed centimetre. */
@@ -150,7 +163,7 @@ export function constrain(
 export type ElementsAction =
   | { type: "add"; el: PlacedElement }
   | { type: "update"; el: PlacedElement }
-  | { type: "delete" | "forward" | "backward" | "duplicate"; id: string }
+  | { type: "delete" | "forward" | "backward" | "front" | "duplicate"; id: string }
   | { type: "clear" };
 
 export function elementsReducer(list: PlacedElement[], a: ElementsAction): PlacedElement[] {
@@ -159,6 +172,8 @@ export function elementsReducer(list: PlacedElement[], a: ElementsAction): Place
       return [...list, { ...a.el, z: topZ(list) }];
     case "update":
       return list.map((e) => (e.id === a.el.id ? a.el : e));
+    case "front":
+      return list.map((e) => (e.id === a.id ? { ...e, z: topZ(list) } : e));
     case "delete":
       return list.filter((e) => e.id !== a.id);
     case "clear":

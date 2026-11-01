@@ -1,37 +1,62 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Stepper } from "../../components/Controls";
-import { MUG_PRICE } from "../../data/studioCatalog";
-import { useDesignActions, useStudio } from "../../studio/StudioContext";
+import { useSaveDesign, useStudio } from "../../studio/StudioContext";
 import { NothingToPreview, PreviewActions, PreviewLayout, PriceLines, StudioShell, Tabs } from "../../studio/StudioShell";
+import { componentById, stockProblem, type StudioProps } from "../data";
 import { MugMockup, type MugView } from "./MugMockup";
-import { mugInfo, mugSummary } from "./logic";
+import { MAX_MUGS, blankMug, captureMug, mugArea, mugImage, mugInput, mugSummary } from "./logic";
 
-export function MugPreview() {
-  const { drafts, setDraft } = useStudio();
-  const d = drafts.mugs;
+export function MugPreview({ category, data }: StudioProps) {
+  const { getDraft, setDraft } = useStudio();
+  const d = getDraft(category.id, "MUG");
   const [view, setView] = useState<MugView>("front");
-  const actions = useDesignActions("mugs", mugInfo(d));
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const views: MugView[] = ["left", "front", "right"];
+  // Swipe the mug left or right to turn it, like the app.
+  const turn = (dx: number) => setView((v) => views[Math.max(0, Math.min(2, views.indexOf(v) + (dx < 0 ? 1 : -1)))]);
+  const blank = blankMug(data);
+  const area = mugArea(blank);
+  const saver = useSaveDesign(
+    category,
+    async () => {
+      const { input, uploads } = await mugInput(category, d, blank!, area!);
+      return { input, files: { preview: await captureMug(d, area!), customDesigns: uploads } };
+    },
+    { quantity: d.quantity },
+  );
   const title = (
     <>
       Your custom <em className="font-normal text-primary">mug.</em>
     </>
   );
 
-  if (d.elements.length === 0) {
+  if (!blank || !area || d.elements.length === 0) {
     return (
-      <StudioShell slug="mugs" step={2} title={title}>
-        <NothingToPreview slug="mugs" message="Add an image or text to your mug." />
+      <StudioShell category={category} step={2} title={title}>
+        <NothingToPreview category={category} message="Add an image or text to your mug first." />
       </StudioShell>
     );
   }
 
   return (
-    <StudioShell slug="mugs" step={2} title={title} intro="Turn the mug to check every side of your print.">
+    <StudioShell category={category} step={2} title={title} intro="Turn the mug to check every side of your print.">
       <PreviewLayout
         visual={
           <div className="w-full">
-            <MugMockup draft={d} view={view} />
-            <div className="mx-auto mt-8 max-w-sm">
+            <div
+              className="touch-pan-y select-none"
+              onPointerDown={(e) => (swipe.current = { x: e.clientX, y: e.clientY })}
+              onPointerUp={(e) => {
+                const s = swipe.current;
+                swipe.current = null;
+                if (s && Math.abs(e.clientX - s.x) > 40 && Math.abs(e.clientY - s.y) < 60) turn(e.clientX - s.x);
+              }}
+              onPointerCancel={() => (swipe.current = null)}
+            >
+              <MugMockup draft={d} area={area} view={view} />
+            </div>
+            <p className="mt-3 text-center text-xs text-muted-foreground md:hidden">Swipe the mug to turn it</p>
+            <div className="mx-auto mt-5 max-w-sm">
               <Tabs
                 label="Mug side"
                 value={view}
@@ -55,16 +80,23 @@ export function MugPreview() {
             <p className="font-semibold">Quantity</p>
             <p className="text-sm text-muted-foreground">Identical mugs with this design</p>
           </div>
-          <Stepper value={d.quantity} min={1} max={100} label="mugs" onChange={(quantity) => setDraft("mugs", { ...d, quantity })} />
+          <Stepper value={d.quantity} min={1} max={MAX_MUGS} label="mugs" onChange={(quantity) => setDraft(category.id, { ...d, quantity })} />
         </div>
         <PriceLines
           lines={[
-            ["Price per mug", MUG_PRICE],
-            [`${d.quantity} × mug`, MUG_PRICE * d.quantity],
+            ["Price per mug", blank.price],
+            [`${d.quantity} × mug`, blank.price * d.quantity],
           ]}
-          total={MUG_PRICE * d.quantity}
+          total={blank.price * d.quantity}
         />
-        <PreviewActions slug="mugs" onSave={actions.save} onOrder={actions.order} />
+        <PreviewActions
+          category={category}
+          onSave={saver.save}
+          onOrder={saver.order}
+          saving={saver.saving}
+          orderBlocked={mugImage(d)?.missing ? "Re-upload your image to continue." : stockProblem(d.elements.map((e) => e.ref), componentById(data))}
+          saveBlocked={mugImage(d)?.missing ? "Re-upload your image to continue." : null}
+        />
       </PreviewLayout>
     </StudioShell>
   );

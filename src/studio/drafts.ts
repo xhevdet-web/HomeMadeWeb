@@ -1,37 +1,38 @@
-import type { BoxShape, GarmentId, Packaging, StickerShape } from "../data/studioCatalog";
-import type { StudioSlug } from "../data/mock";
 import type { PlacedElement } from "./elements";
 
 export interface JewelryDraft {
+  kind: "JEWELRY";
   sizeId: string | null;
   lengthMm: number;
-  /** Catalog piece ids, in order along the cord. */
+  /** SubCategory ids, in order along the cord. */
   pieces: string[];
 }
 
 export interface GiftDraft {
-  packaging: Packaging | null;
-  shape: BoxShape | null;
+  kind: "GIFT";
+  packagingId: string | null;
   colorId: string | null;
   elements: PlacedElement[];
 }
 
 export interface MugDraft {
+  kind: "MUG";
   elements: PlacedElement[];
   quantity: number;
 }
 
 export interface ApparelDraft {
-  garmentId: GarmentId | null;
-  colorId: string | null;
-  sizeId: string | null;
+  kind: "APPAREL";
+  baseProductId: string | null;
+  size: string | null;
   front: PlacedElement[];
   back: PlacedElement[];
 }
 
 export interface CaseDraft {
+  kind: "CASE";
   modelId: string | null;
-  /** At most one image (uploaded or one of our designs). */
+  /** At most one image. */
   elements: PlacedElement[];
 }
 
@@ -42,29 +43,60 @@ export interface StickerDesign {
 }
 
 export interface StickerDraft {
-  shape: StickerShape | null;
+  kind: "STICKER";
   sizeId: string | null;
   designs: StickerDesign[];
 }
 
-export interface DraftMap {
-  bracelet: JewelryDraft;
-  necklace: JewelryDraft;
-  gifts: GiftDraft;
-  mugs: MugDraft;
-  apparel: ApparelDraft;
-  cases: CaseDraft;
-  stickers: StickerDraft;
+export type AnyDraft = JewelryDraft | GiftDraft | MugDraft | ApparelDraft | CaseDraft | StickerDraft;
+export type DraftKind = AnyDraft["kind"];
+export type DraftOf<K extends DraftKind> = Extract<AnyDraft, { kind: K }>;
+
+export const DEFAULT_STICKER_QTY = 10;
+
+export const EMPTY_DRAFTS: { [K in DraftKind]: () => DraftOf<K> } = {
+  JEWELRY: () => ({ kind: "JEWELRY", sizeId: null, lengthMm: 0, pieces: [] }),
+  GIFT: () => ({ kind: "GIFT", packagingId: null, colorId: null, elements: [] }),
+  MUG: () => ({ kind: "MUG", elements: [], quantity: 1 }),
+  APPAREL: () => ({ kind: "APPAREL", baseProductId: null, size: null, front: [], back: [] }),
+  CASE: () => ({ kind: "CASE", modelId: null, elements: [] }),
+  STICKER: () => ({ kind: "STICKER", sizeId: null, designs: [{ id: "sd-1", image: null, quantity: DEFAULT_STICKER_QTY }] }),
+};
+
+/** Every placed element of a draft. */
+export function elementsOf(d: AnyDraft): PlacedElement[] {
+  switch (d.kind) {
+    case "JEWELRY":
+      return [];
+    case "APPAREL":
+      return [...d.front, ...d.back];
+    case "STICKER":
+      return d.designs.flatMap((s) => (s.image ? [s.image] : []));
+    default:
+      return d.elements;
+  }
 }
 
-export type AnyDraft = DraftMap[StudioSlug];
+/** Whether the customer has started designing. */
+export const hasContent = (d: AnyDraft) => (d.kind === "JEWELRY" ? d.pieces.length > 0 : elementsOf(d).length > 0);
 
-export const INITIAL_DRAFTS: DraftMap = {
-  bracelet: { sizeId: null, lengthMm: 170, pieces: [] },
-  necklace: { sizeId: null, lengthMm: 450, pieces: [] },
-  gifts: { packaging: null, shape: null, colorId: null, elements: [] },
-  mugs: { elements: [], quantity: 1 },
-  apparel: { garmentId: null, colorId: null, sizeId: null, front: [], back: [] },
-  cases: { modelId: null, elements: [] },
-  stickers: { shape: null, sizeId: null, designs: [{ id: "sd-1", image: null, quantity: 10 }] },
-};
+/** Uploads that were lost on reload and must be uploaded again. */
+export const missingUploads = (d: AnyDraft) => elementsOf(d).filter((e) => e.missing).length;
+
+/** Uploaded files can't be kept across reloads; keep where they were and ask to re-upload. */
+function stripUploads(el: PlacedElement): PlacedElement {
+  return el.uploaded && el.src?.startsWith("blob:") ? { ...el, src: undefined, missing: true } : el;
+}
+
+export function persistable(d: AnyDraft): AnyDraft {
+  switch (d.kind) {
+    case "JEWELRY":
+      return d;
+    case "APPAREL":
+      return { ...d, front: d.front.map(stripUploads), back: d.back.map(stripUploads) };
+    case "STICKER":
+      return { ...d, designs: d.designs.map((s) => ({ ...s, image: s.image ? stripUploads(s.image) : null })) };
+    default:
+      return { ...d, elements: d.elements.map(stripUploads) };
+  }
+}

@@ -7,7 +7,7 @@ export function Footer() {
       <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 px-6 sm:flex-row sm:items-center">
         <Logo />
         <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-          {NAV_LINKS.map((l) => (
+          {[...NAV_LINKS, { label: "Contact", href: "#/contact" }].map((l) => (
             <li key={l.href}>
               <a href={l.href} className="text-muted-foreground transition-colors hover:text-foreground">
                 {l.label}

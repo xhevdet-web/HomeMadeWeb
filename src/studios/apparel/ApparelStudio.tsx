@@ -1,60 +1,95 @@
-import { useState } from "react";
-import { money } from "../../data/mock";
-import { APPAREL_CANVAS_CM, APPAREL_DESIGNS, APPAREL_UPLOAD_FEE, type ApparelTab, type Side } from "../../data/studioCatalog";
+import { useMemo, useRef, useState } from "react";
+import type { Component } from "../../api/models";
+import { studioHref } from "../../data/homeCategories";
+import { money } from "../../lib/format";
 import { navigate } from "../../router";
-import { Artwork } from "../../studio/artworks";
-import { elementsReducer, isLowQuality, type ElementsAction } from "../../studio/elements";
+import { BottomSheet } from "../../studio/BottomSheet";
+import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
+import { imageSize } from "../../studio/capture";
+import { useActiveDrag } from "../../studio/dnd/hooks";
+import { describeElement, elementsReducer, imageElement, type ElementsAction, type PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
-import { useDesignActions, useStudioHistory } from "../../studio/StudioContext";
-import { BaseChip, CanvasToolbar, PickerCard, Stage, StudioLayout, StudioShell, Tabs, ToolSection } from "../../studio/StudioShell";
-import { StudioSummaryBar } from "../../studio/StudioSummaryBar";
+import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
+import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { Tabs, ToolSection } from "../../studio/StudioShell";
 import { TextTool } from "../../studio/TextTool";
-import { useToast } from "../../studio/Toasts";
 import { QualityWarning, UploadButton, type UploadedImage } from "../../studio/UploadButton";
-import { allElements, apparelInfo, apparelPrice, apparelSummary, colorOf, garmentOf, hasUpload, pieceLabel, placeInPrint } from "./logic";
+import { useUndoShortcuts } from "../../studio/useHistory";
+import { useIsPhone, useNotice } from "../../studio/ui";
+import { AddTextButton } from "../mugs/MugStudio";
+import { componentById, customUpload, libraryDesigns, typeLabel, type StudioProps } from "../data";
+import { allElements, apparelInput, apparelPrice, apparelSummary, baseOf, boundsOf, apparelPreviews, hasUpload, printArea, useImageRatio, garmentImage, type Side } from "./logic";
 import { GarmentCanvas } from "./silhouettes";
 
-type Tab = ApparelTab | "Text";
-const TABS: Tab[] = ["Icons", "Logos", "Lettering", "Illustrations", "Text"];
+/** About 150 dpi across the print width. */
+const lowQuality = (els: PlacedElement[], printWidthCm: number) => els.some((e) => e.uploaded && e.pxWidth && e.pxWidth / (e.scale * printWidthCm) < 60);
 
-export function ApparelStudio() {
-  const history = useStudioHistory("apparel");
+export function ApparelStudio({ category, data }: StudioProps) {
+  const history = useStudioHistory(category.id, "APPAREL");
   const { state: d, dispatch: update } = history;
-  const toast = useToast();
+  useUndoShortcuts(history.undo, history.redo);
+  const [notice, notify] = useNotice();
+  const phone = useIsPhone();
+  const dragging = useActiveDrag();
   const [side, setSide] = useState<Side>("front");
-  const [tab, setTab] = useState<Tab>("Icons");
+  const [tab, setTab] = useState("ALL");
+  const [textOpen, setTextOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const actions = useDesignActions("apparel", apparelInfo(d));
+  const stageRef = useRef<HTMLElement>(null);
+  const garmentRef = useRef<HTMLDivElement>(null);
+  const byId = useMemo(() => componentById(data), [data]);
+  const upload = customUpload(data);
+  const designs = libraryDesigns(data);
+  const types = [...new Set(designs.map((c) => c.type?.trim()).filter((t): t is string => !!t))];
+  const base = baseOf(d, data);
+  const area = printArea(base, side, category);
+  const ratio = useImageRatio(garmentImage(base, side));
 
-  const garment = garmentOf(d)!;
-  const color = colorOf(d.colorId);
+  const saver = useSaveDesign(category, async () => {
+    const { input, uploads } = await apparelInput(category, d, data);
+    return { input, files: { ...(await apparelPreviews(d, data)), customDesigns: uploads } };
+  });
+
   const elements = d[side];
   const selected = elements.find((e) => e.id === selectedId) ?? null;
   const apply = (a: ElementsAction, merge?: string) => update((x) => ({ ...x, [side]: elementsReducer(x[side], a) }), merge);
+  const centre = { x: area.x + area.width / 2, y: area.y + area.height / 2 };
 
   const switchSide = (s: Side) => {
     setSide(s);
     setSelectedId(null);
   };
 
-  const addDesign = (designId: string) => {
-    const design = APPAREL_DESIGNS.find((x) => x.id === designId)!;
-    const el = placeInPrint(d, side, { art: design.art, ref: design.id, aspect: 1 });
+  const place = (props: Partial<PlacedElement> & { aspect: number }, at?: { x: number; y: number }) => {
+    const el = imageElement({ scale: area.width * 0.6, ...centre, ...(at ?? {}), ...props });
     apply({ type: "add", el });
     setSelectedId(el.id);
-    toast(`${design.name} added to the ${side}.`);
   };
 
-  const upload = (img: UploadedImage) => {
+  const addDesign = async (c: Component, at?: { x: number; y: number }) => {
+    if (!c.imageUrl) return;
+    const size = await imageSize(c.imageUrl);
+    place({ src: c.imageUrl, ref: c.id, name: c.name, aspect: size.height / size.width }, at);
+    notify(`${c.name} added to the ${side}.`);
+  };
+
+  const chip = useCanvasDrop(stageRef, garmentRef, "Release to add", (fx, fy, payload) => {
+    const c = byId.get(payload.id);
+    if (!c) return false;
+    void addDesign(c, { x: fx, y: fy });
+    return true;
+  });
+
+  const onUpload = (img: UploadedImage) => {
+    if (!upload) return;
     const first = !hasUpload(d);
-    const el = placeInPrint(d, side, { src: img.url, aspect: img.height / img.width, pxWidth: img.width, uploaded: true });
-    apply({ type: "add", el });
-    setSelectedId(el.id);
-    toast(first ? `Your artwork is on the ${side}. Upload fee ${money(APPAREL_UPLOAD_FEE)} added once.` : `Your artwork is on the ${side}.`);
+    place({ src: img.url, ref: upload.id, name: "Your artwork", aspect: img.height / img.width, pxWidth: img.width, uploaded: true });
+    notify(first && upload.price ? `Your artwork is on the ${side}. ${money(upload.price)} once.` : `Your artwork is on the ${side}.`);
   };
 
   const command = (cmd: LayerCommand, id: string) => {
     if (cmd === "reset") return;
+    if (cmd === "duplicate" && elements.find((e) => e.id === id)?.uploaded) return notify("Each uploaded design can be placed only once", "warn");
     apply({ type: cmd, id });
     if (cmd === "delete") setSelectedId(null);
   };
@@ -62,128 +97,152 @@ export function ApparelStudio() {
   const clear = () => {
     update((x) => ({ ...x, front: [], back: [] }));
     setSelectedId(null);
-    toast("Canvas cleared. Undo to bring it back.");
+    notify("Canvas cleared. Tap Undo to bring it back.");
   };
 
-  const total = allElements(d).length;
-  const empty = total === 0;
-  const lowQuality = elements.some((e) => isLowQuality(e, APPAREL_CANVAS_CM));
+  const empty = allElements(d).length === 0;
+  const missing = allElements(d).some((e) => e.missing);
+  const shown = designs.filter((c) => tab === "ALL" || c.type?.trim() === tab);
+  const printCm = Number((base?.printAreas as { front?: { widthCm?: number } } | null)?.front?.widthCm) || 30;
+  const textTool = (
+    <TextTool
+      texts={allElements(d).filter((e) => e.kind === "text")}
+      selected={selected}
+      defaultColor={base?.colorHex && parseInt(base.colorHex.slice(1, 3), 16) < 128 ? "white" : "navy"}
+      onAdd={(el) => {
+        apply({ type: "add", el: { ...el, ...centre, scale: 0.06 } });
+        setSelectedId(el.id);
+      }}
+      onUpdate={(el, merge) => apply({ type: "update", el }, merge)}
+      onDone={() => {
+        setSelectedId(null);
+        setTextOpen(false);
+      }}
+    />
+  );
 
   const stage = (
-    <Stage
-      label={`${garment.name}, ${side}, with ${elements.length} designs`}
-      toolbar={<CanvasToolbar {...history} onClear={clear} canClear={!empty} />}
-      above={
-        <Tabs
-          label="Side"
-          value={side}
-          onChange={switchSide}
-          tabs={[
-            { id: "front", label: `Front${d.front.length ? ` · ${d.front.length}` : ""}` },
-            { id: "back", label: `Back${d.back.length ? ` · ${d.back.length}` : ""}` },
-          ]}
-        />
-      }
-      below={<QualityWarning show={lowQuality} />}
+    <StageFrame
+      ref={stageRef}
+      label={`${side === "front" ? "Front" : "Back"} with ${elements.length} design${elements.length === 1 ? "" : "s"}`}
+      chip={chip}
+      overlay={<StageControls {...history} onClear={clear} canClear={!empty} className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2" />}
     >
-      <div className="w-full max-w-[520px]">
-        <GarmentCanvas draft={d} side={side}>
+      {/* Switching sides flips the garment (no motion with reduced motion). */}
+      <div key={side} ref={garmentRef} className="flip-in" style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${ratio}))` }}>
+        <GarmentCanvas base={base} side={side} category={category} showArea={!!selected || !!dragging || elements.length === 0}>
           <PlacementLayer
-            key={side}
             elements={elements}
             label={`Designs on the ${side}`}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onChange={(el, merge) => apply({ type: "update", el }, merge)}
             onCommand={command}
-            bounds={garment.print[side]}
+            bounds={boundsOf(area)}
           />
         </GarmentCanvas>
       </div>
-    </Stage>
+    </StageFrame>
   );
 
-  const tools = (
-    <>
-      <BaseChip label="Your piece" value={pieceLabel(d)} href="#/studios/apparel" />
+  const toolbar = selected ? (
+    <SelectionToolbar
+      title={describeElement(selected)}
+      image={selected.kind === "text" ? null : (selected.src ?? null)}
+      onDone={() => setSelectedId(null)}
+      actions={[
+        ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
+        ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { centre, duplicate: !selected.uploaded }),
+      ]}
+    />
+  ) : null;
 
+  const picker = (
+    <div className="flex flex-col gap-5">
+      <QualityWarning show={lowQuality(elements, printCm)} />
       <ToolSection title="Designs" aside={`Adding to the ${side}`}>
-        <p className="mb-3 text-sm text-muted-foreground">Tap a design to add it to the {side}. It stays inside the print area.</p>
-        <Tabs label="Design type" value={tab} onChange={setTab} tabs={TABS.map((t) => ({ id: t, label: t }))} />
-        <div className="mt-4">
-          {tab === "Text" ? (
-            <TextTool
-              texts={allElements(d).filter((e) => e.kind === "text")}
-              selected={selected}
-              defaultColor={color.dark ? "white" : "navy"}
-              onAdd={(el) => {
-                const area = garment.print[side];
-                apply({ type: "add", el: { ...el, x: (area.x0 + area.x1) / 2, y: (area.y0 + area.y1) / 2, scale: 0.08 } });
-                setSelectedId(el.id);
-              }}
-              onUpdate={(el, merge) => apply({ type: "update", el }, merge)}
-              onDone={() => setSelectedId(null)}
-            />
+        <p className="mb-3 text-xs text-muted-foreground">Tap a design to add it to the {side}. It stays inside the print area.</p>
+        <Tabs
+          label="Design type"
+          value={tab}
+          onChange={(t) => (t === "TEXT" && phone ? setTextOpen(true) : setTab(t))}
+          tabs={[{ id: "ALL", label: "All" }, ...types.map((t) => ({ id: t, label: typeLabel(t) })), { id: "TEXT", label: "Text" }]}
+        />
+        <div className="mt-3">
+          {tab === "TEXT" && !phone ? (
+            textTool
+          ) : shown.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Nothing in this group yet.</p>
           ) : (
-            <ul className="grid grid-cols-3 gap-2">
-              {APPAREL_DESIGNS.filter((x) => x.tab === tab).map((x) => (
-                <li key={x.id}>
-                  <PickerCard title={x.name} price={money(x.price)} onClick={() => addDesign(x.id)}>
-                    <Artwork id={x.art} className="h-full w-full" />
-                  </PickerCard>
-                </li>
+            <TileRow>
+              {shown.map((c) => (
+                <TileItem key={c.id}>
+                  <DragTile
+                    id={c.id}
+                    name={c.name}
+                    image={c.imageUrl}
+                    price={c.price ? money(c.price) : "Free"}
+                    badge={elements.some((e) => e.ref === c.id) ? "Added" : null}
+                    onTap={() => void addDesign(c)}
+                  />
+                </TileItem>
               ))}
-            </ul>
+            </TileRow>
           )}
         </div>
       </ToolSection>
-
-      <ToolSection title="Upload your own design" aside={hasUpload(d) ? "Fee paid once" : `+${money(APPAREL_UPLOAD_FEE)} once`}>
-        <UploadButton
-          onImage={upload}
-          accept={["image/png"]}
-          typeError="Only PNG images can be uploaded. Save your design as a .png file and try again."
-          hint={`PNG only, up to 5 MB · ${money(APPAREL_UPLOAD_FEE)} once, however many times you place it`}
-        />
-      </ToolSection>
-
-      <ToolSection title="On this piece">
-        {empty ? (
-          <p className="text-sm text-muted-foreground">Nothing yet. Add a logo, graphic, text or your own artwork.</p>
-        ) : (
-          <ul className="space-y-1 text-sm">
-            {(["front", "back"] as Side[]).map((s) => (
-              <li key={s} className="flex justify-between gap-3">
-                <button type="button" onClick={() => switchSide(s)} className="capitalize text-muted-foreground hover:text-foreground">
-                  {s}
-                </button>
-                <span>
-                  {d[s].length} design{d[s].length === 1 ? "" : "s"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </ToolSection>
-    </>
+      {phone && <AddTextButton count={allElements(d).filter((e) => e.kind === "text").length} onClick={() => setTextOpen(true)} />}
+      {upload && (
+        <ToolSection title="Upload your own design" aside={hasUpload(d) ? "Charged once" : upload.price ? `${money(upload.price)} once` : "Free"}>
+          <UploadButton
+            onImage={onUpload}
+            accept={["image/png"]}
+            typeError="Only PNG images can be uploaded. Save your design as a .png file and try again."
+            label={missing ? "Re-upload your artwork" : "Upload your own design"}
+            hint={`PNG only, up to 5 MB${upload.price ? ` · ${money(upload.price)} once, however many times you place it` : ""}`}
+          />
+        </ToolSection>
+      )}
+      <BottomSheet title={selected?.kind === "text" ? "Edit text" : "Add text"} open={phone && textOpen} onClose={() => setTextOpen(false)}>
+        {textTool}
+      </BottomSheet>
+    </div>
   );
 
   return (
-    <StudioShell slug="apparel" step={1}>
-      <StudioLayout
-        stage={stage}
-        tools={tools}
-        bar={
-          <StudioSummaryBar
-            summary={apparelSummary(d)}
-            price={apparelPrice(d)}
-            onSave={actions.save}
-            saveBlocked={empty ? "Add a logo, graphic, text or your own artwork." : null}
-            onPrimary={() => navigate("#/studios/apparel/preview")}
-            primaryBlocked={empty ? "Add a logo, graphic, text or your own artwork." : null}
-          />
-        }
-      />
-    </StudioShell>
+    <StudioFrame
+      category={category}
+      subtitle={[base?.name, d.size].filter(Boolean).join(" · ") || "Choose your piece"}
+      onSave={saver.save}
+      saving={saver.saving}
+      saveBlocked={empty ? "Add a logo, graphic, text or your own artwork." : missing ? "Re-upload your artwork to continue." : null}
+      top={
+        <div role="radiogroup" aria-label="Side" className="grid grid-cols-2 gap-1 rounded-full border border-border bg-card p-1">
+          {(["front", "back"] as Side[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="radio"
+              aria-checked={side === s}
+              onClick={() => switchSide(s)}
+              className={`min-h-10 rounded-full text-sm font-semibold capitalize transition-colors ${side === s ? "bg-secondary text-foreground" : "text-muted-foreground"}`}
+            >
+              {s}
+              {d[s].length ? ` · ${d[s].length}` : ""}
+            </button>
+          ))}
+        </div>
+      }
+      stage={stage}
+      notice={notice}
+      toolbar={toolbar}
+      picker={picker}
+      footer={{
+        summary: apparelSummary(d, data),
+        price: apparelPrice(d, data, byId),
+        onPrimary: () => navigate(studioHref(category, "preview")),
+        primaryBlocked: empty ? "Add a logo, graphic, text or your own artwork." : null,
+      }}
+    />
   );
 }

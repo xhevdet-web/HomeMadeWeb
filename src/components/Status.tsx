@@ -1,7 +1,7 @@
-import { ORDER_STATUSES, statusIndex, statusInfo, type OrderStatus } from "../data/mock";
+import { ORDER_STATUSES, statusIndex, statusLabel } from "../api/models";
 import { Icon } from "./Icon";
 
-export function StatusPill({ status }: { status: OrderStatus }) {
+export function StatusPill({ status }: { status: string }) {
   const done = status === "COMPLETED";
   return (
     <span
@@ -10,23 +10,23 @@ export function StatusPill({ status }: { status: OrderStatus }) {
       }`}
     >
       {done && <Icon name="check" size={12} />}
-      {statusInfo(status).label}
+      {statusLabel(status)}
     </span>
   );
 }
 
-/** Six segments, one per status; finished steps are filled. */
-export function OrderProgress({ status, className = "" }: { status: OrderStatus; className?: string }) {
+/** Six segments, one per status; finished steps are filled. An unknown status shows none filled. */
+export function OrderProgress({ status, className = "" }: { status: string; className?: string }) {
   const current = statusIndex(status);
   return (
     <div
       className={`flex gap-1.5 ${className}`}
       role="progressbar"
       aria-label="Order progress"
-      aria-valuemin={1}
+      aria-valuemin={0}
       aria-valuemax={ORDER_STATUSES.length}
       aria-valuenow={current + 1}
-      aria-valuetext={statusInfo(status).label}
+      aria-valuetext={statusLabel(status)}
     >
       {ORDER_STATUSES.map((s, i) => (
         <span key={s.status} className={`h-1.5 flex-1 rounded-full ${i <= current ? "bg-primary" : "bg-secondary"}`} />

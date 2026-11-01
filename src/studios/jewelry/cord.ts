@@ -1,5 +1,3 @@
-import type { JewelryPiece } from "../../data/studioCatalog";
-
 export interface Pt {
   x: number;
   y: number;
@@ -94,9 +92,9 @@ export function nearestS(cord: Cord, p: Pt) {
   return cord.cum[best];
 }
 
-export interface PlacedPiece {
+export interface PlacedPiece<T> {
   index: number;
-  piece: JewelryPiece;
+  piece: T;
   x: number;
   y: number;
   r: number;
@@ -108,8 +106,8 @@ export interface PlacedPiece {
  * Pieces at real scale along the cord, in order. The whole cord equals the chosen length,
  * so a complete design fills it. Bracelets start at the top, necklaces are centred at the front.
  */
-export function layoutPieces(cord: Cord, pieces: { index: number; piece: JewelryPiece }[], lengthMm: number): PlacedPiece[] {
-  const k = cord.total / lengthMm;
+export function layoutPieces<T extends { lengthMm: number }>(cord: Cord, pieces: { index: number; piece: T }[], lengthMm: number): PlacedPiece<T>[] {
+  const k = cord.total / Math.max(1, lengthMm);
   const used = pieces.reduce((n, p) => n + p.piece.lengthMm, 0) * k;
   let s = cord.kind === "circle" ? 0 : cord.total / 2 - used / 2;
   return pieces.map(({ index, piece }) => {

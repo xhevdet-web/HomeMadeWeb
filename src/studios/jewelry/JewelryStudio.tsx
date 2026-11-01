@@ -1,253 +1,272 @@
-import { useState } from "react";
-import { Button } from "../../components/Button";
-import { Chip } from "../../components/Controls";
-import { Icon } from "../../components/Icon";
-import { money } from "../../data/mock";
-import { JEWELRY, MATERIAL_FILTERS, PIECES, TYPE_LABEL, getPiece, stockState, type JewelryPiece, type Material, type PieceType } from "../../data/studioCatalog";
+import { useMemo, useRef, useState } from "react";
+import type { Component } from "../../api/models";
+import { studioHref } from "../../data/homeCategories";
+import { cm } from "../../lib/format";
 import { navigate } from "../../router";
-import { useDesignActions, useStudioHistory } from "../../studio/StudioContext";
-import { BaseChip, CanvasToolbar, Stage, StudioLayout, StudioShell, Tabs, ToolSection } from "../../studio/StudioShell";
-import { StudioSummaryBar } from "../../studio/StudioSummaryBar";
-import { useToast } from "../../studio/Toasts";
-import { JewelryCanvas, PieceSwatch } from "./JewelryCanvas";
-import { TOLERANCE_MM, fits, formatCm, groupPieces, isComplete, jewelryInfo, jewelryPrice, roomMm, sizeLabel, usedCount, usedMm, type JewelrySlug } from "./logic";
+import { useStageDrop } from "../../studio/dnd/hooks";
+import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
+import { useUndoShortcuts } from "../../studio/useHistory";
+import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { useBecameTrue, useDndHint, useNotice } from "../../studio/ui";
+import { componentById, stockState, type StudioProps } from "../data";
+import { JewelryCanvas, captureJewelry, cordHit, type DropPreview } from "./JewelryCanvas";
+import { BeadSequence, JewelryPicker, MeasurementBar } from "./JewelryParts";
+import { MIN_JEWELRY_PRICE_CENTS, cordOf, isComplete, jewelryInput, nounOf, piecesOf, priceOf, roomMm, sizeOf, toPiece, missingForMinimum, usedCount, usedMm } from "./logic";
+import { corsImage } from "../../studio/capture";
 
-const swap = (list: string[], i: number, j: number) => {
+const move = (list: string[], from: number, to: number) => {
   const next = [...list];
-  [next[i], next[j]] = [next[j], next[i]];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
   return next;
 };
 
-export function JewelryStudio({ slug }: { slug: JewelrySlug }) {
-  const config = JEWELRY[slug];
-  const history = useStudioHistory(slug);
+export function JewelryStudio({ category, data }: StudioProps) {
+  const history = useStudioHistory(category.id, "JEWELRY");
   const { state: draft, dispatch: update } = history;
-  const toast = useToast();
+  useUndoShortcuts(history.undo, history.redo);
+  const [notice, notify] = useNotice();
+  const [coach, dismissCoach] = useDndHint();
   const [rawSelected, setSelected] = useState<number | null>(null);
-  const [tab, setTab] = useState<"all" | PieceType>("all");
-  const [material, setMaterial] = useState<Material | null>(null);
-  const actions = useDesignActions(slug, jewelryInfo(draft));
+  const [preview, setPreview] = useState<DropPreview | null>(null);
+  const [lifted, setLifted] = useState<number | null>(null);
+  const svg = useRef<SVGSVGElement>(null);
+  const stageRef = useRef<HTMLElement>(null);
+  const byId = useMemo(() => componentById(data), [data]);
+  const noun = nounOf(category);
+  const kind = cordOf(category);
+  const size = sizeOf(category, draft);
+  const pieces = piecesOf(draft.pieces, byId);
+
+  const saver = useSaveDesign(category, async () => ({
+    input: jewelryInput(category, draft),
+    files: { preview: await captureJewelry(kind, pieces, draft.lengthMm) },
+  }));
 
   const selected = rawSelected !== null && rawSelected < draft.pieces.length ? rawSelected : null;
-  const selectedPiece = selected !== null ? getPiece(draft.pieces[selected]) : undefined;
-  const used = usedMm(draft.pieces);
-  const complete = isComplete(draft);
-  const price = jewelryPrice(draft.pieces);
-  const room = roomMm(draft);
-  const groups = groupPieces(draft.pieces);
-  const noun = config.noun;
+  const selectedComp = selected !== null ? byId.get(draft.pieces[selected]) : undefined;
+  const used = usedMm(draft.pieces, byId);
+  const complete = isComplete(draft, byId);
+  const price = priceOf(draft.pieces, byId);
+  const room = roomMm(draft, byId);
+  const smallest = Math.min(...data.components.map((c) => c.effectiveLengthMm ?? Infinity));
+  const full = room < smallest;
+  // Length is information only: a piece can be ordered before it fills its length, from €5.00.
+  const orderable = price >= MIN_JEWELRY_PRICE_CENTS;
+  const pulse = useBecameTrue(orderable);
 
-  const visible = PIECES.filter(
-    (p) => config.types.includes(p.type) && (tab === "all" || p.type === tab) && (!material || p.material === material),
-  );
-
-  const pick = (piece: JewelryPiece) => {
-    if (!fits(draft, piece, selected)) {
-      const left = Math.max(0, room + (selectedPiece?.lengthMm ?? 0));
-      toast(`Doesn't fit · ${left} mm left`);
-      return;
-    }
-    if (selected !== null) {
-      update((d) => ({ ...d, pieces: d.pieces.map((p, i) => (i === selected ? piece.id : p)) }));
-      toast(`Replaced with ${piece.name}.`);
-    } else {
-      update((d) => ({ ...d, pieces: [...d.pieces, piece.id] }));
-      toast(`${piece.name} added to your ${noun}.`);
-    }
+  /** Why a component can't be added (or swapped into the selection) right now. */
+  const problem = (c: Component, replace: number | null = selected) => {
+    if (!c.effectiveLengthMm) return "Not available yet";
+    const stock = stockState(c, usedCount(draft.pieces, c.id) - (replace !== null && draft.pieces[replace] === c.id ? 1 : 0));
+    if (stock.disabled) return stock.label;
+    const left = roomMm(draft, byId, replace);
+    return c.effectiveLengthMm > left ? `Doesn’t fit · ${Math.max(0, left)} mm left` : null;
   };
+
+  const added = () => coach && dismissCoach();
+
+  /** Tap: replace the selected bead, otherwise add at the end. */
+  const tapPick = (c: Component) => {
+    const why = problem(c);
+    if (why) return notify(why, "warn");
+    if (selected !== null) {
+      update((d) => ({ ...d, pieces: d.pieces.map((p, i) => (i === selected ? c.id : p)) }));
+      notify(`${c.name} replaced the selected detail.`);
+    } else {
+      update((d) => ({ ...d, pieces: [...d.pieces, c.id] }));
+      notify(`${c.name} added to your ${noun}.`);
+    }
+    added();
+  };
+
+  /** Where a drag would land: a bead to replace, or the gap to insert into. */
+  const dropAt = (p: { x: number; y: number }, id: string, index?: number) => {
+    if (!svg.current) return null;
+    const isBead = index !== undefined;
+    const hit = cordHit(svg.current, kind, pieces, draft.lengthMm, p, isBead ? index : null);
+    if (!hit) return null;
+    if (!isBead && hit.onBead !== null) return { mode: "replace" as const, index: hit.onBead };
+    return { mode: "insert" as const, index: hit.insertAt, id };
+  };
+
+  const chip = useStageDrop(
+    stageRef,
+    (p, payload) => {
+      const at = dropAt(p, payload.id, payload.kind === "bead" ? payload.index : undefined);
+      if (payload.kind === "bead") {
+        setLifted(payload.index ?? null);
+        if (at) setPreview({ mode: "insert", index: at.index, piece: toPiece(byId.get(payload.id)!) });
+        return "Release to move";
+      }
+      const c = byId.get(payload.id);
+      if (!c || !at) return "Release to add";
+      const why = problem(c, at.mode === "replace" ? at.index : null);
+      if (why) {
+        setPreview(null);
+        return why;
+      }
+      setPreview(at.mode === "replace" ? { mode: "replace", index: at.index } : { mode: "insert", index: at.index, piece: toPiece(c) });
+      return at.mode === "replace" ? `Release to replace ${byId.get(draft.pieces[at.index])?.name ?? "this detail"}` : "Release to add";
+    },
+    (p, payload) => {
+      setPreview(null);
+      setLifted(null);
+      const at = dropAt(p, payload.id, payload.kind === "bead" ? payload.index : undefined);
+      if (!at) return false;
+      if (payload.kind === "bead" && payload.index !== undefined) {
+        const to = Math.min(at.index, draft.pieces.length - 1);
+        if (to !== payload.index) update((d) => ({ ...d, pieces: move(d.pieces, payload.index!, to) }));
+        setSelected(to);
+        notify("Detail moved. Hold and drag it again to adjust its position.");
+        return true;
+      }
+      const c = byId.get(payload.id);
+      if (!c) return false;
+      const why = problem(c, at.mode === "replace" ? at.index : null);
+      if (why) {
+        notify(why, "warn");
+        return false;
+      }
+      if (at.mode === "replace") {
+        update((d) => ({ ...d, pieces: d.pieces.map((x, i) => (i === at.index ? c.id : x)) }));
+        notify(`${c.name} replaced a detail on your ${noun}.`);
+      } else {
+        update((d) => ({ ...d, pieces: [...d.pieces.slice(0, at.index), c.id, ...d.pieces.slice(at.index)] }));
+        notify(`${c.name} added to your ${noun}.`);
+      }
+      added();
+      return true;
+    },
+    () => {
+      setPreview(null);
+      setLifted(null);
+    },
+  );
 
   const moveSelected = (dir: -1 | 1) => {
     if (selected === null) return;
     const to = selected + dir;
     if (to < 0 || to >= draft.pieces.length) return;
-    update((d) => ({ ...d, pieces: swap(d.pieces, selected, to) }));
+    update((d) => ({ ...d, pieces: move(d.pieces, selected, to) }));
     setSelected(to);
+    notify("Detail moved.");
   };
 
   const remove = (index: number) => {
-    const name = getPiece(draft.pieces[index])?.name;
+    const name = byId.get(draft.pieces[index])?.name ?? "Detail";
     update((d) => ({ ...d, pieces: d.pieces.filter((_, i) => i !== index) }));
     setSelected(null);
-    toast(`${name} removed.`);
+    notify(`${name} removed.`);
   };
-
-  const reorder = (from: number, to: number) =>
-    update((d) => {
-      const next = [...d.pieces];
-      const [item] = next.splice(from, 1);
-      next.splice(to, 0, item);
-      return { ...d, pieces: next };
-    });
 
   const clear = () => {
     update((d) => ({ ...d, pieces: [] }));
     setSelected(null);
-    toast("Canvas cleared. Undo to bring it back.");
+    notify("Canvas cleared. Tap Undo to bring it back.");
   };
 
   const empty = draft.pieces.length === 0;
-  const meterPct = Math.min(100, (used / draft.lengthMm) * 100);
-  const over = used > draft.lengthMm + TOLERANCE_MM;
+  const quick = data.components.filter((c) => c.imageUrl && !problem(c, null)).slice(0, 2);
+  const counter = `${draft.pieces.length} component${draft.pieces.length === 1 ? "" : "s"}`;
 
   const stage = (
-    <Stage
-      label={`${noun[0].toUpperCase()}${noun.slice(1)} with ${draft.pieces.length} components`}
-      toolbar={<CanvasToolbar {...history} onClear={clear} canClear={!empty} />}
-      above={
-        <div className="rounded-2xl border border-border bg-card px-5 py-4" aria-live="polite">
-          <div className="flex items-baseline justify-between text-sm">
-            <span className="text-muted-foreground">Length</span>
-            <span className="font-display text-lg font-semibold">
-              {used} / {draft.lengthMm} mm
-              {complete && <span className="ml-2 text-success">· Complete</span>}
-            </span>
-          </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
-            <div
-              className={`h-full rounded-full transition-[width] duration-500 ${complete ? "bg-success" : "bg-primary"}`}
-              style={{ width: `${meterPct}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {complete
-              ? "Complete. Your piece is the right length."
-              : over
-                ? "A little too long. Remove or replace a piece."
-                : `${draft.lengthMm - used} mm to go (±${TOLERANCE_MM} mm is fine).`}
-          </p>
-        </div>
+    <StageFrame
+      ref={stageRef}
+      label={`${noun[0].toUpperCase()}${noun.slice(1)} with ${counter}`}
+      chip={chip}
+      variant="tray"
+      overlay={
+        <>
+          <span className="pointer-events-none absolute top-3 left-4 text-[10px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">
+            {noun} · {size?.name ?? ""}
+          </span>
+          <span className="pointer-events-none absolute top-3 right-4 text-[11px] font-semibold text-muted-foreground">{counter}</span>
+          <StageControls {...history} onClear={clear} canClear={!empty} className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2" />
+        </>
       }
     >
-      <JewelryCanvas
-        kind={config.cord}
-        pieces={draft.pieces}
-        lengthMm={draft.lengthMm}
-        label={`${noun} design`}
-        hint={empty ? "Add your first bead" : selected !== null ? "Tap a piece to replace" : "Tap to add"}
-        selected={selected}
-        onSelect={setSelected}
-        onMove={reorder}
-        onRemove={remove}
-      />
-    </Stage>
-  );
-
-  const tools = (
-    <>
-      <BaseChip label="Size" value={`${sizeLabel(slug, draft)} · ${formatCm(draft.lengthMm)}`} href={`#/studios/${slug}`} />
-
-      {selectedPiece && selected !== null && (
-        <section className="rounded-2xl border border-primary/50 bg-primary/10 p-4" aria-label="Selected piece">
-          <p className="text-sm">
-            <span className="font-semibold">{selectedPiece.name}</span> selected · piece {selected + 1} of {draft.pieces.length}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={() => moveSelected(-1)} disabled={selected === 0}>
-              <Icon name="chevronLeft" size={15} /> Move left
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => moveSelected(1)} disabled={selected === draft.pieces.length - 1}>
-              Move right <Icon name="chevronRight" size={15} />
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => remove(selected)}>
-              <Icon name="trash" size={15} /> Remove
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => setSelected(null)}>
-              Done
-            </Button>
-          </div>
-        </section>
-      )}
-
-      <ToolSection title="Pieces" aside={selected !== null ? "Tap to replace" : `Tap to add · ${Math.max(0, room)} mm left`}>
-        <Tabs
-          label="Piece type"
-          value={tab}
-          onChange={setTab}
-          tabs={[{ id: "all" as const, label: "All" }, ...config.types.map((t) => ({ id: t, label: TYPE_LABEL[t] }))]}
+      <div className="relative aspect-square" style={{ width: "min(var(--stage-w), var(--stage-h))" }}>
+        <JewelryCanvas
+          svgRef={svg}
+          kind={kind}
+          pieces={pieces}
+          lengthMm={draft.lengthMm}
+          label={`${noun} design`}
+          selected={selected}
+          onSelect={setSelected}
+          onMove={(from, to) => update((d) => ({ ...d, pieces: move(d.pieces, from, to) }))}
+          onRemove={remove}
+          preview={preview}
+          hiddenIndex={lifted}
         />
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Material">
-          {MATERIAL_FILTERS.map((m) => (
-            <Chip key={m} selected={material === m} onClick={() => setMaterial(material === m ? null : m)}>
-              {m}
-            </Chip>
-          ))}
-        </div>
-        <ul className="mt-4 grid max-h-[460px] grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4">
-          {visible.map((p) => {
-            const stock = stockState(p.stock, usedCount(draft.pieces, p.id));
-            const fit = fits(draft, p, selected);
-            return (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => pick(p)}
-                  disabled={stock.disabled}
-                  aria-label={`${p.name}, ${money(p.price)}, ${p.lengthMm} mm${stock.label ? `, ${stock.label}` : ""}${fit ? "" : ", doesn't fit"}`}
-                  className={`flex w-full flex-col items-center gap-1 rounded-2xl border border-transparent px-1 py-2.5 text-center transition-colors hover:border-border hover:bg-secondary/50 disabled:cursor-not-allowed ${
-                    stock.disabled || !fit ? "opacity-40" : ""
-                  }`}
-                >
-                  <PieceSwatch piece={p} />
-                  <span className="text-[11px] leading-tight font-semibold">{p.name}</span>
-                  <span className="text-[11px] text-primary">{money(p.price)}</span>
-                  <span className="text-[10px] text-muted-foreground">{stock.label ?? `${p.lengthMm} mm`}</span>
-                </button>
-              </li>
-            );
-          })}
-          {visible.length === 0 && <li className="col-span-full py-6 text-center text-sm text-muted-foreground">No pieces match this filter.</li>}
-        </ul>
-      </ToolSection>
-
-      <ToolSection title={`Your ${noun}`} aside={`${draft.pieces.length} pieces`}>
-        {empty ? (
-          <p className="text-sm text-muted-foreground">Nothing yet. Tap a bead to start.</p>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-1" aria-hidden="true">
-              {draft.pieces.map((id, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setSelected(i)}
-                  className={`h-3 w-3 rounded-full border ${i === selected ? "border-primary ring-2 ring-primary" : "border-border"}`}
-                  style={{ background: getPiece(id)?.color }}
-                />
-              ))}
-            </div>
-            <ul className="mt-3 divide-y divide-border rounded-2xl border border-border">
-              {groups.map((g) => (
-                <li key={g.piece.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <span className="h-3.5 w-3.5 rounded-full border border-border" style={{ background: g.piece.color }} />
-                  <span className="flex-1">{g.piece.name}</span>
-                  <span className="font-display font-semibold text-muted-foreground">×{g.count}</span>
-                </li>
-              ))}
-            </ul>
-          </>
+        {empty && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <p className="breathe font-display text-lg text-muted-foreground">Add your first bead</p>
+          </div>
         )}
-      </ToolSection>
-    </>
+        {empty &&
+          quick.map((c, i) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => tapPick(c)}
+              aria-label={`Add suggested bead ${c.name}`}
+              className={`absolute top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-dashed border-primary bg-background/70 ${i === 0 ? "left-[12%]" : "right-[12%]"}`}
+            >
+              <img {...corsImage} src={c.imageUrl!} alt="" draggable={false} className="h-8 w-8 object-contain" />
+            </button>
+          ))}
+      </div>
+    </StageFrame>
   );
+
+  const toolbar =
+    selectedComp && selected !== null ? (
+      <SelectionToolbar
+        title={selectedComp.name}
+        image={selectedComp.imageUrl}
+        onDone={() => setSelected(null)}
+        actions={[
+          { icon: "chevronLeft", label: "Move detail left", onClick: () => moveSelected(-1), disabled: selected === 0 },
+          { icon: "chevronRight", label: "Move detail right", onClick: () => moveSelected(1), disabled: selected === draft.pieces.length - 1 },
+          { icon: "trash", label: "Remove selected detail", onClick: () => remove(selected), danger: true },
+        ]}
+      />
+    ) : null;
 
   return (
-    <StudioShell slug={slug} step={1}>
-      <StudioLayout
-        stage={stage}
-        tools={tools}
-        bar={
-          <StudioSummaryBar
-            summary={`${draft.pieces.length} pieces · ${used} mm`}
-            price={price}
-            onSave={actions.save}
-            saveBlocked={empty ? "Add at least one bead to your design." : null}
-            onPrimary={() => navigate(`#/studios/${slug}/preview`)}
-            primaryBlocked={empty ? "Add at least one bead to your design." : null}
-            note={price < config.minPrice ? `Orders start at ${money(config.minPrice)}. Add a few more pieces.` : null}
-          />
-        }
-      />
-    </StudioShell>
+    <StudioFrame
+      category={category}
+      subtitle={`${noun[0].toUpperCase()}${noun.slice(1)} • ${size?.name ?? "No size"} · ${cm(draft.lengthMm)}`}
+      onSave={saver.save}
+      saving={saver.saving}
+      saveBlocked={empty ? "Add at least one item to your design." : null}
+      top={<MeasurementBar noun={noun} usedMm={used} lengthMm={draft.lengthMm} size={size} onLength={(lengthMm) => update((d) => ({ ...d, lengthMm }), "length")} />}
+      stage={stage}
+      side={<BeadSequence pieces={pieces} selected={selected} onSelect={setSelected} />}
+      notice={notice}
+      toolbar={toolbar}
+      picker={
+        <JewelryPicker
+          components={data.components}
+          pieces={draft.pieces}
+          problem={(c) => problem(c)}
+          replacing={selected !== null}
+          full={full}
+          onPick={(c) => tapPick(c)}
+          coach={coach}
+          onDismissCoach={dismissCoach}
+        />
+      }
+      footer={{
+        summary: `${draft.pieces.length} bead${draft.pieces.length === 1 ? "" : "s"} · ${cm(used)}`,
+        price,
+        onPrimary: () => navigate(studioHref(category, "preview")),
+        primaryBlocked: empty ? "Add at least one item to your design." : null,
+        note: empty ? null : (missingForMinimum(price) ?? (complete ? `Your ${nounOf(category)} fits perfectly` : `${cm(Math.max(0, draft.lengthMm - used))} to go · ready to order`)),
+        pulse,
+      }}
+    />
   );
 }

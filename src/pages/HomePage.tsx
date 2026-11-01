@@ -1,4 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { publicStats } from "../api/catalog";
+import { communityGallery } from "../api/designs";
+import type { PublicStats } from "../api/models";
+import { useAuth } from "../auth/AuthContext";
+import { Chip } from "../components/Controls";
+import { LOOK, STATIC_CATEGORIES, lookFor, studioHref, useStudioCategories } from "../data/homeCategories";
+import { useApi } from "../hooks/useApi";
+import { countWord, formatNumber } from "../lib/format";
 
 const EASE = "cubic-bezier(.2,.7,.2,1)";
 
@@ -39,7 +47,7 @@ function Hero() {
   const rise = (delay: number) => ({ animationDelay: `${delay}ms` });
 
   return (
-    <section className="relative h-screen min-h-[640px] overflow-hidden">
+    <section data-theme="dark" className="relative h-screen min-h-[640px] overflow-hidden bg-background text-foreground">
       <img
         src="/images/hero.jpg"
         alt="Custom mug, beaded bracelet, gold pendant necklace and folded hoodie on dark navy velvet"
@@ -89,7 +97,7 @@ function Hero() {
 
       <a
         href="#home-categories"
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[11px] font-semibold tracking-[0.3em] text-muted-foreground uppercase"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[11px] font-semibold tracking-[0.3em] text-[var(--page-muted)] uppercase"
       >
         Scroll ↓
       </a>
@@ -97,22 +105,40 @@ function Hero() {
   );
 }
 
-/* ---------------- Categories ---------------- */
+/* ---------------- Categories (GET /categories) ---------------- */
 
-const CATEGORIES = [
-  { name: "Bracelet", slug: "bracelet", image: "bracelet", line: "Bead by bead.", text: "Pick your beads, letters and charms. Spell a name, a date, a feeling." },
-  { name: "Necklace", slug: "necklace", image: "necklace", line: "Wear your story.", text: "Names, initials and pendants shaped in gold and silver, just for you." },
-  { name: "Gifts", slug: "gifts", image: "gifts", line: "Made to be opened.", text: "Personal boxes and keepsakes they will remember long after the ribbon." },
-  { name: "Mugs", slug: "mugs", image: "mugs", line: "Morning, personalised.", text: "Your artwork, photo or words printed on a mug made for daily rituals." },
-  { name: "Apparel", slug: "apparel", image: "apparel", line: "Wear your design.", text: "Hoodies and tees with your own graphics, printed to last." },
-  { name: "Cases", slug: "cases", image: "cases", line: "Protect in style.", text: "Phone cases designed by you, for the device you carry every day." },
-  { name: "Sticker", slug: "stickers", image: "stickers", line: "Stick it anywhere.", text: "Die-cut stickers from your doodles, logos and inside jokes." },
-];
+interface StackCard {
+  key: string;
+  name: string;
+  image: string | null;
+  line: string;
+  text: string;
+  href: string;
+}
 
-function CategoryIntro() {
+/** Active categories in API order with the local photos and copy; the static list if the API fails. */
+function useStackCards(): { cards: StackCard[]; loading: boolean } {
+  const { data, error, loading } = useStudioCategories();
+  if (data)
+    return {
+      loading: false,
+      cards: data.map((c) => {
+        const look = lookFor(c);
+        return { key: c.id, name: c.name, image: look.image, line: look.line, text: look.text, href: studioHref(c) };
+      }),
+    };
+  if (error)
+    return {
+      loading: false,
+      cards: STATIC_CATEGORIES.map((c) => ({ key: c.key, name: c.name, image: LOOK[c.key].image, line: LOOK[c.key].line, text: LOOK[c.key].text, href: "#/studios" })),
+    };
+  return { loading, cards: [] };
+}
+
+function CategoryIntro({ count }: { count: number | null }) {
   return (
     <div className="mx-auto max-w-7xl px-6 pt-32 pb-10">
-      <p className="eyebrow">Seven ways to create</p>
+      <p className="eyebrow">{count === null ? "Ways to create" : `${countWord(count)} ${count === 1 ? "way" : "ways"} to create`}</p>
       <h2 className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
         Pick a canvas. <em className="font-normal text-primary">Make it yours.</em>
       </h2>
@@ -120,9 +146,9 @@ function CategoryIntro() {
   );
 }
 
-function CategoryStack() {
+function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolean }) {
   const wrappers = useRef<(HTMLDivElement | null)[]>([]);
-  const cards = useRef<(HTMLElement | null)[]>([]);
+  const items = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
     if (prefersReducedMotion()) return;
@@ -130,12 +156,10 @@ function CategoryStack() {
 
     const update = () => {
       const vh = window.innerHeight;
-      cards.current.forEach((card, i) => {
+      items.current.forEach((card, i) => {
         if (!card) return;
         const next = wrappers.current[i + 1];
-        const p = next
-          ? Math.min(1, Math.max(0, 1 - next.getBoundingClientRect().top / vh))
-          : 0;
+        const p = next ? Math.min(1, Math.max(0, 1 - next.getBoundingClientRect().top / vh)) : 0;
         card.style.transform = `translateY(${p * 40}px) scale(${1 - p * 0.12}) rotateX(${p * 8}deg)`;
         card.style.opacity = String(1 - p * 0.6);
         card.style.filter = `blur(${p * 4}px)`;
@@ -155,15 +179,22 @@ function CategoryStack() {
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
     };
-  }, []);
+  }, [cards.length]);
 
-  const total = String(CATEGORIES.length).padStart(2, "0");
+  if (loading)
+    return (
+      <div className="flex h-screen items-center px-4 sm:px-6" role="status" aria-label="Loading categories">
+        <div className="mx-auto h-[82vh] w-full max-w-7xl animate-pulse rounded-[2rem] border border-border bg-card" />
+      </div>
+    );
+
+  const total = String(cards.length).padStart(2, "0");
 
   return (
     <div>
-      {CATEGORIES.map((c, i) => (
+      {cards.map((c, i) => (
         <div
-          key={c.name}
+          key={c.key}
           ref={(el) => {
             wrappers.current[i] = el;
           }}
@@ -171,18 +202,16 @@ function CategoryStack() {
         >
           <article
             ref={(el) => {
-              cards.current[i] = el;
+              items.current[i] = el;
             }}
-            className="relative mx-auto h-[82vh] w-full max-w-7xl origin-top overflow-hidden rounded-[2rem] border border-border bg-card will-change-transform"
+            data-theme="dark"
+            className="relative mx-auto h-[82vh] w-full max-w-7xl origin-top overflow-hidden rounded-[2rem] border border-border bg-card text-foreground will-change-transform"
           >
-            <img
-              src={`/images/${c.image}.jpg`}
-              alt={`Custom ${c.name.toLowerCase()} by HomeCreator`}
-              width={1280}
-              height={960}
-              loading="lazy"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            {c.image ? (
+              <img src={c.image} alt={`Custom ${c.name.toLowerCase()} by HomeCreator`} width={1280} height={960} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="bg-glow absolute inset-0" />
+            )}
             <div className="bg-fade absolute inset-0" />
 
             <div className="relative flex h-full flex-col justify-between p-8 sm:p-14">
@@ -191,12 +220,10 @@ function CategoryStack() {
               </span>
               <div className="max-w-lg">
                 <p className="font-display text-2xl text-primary italic">{c.line}</p>
-                <h3 className="mt-2 font-display text-6xl leading-none font-extrabold tracking-tight sm:text-8xl">
-                  {c.name}
-                </h3>
+                <h3 className="mt-2 font-display text-6xl leading-none font-extrabold tracking-tight break-words sm:text-8xl">{c.name}</h3>
                 <p className="mt-5 text-lg text-muted-foreground">{c.text}</p>
                 <a
-                  href={`#/studios/${c.slug}`}
+                  href={c.href}
                   className="mt-8 inline-block rounded-full bg-primary px-7 py-3.5 font-semibold text-primary-foreground transition-transform duration-300 hover:scale-105"
                 >
                   Design a {c.name.toLowerCase()} →
@@ -210,14 +237,9 @@ function CategoryStack() {
   );
 }
 
-/* ---------------- Stats ---------------- */
+/* ---------------- Stats (GET /stats/public) ---------------- */
 
-function Counter({ value, decimals = 0, suffix = "", start }: {
-  value: number;
-  decimals?: number;
-  suffix?: string;
-  start: boolean;
-}) {
+function Counter({ value, start }: { value: number; start: boolean }) {
   const [current, setCurrent] = useState(() => (prefersReducedMotion() ? value : 0));
 
   useEffect(() => {
@@ -239,30 +261,25 @@ function Counter({ value, decimals = 0, suffix = "", start }: {
     return () => cancelAnimationFrame(frame);
   }, [start, value]);
 
-  const text =
-    decimals > 0 ? current.toFixed(decimals) : Math.round(current).toLocaleString("en-US");
-  return (
-    <>
-      {text}
-      {suffix}
-    </>
-  );
+  return <>{formatNumber(Math.round(current))}</>;
 }
 
-const STATS = [
-  { value: 50000, suffix: "+", label: "Happy creators" },
-  { value: 120000, suffix: "+", label: "Orders completed" },
-  { value: 7, suffix: "", label: "Product categories" },
-  { value: 4.9, decimals: 1, suffix: "★", label: "Average rating" },
+/** Tiles shown in the stats grid; add a tile by adding a field here. */
+const STAT_TILES: { label: string; field: keyof PublicStats }[] = [
+  { label: "Registered users", field: "registeredUsers" },
+  { label: "Completed orders", field: "completedOrders" },
+  { label: "Products", field: "products" },
 ];
 
 function Stats() {
   const [ref, inView] = useInView<HTMLElement>(0.3);
+  // Loaded lazily, when the section scrolls into view.
+  const { data, error } = useApi(inView ? "stats" : null, publicStats, { ttl: 60_000 });
 
-  const reveal = (delay: number, from: string, duration = 1000) => ({
-    opacity: inView ? 1 : 0,
-    transform: inView ? "none" : from,
-    transition: `opacity ${duration}ms ${EASE} ${delay}ms, transform ${duration}ms ${EASE} ${delay}ms`,
+  const reveal = (delay: number, from: string, shown = inView) => ({
+    opacity: shown ? 1 : 0,
+    transform: shown ? "none" : from,
+    transition: `opacity 1000ms ${EASE} ${delay}ms, transform 1000ms ${EASE} ${delay}ms`,
   });
 
   return (
@@ -272,28 +289,63 @@ function Stats() {
         <p className="eyebrow" style={reveal(0, "translateY(32px)")}>
           HomeCreator in numbers
         </p>
-        <h2
-          className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl"
-          style={reveal(150, "translateY(32px)")}
-        >
+        <h2 className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl" style={reveal(150, "translateY(32px)")}>
           Made by hand. <em className="font-normal text-primary">Loved by thousands.</em>
         </h2>
 
-        <div className="mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-[2rem] border border-border bg-border lg:grid-cols-4">
-          {STATS.map((s, i) => (
-            <div
-              key={s.label}
-              className="bg-card p-8 sm:p-12"
-              style={reveal(300 + i * 150, "translateY(-64px)")}
-            >
-              <div className="font-display text-5xl font-extrabold tracking-tight text-primary sm:text-6xl">
-                <Counter value={s.value} decimals={s.decimals} suffix={s.suffix} start={inView} />
+        {/* Never a fake number: the grid is hidden if the stats can't be loaded. */}
+        {!error && (
+          <div className="mt-16 grid grid-cols-1 gap-px overflow-hidden rounded-[2rem] border border-border bg-border sm:grid-cols-3" aria-busy={!data}>
+            {STAT_TILES.map((s, i) => (
+              <div key={s.label} className="bg-card p-8 sm:p-12" style={reveal(300 + i * 150, "translateY(-64px)", !!data)}>
+                <div className="font-display text-5xl font-extrabold tracking-tight text-primary sm:text-6xl">
+                  {data ? <Counter value={Number(data[s.field]) || 0} start /> : " "}
+                </div>
+                <p className="mt-3 text-muted-foreground">{s.label}</p>
               </div>
-              <p className="mt-3 text-muted-foreground">{s.label}</p>
-            </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ---------------- Community gallery (signed in only) ---------------- */
+
+function Community() {
+  const { status } = useAuth();
+  const [categoryId, setCategoryId] = useState<string | undefined>();
+  const { data } = useApi(status === "signedIn" ? `community:${categoryId ?? ""}` : null, (signal) => communityGallery(categoryId, signal));
+  if (!data?.creations.length) return null;
+  return (
+    <section className="mx-auto max-w-7xl px-6 pb-32" aria-labelledby="community-title">
+      <p className="eyebrow">From the community</p>
+      <h2 id="community-title" className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
+        Made for <em className="font-normal text-primary">someone special.</em>
+      </h2>
+      {data.categories.length > 1 && (
+        <div className="mt-8 flex flex-wrap gap-2" role="group" aria-label="Category">
+          {data.categories.map((c) => (
+            <Chip key={c.id} selected={c.id === data.categoryId} onClick={() => setCategoryId(c.id)}>
+              {c.name}
+            </Chip>
           ))}
         </div>
-      </div>
+      )}
+      <ul className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {data.creations.map((c) => (
+          <li key={c.id} className="overflow-hidden rounded-2xl border border-border bg-card">
+            {c.designPreviewUrl ? (
+              <img src={c.designPreviewUrl} alt={c.name} loading="lazy" className="aspect-square w-full bg-secondary object-cover" />
+            ) : (
+              <span className="block aspect-square w-full bg-secondary" />
+            )}
+            <p className="truncate px-3 pt-2.5 text-sm font-semibold">{c.name}</p>
+            <p className="px-3 pb-3 text-xs text-muted-foreground">{c.categoryName}</p>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -351,14 +403,16 @@ function Steps() {
 /* ---------------- Page ---------------- */
 
 export default function HomePage() {
+  const { cards, loading } = useStackCards();
   return (
     <>
       <Hero />
       <section id="home-categories">
-        <CategoryIntro />
-        <CategoryStack />
+        <CategoryIntro count={loading ? null : cards.length} />
+        <CategoryStack cards={cards} loading={loading} />
       </section>
       <Stats />
+      <Community />
       <Steps />
     </>
   );

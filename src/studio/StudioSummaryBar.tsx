@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../components/Button";
 import { Icon } from "../components/Icon";
-import { money } from "../data/mock";
+import { money } from "../lib/format";
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -49,6 +49,7 @@ export function StudioSummaryBar({
   onPrimary,
   primaryBlocked,
   note,
+  saving = false,
 }: {
   summary: string;
   price: number;
@@ -61,6 +62,7 @@ export function StudioSummaryBar({
   primaryBlocked?: string | null;
   /** A hint that does not block anything. */
   note?: string | null;
+  saving?: boolean;
 }) {
   const reason = primaryBlocked ?? saveBlocked ?? note;
   return (
@@ -74,8 +76,8 @@ export function StudioSummaryBar({
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:flex">
-          <Button variant="secondary" size="bar" onClick={onSave} disabled={!!saveBlocked}>
-            Save design
+          <Button variant="secondary" size="bar" onClick={onSave} disabled={!!saveBlocked || saving}>
+            {saving ? "Saving…" : "Save design"}
           </Button>
           <Button size="bar" glow onClick={onPrimary} disabled={!!primaryBlocked}>
             {primaryLabel} <Icon name="arrowRight" size={16} />

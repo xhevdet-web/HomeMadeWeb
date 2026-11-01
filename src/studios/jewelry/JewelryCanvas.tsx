@@ -1,246 +1,231 @@
-import { useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import type { CharmIcon, JewelryPiece } from "../../data/studioCatalog";
-import { layoutPieces, makeCord, nearestS } from "./cord";
-import { piecesOf } from "./logic";
+import { useMemo, type KeyboardEvent, type Ref } from "react";
+import { loadImage, renderPng, corsImage } from "../../studio/capture";
+import { useDragSource } from "../../studio/dnd/hooks";
+import { layoutPieces, makeCord, nearestS, type Cord, type PlacedPiece } from "./cord";
+import type { Piece } from "./logic";
 
 const COPPER = "oklch(0.66 0.11 50)";
-const INK = "oklch(0.25 0.03 265)";
+const GOLD = "oklch(0.8 0.13 85)";
 
-function CharmGlyph({ icon, r }: { icon: CharmIcon; r: number }) {
-  const shapes: Record<CharmIcon, ReactNode> = {
-    heart: <path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z" />,
-    star: <path d="m12 2 2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 20.9l1.6-7L2 9.2l7.1-.6Z" />,
-    moon: <path d="M15 3a9 9 0 1 0 6 15 7 7 0 0 1-6-15Z" />,
-    clover: (
-      <>
-        <circle cx="12" cy="7" r="4.2" />
-        <circle cx="17" cy="12" r="4.2" />
-        <circle cx="12" cy="17" r="4.2" />
-        <circle cx="7" cy="12" r="4.2" />
-      </>
-    ),
-    coin: <circle cx="12" cy="12" r="6" fill="none" stroke={INK} strokeWidth="2.5" />,
-    eye: (
-      <>
-        <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" fill="oklch(0.97 0 0)" />
-        <circle cx="12" cy="12" r="3.5" />
-      </>
-    ),
-    disc: <circle cx="12" cy="12" r="5" fill="none" stroke={INK} strokeWidth="1.5" />,
-    locket: <path d="M12 20s-6-4-8-8a4.5 4.5 0 0 1 8-4 4.5 4.5 0 0 1 8 4c-2 4-8 8-8 8Z" fill="none" stroke={INK} strokeWidth="2" />,
-  };
+/** A component colour name like "Dark Blue" as a CSS colour, if the browser knows it. */
+function swatchColor(name: string | null) {
+  const css = name?.toLowerCase().replace(/\s+/g, "");
+  return css && typeof CSS !== "undefined" && CSS.supports("color", css) ? css : "var(--secondary)";
+}
+
+/** One piece: its catalog photo (transparent PNG), or a coloured bead while it has none. */
+export function PieceShape({ piece, r }: { piece: Piece; r: number }) {
+  if (piece.imageUrl)
+    return <image {...corsImage} href={piece.imageUrl} x={-r} y={-r} width={r * 2} height={r * 2} preserveAspectRatio="xMidYMid meet" className="drop-shadow-piece" />;
+  return <circle r={r} fill={swatchColor(piece.color)} stroke="oklch(0 0 0 / 0.2)" strokeWidth={r * 0.06} />;
+}
+
+/** Round picker swatch; its size hints at the real size of the piece. */
+export function PieceSwatch({ piece, size: fixed }: { piece: Piece; size?: number }) {
+  const size = fixed ?? Math.min(44, 18 + piece.lengthMm * 1.6);
   return (
-    <svg x={-r * 0.62} y={-r * 0.62} width={r * 1.24} height={r * 1.24} viewBox="0 0 24 24" fill={INK} opacity="0.8" overflow="visible">
-      {shapes[icon]}
-    </svg>
+    <span className="flex items-center justify-center" style={{ width: fixed ?? 44, height: fixed ?? 44 }} aria-hidden="true">
+      {piece.imageUrl ? (
+        <img {...corsImage} src={piece.imageUrl} alt="" loading="lazy" decoding="async" draggable={false} style={{ width: size, height: size }} className="img-fade object-contain" />
+      ) : (
+        <span className="rounded-full border border-border" style={{ width: size, height: size, background: swatchColor(piece.color) }} />
+      )}
+    </span>
   );
 }
 
-export function GlossDefs({ id }: { id: string }) {
-  return (
-    <defs>
-      <radialGradient id={id} cx="35%" cy="30%" r="75%">
-        <stop offset="0" stopColor="white" stopOpacity="0.75" />
-        <stop offset="0.35" stopColor="white" stopOpacity="0.08" />
-        <stop offset="1" stopColor="black" stopOpacity="0.35" />
-      </radialGradient>
-    </defs>
-  );
-}
+/** What a drag over the cord would do: insert at a gap, or replace a bead. */
+export type DropPreview = { mode: "insert"; index: number; piece: Piece } | { mode: "replace"; index: number };
 
-export function PieceShape({ piece, r, gloss }: { piece: JewelryPiece; r: number; gloss: string }) {
-  if (piece.type === "letter") {
-    return (
-      <g>
-        <circle r={r} fill={piece.color} stroke="oklch(0.75 0.01 265)" strokeWidth={r * 0.08} />
-        <text textAnchor="middle" dominantBaseline="central" fontSize={r * 1.15} fontWeight={700} fontFamily="Manrope, sans-serif" fill="oklch(0.18 0 0)">
-          {piece.letter}
-        </text>
-      </g>
-    );
+/** Dropped this close to a bead's centre (× its radius), a picker item replaces that bead. Beads touch at real scale, so a wider zone would leave no gaps to insert into. */
+const REPLACE_ZONE = 0.6;
+
+/**
+ * Where a point (client px) falls on the cord: the bead under it (near its centre) and
+ * the gap it's nearest to, in the list without `exclude` (the bead being moved).
+ */
+export function cordHit(svg: SVGSVGElement, kind: "circle" | "u", pieces: Piece[], lengthMm: number, client: { x: number; y: number }, exclude: number | null = null) {
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const p = new DOMPoint(client.x, client.y).matrixTransform(ctm.inverse());
+  const cord = makeCord(kind);
+  const placed = layoutPieces(
+    cord,
+    pieces.map((piece, index) => ({ index, piece })).filter((x) => x.index !== exclude),
+    lengthMm,
+  );
+  const onBead = placed.find((b) => Math.hypot(b.x - p.x, b.y - p.y) <= b.r * REPLACE_ZONE);
+  const s = nearestS(cord, p);
+  let insertAt = placed.filter((b) => b.s < s).length;
+  // On a closed bracelet the strand starts at the top: just before the first bead is the start, not the end.
+  if (cord.kind === "circle" && insertAt === placed.length && placed.length) {
+    const last = placed[placed.length - 1];
+    const end = last.s + last.r;
+    if (cord.total - s < s - end) insertAt = 0;
   }
-  return (
-    <g>
-      <circle r={r} fill={piece.color} />
-      <circle r={r} fill={`url(#${gloss})`} />
-      {piece.icon && <CharmGlyph icon={piece.icon} r={r} />}
-    </g>
-  );
+  return { onBead: onBead ? onBead.index : null, insertAt };
 }
 
-const useGlossId = () => `gloss${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-
-/** Round picker swatch. Size hints at the real size of the piece. */
-export function PieceSwatch({ piece }: { piece: JewelryPiece }) {
-  const gloss = useGlossId();
-  return (
-    <svg viewBox="-20 -20 40 40" className="h-11 w-11" aria-hidden="true">
-      <GlossDefs id={gloss} />
-      <PieceShape piece={piece} r={Math.min(19, 6 + piece.lengthMm * 0.6)} gloss={gloss} />
-    </svg>
-  );
+interface CanvasProps {
+  kind: "circle" | "u";
+  pieces: Piece[];
+  lengthMm: number;
+  label: string;
+  selected?: number | null;
+  onSelect?: (index: number | null) => void;
+  onMove?: (from: number, to: number) => void;
+  onRemove?: (index: number) => void;
+  /** Live drag feedback: a gap where the bead would go, or a ring on the bead it would replace. */
+  preview?: DropPreview | null;
+  /** The bead lifted off the cord to reorder: the others close its gap. */
+  hiddenIndex?: number | null;
+  svgRef?: Ref<SVGSVGElement>;
+  className?: string;
 }
 
-const reorder = <T,>(list: T[], from: number, to: number) => {
-  const next = [...list];
-  const [item] = next.splice(from, 1);
-  next.splice(to, 0, item);
-  return next;
-};
-
-/** The cord with every piece at real scale. Click selects, drag along the cord reorders. */
+/** The cord with every piece at real scale. Tap selects; a long press lifts a bead to move it. */
 export function JewelryCanvas({
   kind,
   pieces,
   lengthMm,
   label,
-  hint,
   selected = null,
   onSelect,
   onMove,
   onRemove,
-  className = "w-full max-w-[520px]",
-}: {
-  kind: "circle" | "u";
-  pieces: string[];
-  lengthMm: number;
-  label: string;
-  hint?: string;
-  selected?: number | null;
-  onSelect?: (index: number | null) => void;
-  onMove?: (from: number, to: number) => void;
-  onRemove?: (index: number) => void;
-  className?: string;
-}) {
+  preview = null,
+  hiddenIndex = null,
+  svgRef,
+  className = "h-full w-full",
+}: CanvasProps) {
   const cord = makeCord(kind);
-  const gloss = useGlossId();
-  const svg = useRef<SVGSVGElement>(null);
-  const drag = useRef<{ from: number; moved: boolean; x0: number; y0: number } | null>(null);
-  const [dragTo, setDragTo] = useState<{ from: number; to: number } | null>(null);
   const interactive = !!onSelect;
 
-  const items = useMemo(() => piecesOf(pieces).map((piece, index) => ({ index, piece })), [pieces]);
-  const base = useMemo(() => layoutPieces(cord, items, lengthMm), [cord, items, lengthMm]);
-  const shown = dragTo ? layoutPieces(cord, reorder(items, dragTo.from, dragTo.to), lengthMm) : base;
-
-  // Capture on the <svg>, not the bead: beads are re-ordered in the DOM while dragging, which would drop the capture.
-  const down = (e: ReactPointerEvent<SVGGElement>, index: number) => {
-    if (!interactive) return;
-    svg.current?.setPointerCapture(e.pointerId);
-    drag.current = { from: index, moved: false, x0: e.clientX, y0: e.clientY };
-  };
-
-  const move = (e: ReactPointerEvent<SVGSVGElement>) => {
-    const d = drag.current;
-    const ctm = svg.current?.getScreenCTM();
-    if (!d || !ctm) return;
-    if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 5) return;
-    d.moved = true;
-    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
-    const s = nearestS(cord, p);
-    const to = base.filter((b) => b.index !== d.from && b.s < s).length;
-    setDragTo((cur) => (cur?.to === to ? cur : { from: d.from, to }));
-  };
-
-  const up = () => {
-    const d = drag.current;
-    drag.current = null;
-    if (!d) return;
-    if (d.moved && dragTo && dragTo.to !== dragTo.from) {
-      onMove?.(dragTo.from, dragTo.to);
-      onSelect?.(dragTo.to);
-    } else if (!d.moved) {
-      onSelect?.(selected === d.from ? null : d.from);
-    }
-    setDragTo(null);
-  };
-
-  const cancel = () => {
-    drag.current = null;
-    setDragTo(null);
-  };
-
-  const key = (e: KeyboardEvent<SVGGElement>, index: number) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onSelect?.(selected === index ? null : index);
-    } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && selected === index) {
-      e.preventDefault();
-      const to = index + (e.key === "ArrowLeft" ? -1 : 1);
-      if (to >= 0 && to < pieces.length) {
-        onMove?.(index, to);
-        onSelect?.(to);
-      }
-    } else if (e.key === "Delete" || e.key === "Backspace") {
-      e.preventDefault();
-      onRemove?.(index);
-    } else if (e.key === "Escape") {
-      onSelect?.(null);
-    }
-  };
+  const shown = useMemo(() => {
+    const list = pieces.map((piece, index) => ({ index, piece })).filter((x) => x.index !== hiddenIndex);
+    if (preview?.mode === "insert") list.splice(preview.index, 0, { index: -1, piece: preview.piece });
+    const placed = layoutPieces(cord, list, lengthMm);
+    const home = hiddenIndex !== null ? layoutPieces(cord, pieces.map((piece, index) => ({ index, piece })), lengthMm)[hiddenIndex] : null;
+    // Beads render in their original order and move by transform only: moving DOM nodes would drop
+    // the pointer capture of a bead being dragged. The lifted bead stays mounted, invisible.
+    const byIndex = new Map(placed.map((b) => [b.index, b]));
+    const ordered: (PlacedPiece<Piece> & { hidden?: boolean })[] = pieces.map((_, i) => (i === hiddenIndex && home ? { ...home, hidden: true } : byIndex.get(i)!));
+    const gap = byIndex.get(-1);
+    return (gap ? [...ordered, gap] : ordered) as (PlacedPiece<Piece> & { hidden?: boolean })[];
+  }, [cord, pieces, lengthMm, preview, hiddenIndex]);
 
   return (
-    <svg
-      ref={svg}
-      viewBox={`0 0 ${cord.width} ${cord.height}`}
-      className={`${className} overflow-visible`}
-      role={interactive ? "group" : "img"}
-      aria-label={label}
-      onPointerMove={move}
-      onPointerUp={up}
-      onPointerCancel={cancel}
-    >
-      <GlossDefs id={gloss} />
+    <svg ref={svgRef} viewBox={`0 0 ${cord.width} ${cord.height}`} className={`${className} touch-none overflow-visible`} role={interactive ? "group" : "img"} aria-label={label}>
       <path d={cord.d} fill="none" stroke={COPPER} strokeWidth="1.6" />
       {cord.clasp && (
         <g transform={`translate(${cord.clasp.x} ${cord.clasp.y})`}>
-          <circle r="5" fill="none" stroke="oklch(0.8 0.13 85)" strokeWidth="2" />
-          <circle cx="7" r="2.5" fill="oklch(0.8 0.13 85)" />
+          <circle r="5" fill="none" stroke={GOLD} strokeWidth="2" />
+          <circle cx="7" r="2.5" fill={GOLD} />
         </g>
       )}
-      {hint && (
-        <text
-          x={cord.label.x}
-          y={cord.label.y}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fontSize="13"
-          fontFamily="Manrope, sans-serif"
-          className="fill-muted-foreground"
-        >
-          {hint}
-        </text>
-      )}
-      {shown.map((p, i) => {
-        const isSelected = selected === p.index && !dragTo;
-        const isDragged = dragTo?.from === p.index;
-        return (
-          <g
-            key={`${p.index}-${p.piece.id}`}
-            transform={`translate(${p.x} ${p.y})`}
-            role={interactive ? "button" : undefined}
-            tabIndex={interactive ? 0 : undefined}
-            aria-label={interactive ? `${p.piece.name}, ${i + 1} of ${shown.length}` : undefined}
-            aria-pressed={interactive ? isSelected : undefined}
-            onPointerDown={(e) => down(e, p.index)}
-            onKeyDown={(e) => key(e, p.index)}
-            className={`group outline-none ${interactive ? "cursor-grab touch-none" : ""}`}
-            opacity={isDragged ? 0.7 : 1}
-          >
-            <PieceShape piece={p.piece} r={p.r} gloss={gloss} />
-            {interactive && (
-              <circle
-                r={p.r + 3.5}
-                fill="none"
-                stroke="var(--primary)"
-                strokeWidth="2"
-                strokeDasharray={isSelected ? undefined : "3 3"}
-                className={isSelected ? "" : "opacity-0 group-focus-visible:opacity-100"}
-              />
-            )}
+      {shown.map((p) =>
+        p.index === -1 ? (
+          <g key="gap" style={{ transform: `translate(${p.x}px, ${p.y}px)`, transition: "transform 180ms cubic-bezier(.2,.7,.2,1)" }}>
+            <circle r={p.r} fill="var(--primary)" fillOpacity="0.18" stroke="var(--primary)" strokeWidth="1.5" strokeDasharray="3 3" />
           </g>
-        );
-      })}
+        ) : (
+          <Bead
+            key={`${p.index}-${p.piece.id}`}
+            placed={p}
+            position={p.index}
+            count={pieces.length}
+            interactive={interactive}
+            hidden={!!p.hidden}
+            selected={selected === p.index}
+            replacing={preview?.mode === "replace" && preview.index === p.index}
+            onSelect={onSelect}
+            onKey={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect?.(selected === p.index ? null : p.index);
+              } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && selected === p.index) {
+                e.preventDefault();
+                const to = p.index + (e.key === "ArrowLeft" ? -1 : 1);
+                if (to >= 0 && to < pieces.length) {
+                  onMove?.(p.index, to);
+                  onSelect?.(to);
+                }
+              } else if (e.key === "Delete" || e.key === "Backspace") {
+                e.preventDefault();
+                onRemove?.(p.index);
+              } else if (e.key === "Escape") onSelect?.(null);
+            }}
+          />
+        ),
+      )}
     </svg>
   );
+}
+
+function Bead({ placed: p, position, count, interactive, hidden, selected, replacing, onSelect, onKey }: {
+  placed: PlacedPiece<Piece>;
+  hidden: boolean;
+  position: number;
+  count: number;
+  interactive: boolean;
+  selected: boolean;
+  replacing: boolean;
+  onSelect?: (index: number | null) => void;
+  onKey: (e: KeyboardEvent<SVGGElement>) => void;
+}) {
+  // Long press (touch) or a small drag (mouse) lifts the bead; a tap selects it.
+  const drag = useDragSource(
+    () => ({ kind: "bead", id: p.piece.id, name: p.piece.name, image: p.piece.imageUrl, shape: "circle", index: p.index }),
+    () => onSelect?.(selected ? null : p.index),
+    { disabled: !interactive },
+  );
+  return (
+    <g
+      style={{ transform: `translate(${p.x}px, ${p.y}px)`, transition: "transform 180ms cubic-bezier(.2,.7,.2,1)", opacity: hidden ? 0 : 1 }}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? `Select position ${position + 1} of ${count}, ${p.piece.name}` : undefined}
+      aria-pressed={interactive ? selected : undefined}
+      onKeyDown={interactive ? onKey : undefined}
+      className={`group outline-none ${interactive ? "cursor-grab" : ""}`}
+      {...(interactive ? drag : {})}
+    >
+      <g className="bead-pop">
+        <PieceShape piece={p.piece} r={p.r} />
+      </g>
+      {interactive && (
+        <circle
+          r={p.r + 3.5}
+          fill="none"
+          stroke="var(--primary)"
+          strokeWidth="2"
+          strokeDasharray={selected || replacing ? undefined : "3 3"}
+          className={selected || replacing ? "" : "opacity-0 group-focus-visible:opacity-100"}
+        />
+      )}
+    </g>
+  );
+}
+
+/** 840 × 840 transparent PNG of the piece, like the app. Throws a CaptureError when an image can't be drawn. */
+export function captureJewelry(kind: "circle" | "u", pieces: Piece[], lengthMm: number) {
+  const cord: Cord = makeCord(kind);
+  const size = 840;
+  return renderPng(size, size, async (ctx) => {
+    const k = size / Math.max(cord.width, cord.height);
+    ctx.translate((size - cord.width * k) / 2, (size - cord.height * k) / 2);
+    ctx.scale(k, k);
+    ctx.strokeStyle = "#B8763A";
+    ctx.lineWidth = 1.6;
+    ctx.stroke(new Path2D(cord.d));
+    for (const p of layoutPieces(cord, pieces.map((piece, index) => ({ index, piece })), lengthMm)) {
+      if (p.piece.imageUrl) ctx.drawImage(await loadImage(p.piece.imageUrl), p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+      else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#c9c2b8";
+        ctx.fill();
+      }
+    }
+  });
 }

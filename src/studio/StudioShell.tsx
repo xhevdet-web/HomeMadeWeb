@@ -1,22 +1,28 @@
 import type { ReactNode } from "react";
+import { creationsFromOthers } from "../api/designs";
+import { productImage, type Category } from "../api/models";
+import { useAuth } from "../auth/AuthContext";
 import { Button, ButtonLink } from "../components/Button";
 import { Icon, type IconName } from "../components/Icon";
 import { Page, PageHeader, SectionLabel } from "../components/Page";
 import { StepIndicator } from "../components/StepIndicator";
-import { getStudio, money, type StudioSlug } from "../data/mock";
+import { lookFor, studioHref } from "../data/homeCategories";
+import { useApi } from "../hooks/useApi";
+import { money } from "../lib/format";
 import { useUndoShortcuts } from "./useHistory";
+import { corsImage } from "./capture";
 
 export const STUDIO_STEPS = ["Choose base", "Design", "Preview"];
 
-/** Header + step indicator around every studio step. */
-export function StudioShell({ slug, step, title, intro, children }: {
-  slug: StudioSlug;
+/** Header + step indicator around every studio step. "Created by others" shows on the first step when signed in. */
+export function StudioShell({ category, step, title, intro, children, others = false }: {
+  category: Category;
   step: 0 | 1 | 2;
   title?: ReactNode;
   intro?: ReactNode;
   children: ReactNode;
+  others?: boolean;
 }) {
-  const studio = getStudio(slug)!;
   return (
     <Page>
       <PageHeader
@@ -25,15 +31,40 @@ export function StudioShell({ slug, step, title, intro, children }: {
         title={
           title ?? (
             <>
-              {studio.name} <em className="font-normal text-primary">studio.</em>
+              {category.name} <em className="font-normal text-primary">studio.</em>
             </>
           )
         }
-        intro={intro ?? studio.description}
+        intro={intro ?? lookFor(category).studio}
       />
       <StepIndicator steps={STUDIO_STEPS} active={step} className="mt-10" />
       {children}
+      {others && <CreatedByOthers category={category} />}
     </Page>
+  );
+}
+
+/** Finished pieces by other customers, for inspiration. Only for signed-in visitors. */
+function CreatedByOthers({ category }: { category: Category }) {
+  const { status } = useAuth();
+  const { data } = useApi(status === "signedIn" ? `others:${category.id}` : null, (signal) => creationsFromOthers(category.id, signal));
+  const creations = (data ?? []).filter((c) => productImage(c.product)).slice(0, 8);
+  if (!creations.length) return null;
+  return (
+    <section className="mt-20" aria-labelledby="others-title">
+      <p className="eyebrow">For inspiration</p>
+      <h2 id="others-title" className="mt-4 font-display text-4xl font-semibold tracking-tight">
+        Created by <em className="font-normal text-primary">others.</em>
+      </h2>
+      <ul className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {creations.map((c) => (
+          <li key={c.completedOrderId} className="overflow-hidden rounded-2xl border border-border bg-card">
+            <img {...corsImage} src={productImage(c.product)!} alt={c.product.name} loading="lazy" className="aspect-square w-full bg-secondary object-cover" />
+            <p className="truncate px-3 py-2.5 text-sm font-semibold">{c.product.name}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -287,24 +318,32 @@ export function PriceLines({ lines, total, totalLabel = "Total" }: { lines: [str
   );
 }
 
-export function PreviewActions({ slug, onSave, onOrder, orderBlocked, saveBlocked }: {
-  slug: StudioSlug;
+export function PreviewActions({ category, onSave, onOrder, orderBlocked, orderHint, saveBlocked, saving = false }: {
+  category: Category;
   onSave: () => void;
   onOrder: () => void;
   orderBlocked?: string | null;
+  /** A second line under a blocked order button, e.g. "Add €1.40 more to order." */
+  orderHint?: string | null;
   saveBlocked?: string | null;
+  saving?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <Button glow size="lg" onClick={onOrder} disabled={!!orderBlocked} className="w-full">
-        Continue to order <Icon name="arrowRight" size={18} />
+      <Button glow size="lg" onClick={onOrder} disabled={!!orderBlocked || saving} className="w-full">
+        {saving ? "Saving…" : "Continue to order"} <Icon name="arrowRight" size={18} />
       </Button>
-      {orderBlocked && <p className="text-center text-sm text-muted-foreground">{orderBlocked}</p>}
+      {orderBlocked && (
+        <p role="status" className="text-center text-sm text-muted-foreground">
+          {orderBlocked}
+          {orderHint && <span className="mt-1 block font-semibold text-foreground">{orderHint}</span>}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3">
-        <ButtonLink href={`#/studios/${slug}/design`} variant="secondary" size="sm">
+        <ButtonLink href={studioHref(category, "design")} variant="secondary" size="sm">
           <Icon name="arrowLeft" size={15} /> Back to the studio
         </ButtonLink>
-        <Button variant="secondary" size="sm" onClick={onSave} disabled={!!saveBlocked}>
+        <Button variant="secondary" size="sm" onClick={onSave} disabled={!!saveBlocked || saving}>
           Save design
         </Button>
       </div>
@@ -313,12 +352,12 @@ export function PreviewActions({ slug, onSave, onOrder, orderBlocked, saveBlocke
 }
 
 /** Shown on a preview step when there is nothing to preview yet. */
-export function NothingToPreview({ slug, message }: { slug: StudioSlug; message: string }) {
+export function NothingToPreview({ category, message }: { category: Category; message: string }) {
   return (
     <div className="mt-8 rounded-[2rem] border border-border bg-card px-6 py-16 text-center">
       <p className="font-display text-3xl font-semibold">Nothing to preview yet.</p>
       <p className="mt-3 text-muted-foreground">{message}</p>
-      <ButtonLink href={`#/studios/${slug}/design`} className="mt-8">
+      <ButtonLink href={studioHref(category, "design")} className="mt-8">
         Back to the studio
       </ButtonLink>
     </div>
@@ -335,5 +374,42 @@ export function ContinueButton({ ready, href, label, blockedLabel }: { ready: bo
     <Button size="lg" disabled className="w-full sm:w-auto">
       {blockedLabel ?? label}
     </Button>
+  );
+}
+
+/** Loading skeleton with the studio's layout. */
+export function StudioSkeleton() {
+  return (
+    <Page>
+      <div className="h-6 w-32 animate-pulse rounded-full bg-secondary" />
+      <div className="mt-6 h-14 w-2/3 animate-pulse rounded-2xl bg-secondary" />
+      <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]" role="status" aria-label="Loading the studio">
+        <div className="h-[420px] animate-pulse rounded-[2rem] bg-card" />
+        <div className="h-[420px] animate-pulse rounded-[2rem] bg-card" />
+      </div>
+    </Page>
+  );
+}
+
+/** A request failed: the server's message and a Try again button. */
+export function LoadError({ message, onRetry, className = "" }: { message: string; onRetry: () => void; className?: string }) {
+  return (
+    <div role="alert" className={`rounded-[2rem] border border-border bg-card px-6 py-12 text-center ${className}`}>
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15 text-destructive">
+        <Icon name="alert" size={22} />
+      </span>
+      <p className="mt-4 font-semibold">{message}</p>
+      <Button variant="secondary" size="sm" className="mt-6" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
+  );
+}
+
+export function ImagePlaceholder({ label, className = "" }: { label: string; className?: string }) {
+  return (
+    <span className={`flex items-center justify-center bg-secondary text-center text-xs text-muted-foreground ${className}`} aria-hidden="true">
+      {label}
+    </span>
   );
 }

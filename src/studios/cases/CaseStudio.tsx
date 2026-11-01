@@ -1,85 +1,103 @@
-import { useState } from "react";
-import { Button } from "../../components/Button";
+import { useMemo, useRef, useState } from "react";
 import { Icon } from "../../components/Icon";
-import { money } from "../../data/mock";
-import { CASE_DESIGNS, CASE_UPLOAD_FEE, CASE_WIDTH_CM, getModel } from "../../data/studioCatalog";
+import { studioHref } from "../../data/homeCategories";
+import { money } from "../../lib/format";
 import { navigate } from "../../router";
-import { ART, Artwork } from "../../studio/artworks";
-import { isLowQuality, type PlacedElement } from "../../studio/elements";
+import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
+import { imageSize } from "../../studio/capture";
+import type { PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
-import { useDesignActions, useStudioHistory } from "../../studio/StudioContext";
-import { BaseChip, CanvasToolbar, ImageControls, Notice, Stage, StudioLayout, StudioShell, ToolSection } from "../../studio/StudioShell";
-import { StudioSummaryBar } from "../../studio/StudioSummaryBar";
-import { useToast } from "../../studio/Toasts";
+import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
+import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { Notice as InfoNotice, ToolSection } from "../../studio/StudioShell";
 import { QualityWarning, UploadButton, type UploadedImage } from "../../studio/UploadButton";
+import { useUndoShortcuts } from "../../studio/useHistory";
+import { useNotice } from "../../studio/ui";
+import { useImageRatio } from "../apparel/logic";
+import { componentById, customUpload, libraryDesigns, type StudioProps } from "../data";
 import { CaseCanvas } from "./CaseCanvas";
-import { caseImage, caseInfo, casePrice, coverImage, designLabel } from "./logic";
+import { areaAspect, captureCase, caseAreas, caseImage, caseInput, casePrice, coverImage, isSoldOut, modelOf } from "./logic";
 
-export function CaseStudio() {
-  const history = useStudioHistory("cases");
+/** The app's check: about 450 pixels across the case back at the current zoom. */
+const lowQuality = (el: PlacedElement | undefined, ofArea: number) =>
+  !!el?.uploaded && !!el.pxWidth && el.pxWidth / (el.scale / Math.max(1, ofArea / el.aspect)) < 450;
+
+export function CaseStudio({ category, data }: StudioProps) {
+  const history = useStudioHistory(category.id, "CASE");
   const { state: d, dispatch: update } = history;
-  const toast = useToast();
+  useUndoShortcuts(history.undo, history.redo);
+  const [notice, notify] = useNotice();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const actions = useDesignActions("cases", caseInfo(d));
-  const model = getModel(d.modelId)!;
+  const stageRef = useRef<HTMLElement>(null);
+  const caseRef = useRef<HTMLDivElement>(null);
+  const byId = useMemo(() => componentById(data), [data]);
+  const model = modelOf(d, data);
+  const upload = customUpload(data);
+  const designs = libraryDesigns(data);
+  const ratio = useImageRatio(model?.imageUrl ?? null);
+  const shownRatio = model?.imageUrl ? ratio : 0.49;
+  const ofArea = areaAspect(caseAreas(model).area, shownRatio);
   const image = caseImage(d);
+
+  const saver = useSaveDesign(category, async () => {
+    const { input, uploads } = await caseInput(category, d, model!, ofArea);
+    return { input, files: { preview: await captureCase(d, model!), customDesigns: uploads } };
+  });
 
   const setImage = (el: PlacedElement | null, merge?: string) => update((x) => ({ ...x, elements: el ? [el] : [] }), merge);
 
-  const upload = (img: UploadedImage) => {
-    const el = coverImage(model, { src: img.url, aspect: img.height / img.width, pxWidth: img.width, uploaded: true });
+  const onUpload = (img: UploadedImage) => {
+    if (!upload) return;
+    const el = coverImage(img.height / img.width, ofArea, { src: img.url, ref: upload.id, name: "Your photo", pxWidth: img.width, uploaded: true });
     setImage(el);
     setSelectedId(el.id);
-    toast(image ? "Image replaced." : "Your photo is on the case.");
+    notify(image ? "Image replaced." : "Your photo is on the case.");
   };
 
-  const pick = (id: string) => {
-    const design = CASE_DESIGNS.find((x) => x.id === id)!;
-    const el = coverImage(model, { art: design.art, ref: design.id, aspect: 1 });
+  const pick = async (id: string) => {
+    const c = designs.find((x) => x.id === id);
+    if (!c?.imageUrl) return;
+    const size = await imageSize(c.imageUrl);
+    const el = coverImage(size.height / size.width, ofArea, { src: c.imageUrl, ref: c.id, name: c.name });
     setImage(el);
     setSelectedId(el.id);
-    toast(`${ART[design.art].name} is on your case.`);
+    notify(`${c.name} is on your case.`);
   };
 
-  const reset = () => image && setImage({ ...image, x: 0.5, y: 0.5, rotation: 0, scale: coverImage(model, { aspect: image.aspect }).scale });
+  // One design at a time: dropping one onto the case replaces the current image.
+  const chip = useCanvasDrop(stageRef, caseRef, image ? "Release to replace the image" : "Release to add", (_fx, _fy, payload) => {
+    void pick(payload.id);
+    return true;
+  });
 
+  const reset = () => image && setImage({ ...image, x: 0.5, y: 0.5, rotation: 0, scale: coverImage(image.aspect, ofArea, {}).scale });
+  const remove = () => {
+    setImage(null);
+    setSelectedId(null);
+    notify("Image removed.");
+  };
   const command = (cmd: LayerCommand) => {
     if (cmd === "reset") reset();
     if (cmd === "delete") remove();
   };
-
-  const remove = () => {
-    setImage(null);
-    setSelectedId(null);
-    toast("Image removed.");
-  };
-
   const clear = () => {
     setImage(null);
     setSelectedId(null);
-    toast("Canvas cleared. Undo to bring it back.");
+    notify("Canvas cleared. Tap Undo to bring it back.");
   };
 
-  const blocked = model.soldOut
-    ? "This phone model is no longer available. Choose another one; your image stays."
-    : !image
-      ? "Add a photo or one of our designs."
-      : null;
+  const unavailable = !model ? "Choose your phone model first." : isSoldOut(model) ? "This phone model is no longer available. Choose another one; your image stays." : null;
+  const blocked = unavailable ?? (!image ? "Add a design or your own photo first." : image.missing ? "Re-upload your photo to continue." : null);
 
   const stage = (
-    <Stage
-      label={`${model.name} case with ${designLabel(image).toLowerCase()}`}
-      toolbar={<CanvasToolbar {...history} onClear={clear} canClear={!!image} />}
-      below={
-        <>
-          <QualityWarning show={!!image && isLowQuality(image, CASE_WIDTH_CM)} />
-          <p className="px-2 text-sm text-muted-foreground">
-            Your design is printed inside the dashed line, around the camera. Keep important parts away from the edges.
-          </p>
-        </>
-      }
+    <StageFrame
+      ref={stageRef}
+      label={`Phone case with your design${image ? "" : ", no design yet"}`}
+      chip={chip}
+      controls="none"
+      overlay={<StageControls {...history} onClear={clear} canClear={!!image} className="absolute right-3 bottom-3 z-20 flex-col" />}
     >
-      <div className="w-full max-w-[260px]">
+      <div ref={caseRef} style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${shownRatio}))` }}>
         <CaseCanvas model={model}>
           <PlacementLayer
             elements={d.elements}
@@ -90,86 +108,72 @@ export function CaseStudio() {
             onCommand={command}
             mode="cover"
             wheelZoom
-            actions={["smaller", "larger", "rotateLeft", "rotateRight", "reset", "delete"]}
           />
         </CaseCanvas>
-        {!image && <p className="mt-4 text-center text-sm text-muted-foreground">Upload a photo or pick a design.</p>}
       </div>
-    </Stage>
+    </StageFrame>
   );
 
-  const tools = (
-    <>
-      <BaseChip label="Phone" value={`${model.name} · ${money(model.price)}`} href="#/studios/cases" action="Change model" />
-      {model.soldOut && <Notice>This phone model is no longer available. Choose another one; your image stays.</Notice>}
+  const toolbar =
+    image && selectedId === image.id ? (
+      <SelectionToolbar
+        title={image.name ?? "Your photo"}
+        image={image.src ?? null}
+        onDone={() => setSelectedId(null)}
+        actions={elementActions(image, (el) => setImage(el), command, { layers: false, reset: true })}
+      />
+    ) : null;
 
-      <ToolSection title="Add your design" aside="One design at a time">
-        <UploadButton onImage={upload} label="Upload your photo" hint={`+${money(CASE_UPLOAD_FEE)} · JPEG, PNG or WebP, up to 5 MB`} />
-        <div className="my-5 flex items-center gap-4 text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
-        </div>
-        <p className="mb-3 text-sm font-semibold">Choose one of our designs</p>
-        <ul className="grid grid-cols-4 gap-2">
-          {CASE_DESIGNS.map((x) => (
-            <li key={x.id}>
-              <button
-                type="button"
-                onClick={() => pick(x.id)}
-                aria-pressed={image?.ref === x.id}
-                aria-label={`${ART[x.art].name}, ${x.price ? `+${money(x.price)} extra` : "free"}`}
-                className={`block w-full overflow-hidden rounded-xl border-2 transition-colors ${
-                  image?.ref === x.id ? "border-primary" : "border-transparent hover:border-border"
-                }`}
-              >
-                <span className="block aspect-[1/1.4] w-full overflow-hidden">
-                  <Artwork id={x.art} className="h-full w-full scale-150" />
-                </span>
-                <span className={`block py-1 text-center text-[10px] font-semibold ${x.price ? "text-primary" : "text-muted-foreground"}`}>
-                  {x.price ? `+${money(x.price)} extra` : "Free"}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </ToolSection>
-
-      {image && (
-        <ToolSection title="Image" aside={designLabel(image)}>
-          <ImageControls
-            onZoom={(k) => setImage({ ...image, scale: image.scale * k })}
-            onRotate={(deg) => setImage({ ...image, rotation: image.rotation + deg })}
-            onReset={reset}
-          />
-          <p className="mt-2 text-xs text-muted-foreground">Drag to move, scroll to zoom. The image always covers the case.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <UploadButton onImage={upload} variant="button" label="Change image" />
-            <Button variant="secondary" size="sm" onClick={remove}>
-              <Icon name="trash" size={15} /> Remove image
-            </Button>
-          </div>
+  const picker = (
+    <div className="flex flex-col gap-5">
+      {model && isSoldOut(model) && <InfoNotice>This phone model is no longer available. Choose another one; your image stays.</InfoNotice>}
+      <QualityWarning show={lowQuality(image, ofArea)} />
+      <p className="text-xs text-muted-foreground">Your design is printed inside the dashed line, around the camera. Keep important parts away from the edges.</p>
+      {upload && (
+        <ToolSection title="Your photo" aside={upload.price ? `+${money(upload.price)}` : "Free"}>
+          <UploadButton onImage={onUpload} label={image?.missing ? "Re-upload your photo" : image ? "Change image" : "Upload your photo"} hint="JPEG, PNG or WebP, up to 5 MB" />
         </ToolSection>
       )}
-    </>
+      {designs.length > 0 && (
+        <ToolSection title="Choose one of our designs">
+          <p className="mb-3 text-xs text-muted-foreground">Tap a design, or drag it onto the case.</p>
+          <TileRow cols="grid-cols-3">
+            {designs.map((c) => (
+              <TileItem key={c.id}>
+                <DragTile id={c.id} name={c.name} image={c.imageUrl} price={c.price ? `+${money(c.price)} extra` : "Free"} selected={image?.ref === c.id} onTap={() => void pick(c.id)} />
+              </TileItem>
+            ))}
+          </TileRow>
+        </ToolSection>
+      )}
+      {!upload && designs.length === 0 && <p className="text-sm text-muted-foreground">No designs are available yet.</p>}
+    </div>
   );
 
   return (
-    <StudioShell slug="cases" step={1}>
-      <StudioLayout
-        stage={stage}
-        tools={tools}
-        bar={
-          <StudioSummaryBar
-            summary={`${model.name} · ${designLabel(image)}`}
-            price={casePrice(d)}
-            onSave={actions.save}
-            saveBlocked={!image ? "Add a photo or one of our designs." : null}
-            onPrimary={() => navigate("#/studios/cases/preview")}
-            primaryBlocked={blocked}
-          />
-        }
-      />
-    </StudioShell>
+    <StudioFrame
+      category={category}
+      subtitle={model ? `${model.name} · ${money(model.price)}` : "Choose your phone"}
+      onSave={saver.save}
+      saving={saver.saving}
+      saveBlocked={blocked}
+      top={
+        <a href={studioHref(category)} className="flex min-h-11 items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm transition-colors hover:bg-secondary">
+          <Icon name="square" size={16} className="text-primary" />
+          <span className="min-w-0 flex-1 truncate font-semibold">{model?.name ?? "No phone chosen"}</span>
+          <span className="font-semibold text-primary">Change model</span>
+        </a>
+      }
+      stage={stage}
+      notice={notice}
+      toolbar={toolbar}
+      picker={picker}
+      footer={{
+        summary: `${model?.name ?? "No phone"} · ${image ? (image.name ?? "Your photo") : "Add a photo or design"}`,
+        price: casePrice(d, model, byId),
+        onPrimary: () => navigate(studioHref(category, "preview")),
+        primaryBlocked: unavailable ?? (!image ? "Add a design or your own photo first." : null),
+      }}
+    />
   );
 }

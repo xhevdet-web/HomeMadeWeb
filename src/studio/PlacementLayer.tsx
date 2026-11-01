@@ -7,8 +7,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Icon, type IconName } from "../components/Icon";
-import type { Bounds } from "../data/studioCatalog";
-import { Artwork } from "./artworks";
 import {
   FONTS,
   FULL_BOUNDS,
@@ -19,10 +17,12 @@ import {
   constrain,
   describeElement,
   sameGeometry,
+  type Bounds,
   type PlacedElement,
 } from "./elements";
+import { corsImage } from "./capture";
 
-export type LayerCommand = "forward" | "backward" | "duplicate" | "delete" | "reset";
+export type LayerCommand = "forward" | "backward" | "front" | "duplicate" | "delete" | "reset";
 export type LayerAction = "smaller" | "larger" | "rotateLeft" | "rotateRight" | LayerCommand;
 
 export const ALL_ACTIONS: LayerAction[] = ["smaller", "larger", "rotateLeft", "rotateRight", "forward", "backward", "duplicate", "delete"];
@@ -37,10 +37,11 @@ const ACTION_META: Record<LayerAction, [IconName, string]> = {
   duplicate: ["copy", "Duplicate"],
   delete: ["trash", "Delete"],
   reset: ["reset", "Reset"],
+  front: ["arrowUp", "Bring to front"],
 };
 
 interface Gesture {
-  kind: "move" | "transform";
+  kind: "move" | "transform" | "pinch";
   start: PlacedElement;
   px: number;
   py: number;
@@ -49,6 +50,9 @@ interface Gesture {
   a0: number;
   d0: number;
   last?: PlacedElement;
+  /** Pinch: the midpoint between the two fingers at the start. */
+  mx?: number;
+  my?: number;
 }
 
 const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
@@ -77,8 +81,15 @@ export function ElementContent({ el, W }: { el: PlacedElement; W: number }) {
     );
   }
   const style = { width: W, height: W * el.aspect };
-  if (el.src) return <img src={el.src} alt="" draggable={false} style={style} className="block max-w-none object-cover" />;
-  return <div style={style}>{el.art && <Artwork id={el.art} />}</div>;
+  if (el.missing || !el.src)
+    return (
+      <div style={style} className="flex items-center justify-center rounded-lg border-4 border-dashed border-primary bg-background/80 p-[6%] text-center">
+        <span className="font-sans font-semibold text-foreground" style={{ fontSize: W * 0.08 }}>
+          Re-upload your image
+        </span>
+      </div>
+    );
+  return <img {...corsImage} src={el.src} alt="" draggable={false} style={style} className="block max-w-none object-contain" />;
 }
 
 interface Props {
@@ -96,6 +107,8 @@ interface Props {
   actions?: LayerAction[];
   readOnly?: boolean;
   wheelZoom?: boolean;
+  /** The old floating action bar on the canvas; studios now show a toolbar above the picker. */
+  floatingBar?: boolean;
   className?: string;
 }
 
@@ -112,11 +125,15 @@ export function PlacementLayer({
   actions = ALL_ACTIONS,
   readOnly = false,
   wheelZoom = false,
+  floatingBar = false,
   className = "",
 }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const nodes = useRef(new Map<string, HTMLDivElement>());
   const gesture = useRef<Gesture | null>(null);
+  /** Active pointers on the layer, for two-finger pinch and rotate. */
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const lastTap = useRef<{ id: string; at: number } | null>(null);
   const frame = useRef(0);
   const [{ W, H }, setSize] = useState({ W: 0, H: 0 });
   const [live, setLive] = useState<PlacedElement | null>(null);
@@ -156,8 +173,10 @@ export function PlacementLayer({
 
   useEffect(() => {
     const node = root.current;
-    if (!node || !wheelZoom || readOnly) return;
+    if (!node || readOnly) return;
     const onWheel = (e: WheelEvent) => {
+      // Ctrl/Cmd + wheel (and trackpad pinch) scales the selection; a plain wheel only where zooming is the point.
+      if (!wheelZoom && !e.ctrlKey && !e.metaKey) return;
       const { elements: list, selectedId: sel, onChange: change, fit: fitEl } = latest.current;
       const el = list.find((x) => x.id === sel) ?? (list.length === 1 ? list[0] : undefined);
       if (!el) return;
@@ -170,11 +189,33 @@ export function PlacementLayer({
 
   const commit = (el: PlacedElement, merge?: string) => onChange?.(fit(el), merge);
 
+  /** A second finger anywhere on the layer turns the current drag into a pinch. */
+  const startPinch = (el: PlacedElement) => {
+    const [a, b] = [...pointers.current.values()];
+    gesture.current = {
+      kind: "pinch",
+      start: el,
+      px: 0,
+      py: 0,
+      cx: 0,
+      cy: 0,
+      a0: Math.atan2(b.y - a.y, b.x - a.x),
+      d0: Math.hypot(b.x - a.x, b.y - a.y) || 1,
+      mx: (a.x + b.x) / 2,
+      my: (a.y + b.y) / 2,
+    };
+  };
+
   const begin = (e: ReactPointerEvent<HTMLElement>, el: PlacedElement, kind: Gesture["kind"]) => {
     if (readOnly || !root.current) return;
     e.stopPropagation();
-    onSelect?.(el.id);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (pointers.current.size === 2 && gesture.current) {
+      startPinch(gesture.current.last ?? gesture.current.start);
+      return;
+    }
+    onSelect?.(el.id);
     const r = root.current.getBoundingClientRect();
     const cx = r.left + el.x * W;
     const cy = r.top + el.y * H;
@@ -191,10 +232,24 @@ export function PlacementLayer({
   };
 
   const move = (e: ReactPointerEvent<HTMLElement>) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const g = gesture.current;
     if (!g) return;
     let next: PlacedElement;
-    if (g.kind === "move") {
+    if (g.kind === "pinch") {
+      const pts = [...pointers.current.values()];
+      if (pts.length < 2) return;
+      const [a, b] = pts;
+      const d = Math.hypot(b.x - a.x, b.y - a.y);
+      const angle = Math.atan2(b.y - a.y, b.x - a.x);
+      next = {
+        ...g.start,
+        scale: clampScale((g.start.scale * d) / g.d0),
+        rotation: snapRotation(g.start.rotation + ((angle - g.a0) * 180) / Math.PI),
+        x: g.start.x + ((a.x + b.x) / 2 - g.mx!) / W,
+        y: g.start.y + ((a.y + b.y) / 2 - g.my!) / H,
+      };
+    } else if (g.kind === "move") {
       if (Math.hypot(e.clientX - g.px, e.clientY - g.py) < 2 && !g.last) return;
       next = { ...g.start, x: g.start.x + (e.clientX - g.px) / W, y: g.start.y + (e.clientY - g.py) / H };
     } else {
@@ -211,12 +266,30 @@ export function PlacementLayer({
     frame.current = requestAnimationFrame(() => setLive(g.last ?? null));
   };
 
-  const end = () => {
+  /** Gestures commit to history once, when they end, so undo steps back a whole gesture. */
+  const end = (e: ReactPointerEvent<HTMLElement>) => {
+    pointers.current.delete(e.pointerId);
     const g = gesture.current;
+    if (!g) return;
+    if (g.kind === "pinch" && pointers.current.size === 1) {
+      // One finger left: keep dragging from here.
+      const [p] = [...pointers.current.values()];
+      gesture.current = { ...g, kind: "move", start: g.last ?? g.start, px: p.x, py: p.y, last: g.last };
+      return;
+    }
     gesture.current = null;
+    pointers.current.clear();
     cancelAnimationFrame(frame.current);
     setLive(null);
-    if (g?.last) onChange?.(g.last);
+    if (g.last) onChange?.(g.last);
+    else if (g.kind === "move") {
+      // Double tap brings an element to the front.
+      const now = Date.now();
+      if (lastTap.current?.id === g.start.id && now - lastTap.current.at < 320) {
+        onCommand?.("front", g.start.id);
+        lastTap.current = null;
+      } else lastTap.current = { id: g.start.id, at: now };
+    }
   };
 
   const act = (a: LayerAction, el: PlacedElement) => {
@@ -290,8 +363,21 @@ export function PlacementLayer({
       ref={root}
       role="group"
       aria-label={label}
-      className={`absolute inset-0 overflow-hidden select-none ${className}`}
-      onPointerDown={() => !readOnly && onSelect?.(null)}
+      className={`no-callout absolute inset-0 overflow-hidden ${className}`}
+      onPointerDown={(e) => {
+        if (readOnly) return;
+        if (gesture.current) {
+          // A second finger on empty canvas joins the pinch.
+          pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          e.currentTarget.setPointerCapture(e.pointerId);
+          if (pointers.current.size === 2) startPinch(gesture.current.last ?? gesture.current.start);
+          return;
+        }
+        onSelect?.(null);
+      }}
+      onPointerMove={move}
+      onPointerUp={end}
+      onPointerCancel={end}
     >
       {W > 0 &&
         sorted.map((committed) => {
@@ -308,9 +394,6 @@ export function PlacementLayer({
               aria-label={readOnly ? undefined : describeElement(el)}
               aria-pressed={readOnly ? undefined : el.id === selectedId}
               onPointerDown={(e) => begin(e, committed, "move")}
-              onPointerMove={move}
-              onPointerUp={end}
-              onPointerCancel={end}
               onFocus={() => !readOnly && onSelect?.(el.id)}
               onKeyDown={(e) => onKey(e, committed)}
               className={`absolute top-0 left-0 outline-none ${
@@ -318,6 +401,7 @@ export function PlacementLayer({
               }`}
               style={{
                 transform: `translate(${el.x * W}px, ${el.y * H}px) translate(-50%, -50%) rotate(${el.rotation}deg) scale(${el.scale})`,
+                willChange: live?.id === committed.id ? "transform" : undefined,
               }}
             >
               <ElementContent el={el} W={W} />
@@ -331,10 +415,8 @@ export function PlacementLayer({
           size={dims(selected, selected.scale)}
           W={W}
           H={H}
-          actions={actions}
+          actions={floatingBar ? actions : []}
           onHandleDown={(e) => committedSelected && begin(e, committedSelected, "transform")}
-          onHandleMove={move}
-          onHandleUp={end}
           onAction={(a) => committedSelected && act(a, committedSelected)}
         />
       )}
@@ -342,15 +424,13 @@ export function PlacementLayer({
   );
 }
 
-function Selection({ el, size, W, H, actions, onHandleDown, onHandleMove, onHandleUp, onAction }: {
+function Selection({ el, size, W, H, actions, onHandleDown, onAction }: {
   el: PlacedElement;
   size: { w: number; h: number };
   W: number;
   H: number;
   actions: LayerAction[];
   onHandleDown: (e: ReactPointerEvent<HTMLElement>) => void;
-  onHandleMove: (e: ReactPointerEvent<HTMLElement>) => void;
-  onHandleUp: () => void;
   onAction: (a: LayerAction) => void;
 }) {
   const rad = (el.rotation * Math.PI) / 180;
@@ -377,17 +457,16 @@ function Selection({ el, size, W, H, actions, onHandleDown, onHandleMove, onHand
           type="button"
           aria-label="Drag to resize and rotate"
           title="Drag to resize and rotate"
-          className="pointer-events-auto absolute -right-3.5 -bottom-3.5 flex h-7 w-7 cursor-nwse-resize touch-none items-center justify-center rounded-full border-2 border-primary bg-background"
+          className="pointer-events-auto absolute -right-5 -bottom-5 flex h-10 w-10 cursor-nwse-resize touch-none items-center justify-center rounded-full"
           onPointerDown={onHandleDown}
-          onPointerMove={onHandleMove}
-          onPointerUp={onHandleUp}
-          onPointerCancel={onHandleUp}
         >
-          <span className="h-2 w-2 rounded-full bg-primary" />
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-primary bg-background shadow-glow">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+          </span>
         </button>
       </div>
 
-      <div
+      {actions.length > 0 && <div
         role="toolbar"
         aria-label="Element actions"
         className="absolute z-[1001] flex flex-wrap justify-center gap-0.5 rounded-full border border-border bg-background/90 p-1 shadow-glow backdrop-blur-md"
@@ -411,7 +490,7 @@ function Selection({ el, size, W, H, actions, onHandleDown, onHandleMove, onHand
             </button>
           );
         })}
-      </div>
+      </div>}
     </>
   );
 }

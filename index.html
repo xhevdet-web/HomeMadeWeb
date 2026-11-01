@@ -2,8 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>HomeCreator — Your idea. Made real.</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#0d1224" />
     <meta
       name="description"
       content="Design your own bracelets, necklaces, mugs, apparel, cases, stickers and gifts. Handmade and delivered to your door."
@@ -15,6 +17,12 @@
       rel="stylesheet"
     />
     <link rel="preload" as="image" href="/images/hero.jpg" />
+    <script>
+      // Apply the saved theme before the first paint to avoid a flash.
+      try {
+        if (localStorage.getItem("homecreator-theme") === "light") document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

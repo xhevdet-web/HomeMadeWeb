@@ -1,33 +1,45 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { getStudio, resolveItem, type OrderItem, type StudioSlug } from "../data/mock";
+import { errorMessage } from "../api/client";
+import { createProduct, productFormData, type DesignFiles } from "../api/designs";
+import type { Category, Product, ProductInput } from "../api/models";
+import { useAuth } from "../auth/AuthContext";
+import { invalidate } from "../hooks/useApi";
 import { navigate } from "../router";
-import { INITIAL_DRAFTS, type AnyDraft, type DraftMap } from "./drafts";
+import { CAPTURE_FAILED, CaptureError } from "./capture";
+import { EMPTY_DRAFTS, persistable, type AnyDraft, type DraftKind, type DraftOf } from "./drafts";
 import { useToast } from "./Toasts";
 import { applyUpdate, useHistory } from "./useHistory";
 
-export interface DesignInfo {
-  meta: string;
-  price: number;
-  /** Quantity to pre-fill at checkout (mugs). */
-  quantity?: number;
-  materials?: string[];
+const STORAGE_KEY = "hc.drafts.v1";
+
+interface StoredDrafts {
+  [categoryId: string]: { draft: AnyDraft; updatedAt: number };
 }
 
-export interface SavedDesign extends DesignInfo {
-  id: string;
-  studio: StudioSlug;
-  name: string;
-  quantity: number;
-  draft: AnyDraft;
+function readStored(): StoredDrafts {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as StoredDrafts) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+interface SavedDesign {
+  signature: string;
+  product: Product;
 }
 
 interface StudioContextValue {
-  drafts: DraftMap;
-  setDraft: <K extends StudioSlug>(slug: K, draft: DraftMap[K]) => void;
-  /** Load a draft into a studio; `savedId` makes the next save update that saved design. */
-  load: <K extends StudioSlug>(slug: K, draft: DraftMap[K], savedId?: string) => void;
-  saved: SavedDesign[];
-  save: (slug: StudioSlug, info: DesignInfo) => string;
+  drafts: StoredDrafts;
+  /** The category's draft when it is of this kind, else a fresh one. */
+  getDraft: <K extends DraftKind>(categoryId: string, kind: K) => DraftOf<K>;
+  setDraft: (categoryId: string, draft: AnyDraft) => void;
+  lastSaved: Record<string, SavedDesign>;
+  markSaved: (categoryId: string, saved: SavedDesign) => void;
+  /** After an order: the studio that saved this product starts fresh (keeping its base choice). */
+  clearOrdered: (productId: string) => void;
 }
 
 const StudioContext = createContext<StudioContextValue | null>(null);
@@ -38,93 +50,139 @@ export function useStudio() {
   return ctx;
 }
 
-/** Drafts per studio and the in-memory "My Designs" store. Lives for the session only. */
+/**
+ * Studio drafts per category. Kept in memory and mirrored to localStorage (without uploaded
+ * files, which can't be stored), so a reload doesn't wipe a design.
+ */
 export function StudioProvider({ children }: { children: ReactNode }) {
-  const [drafts, setDrafts] = useState<DraftMap>(INITIAL_DRAFTS);
-  const [saved, setSaved] = useState<SavedDesign[]>([]);
-  const savedIds = useRef<Partial<Record<StudioSlug, string>>>({});
-  const draftsRef = useRef(drafts);
-  const savedRef = useRef(saved);
+  const [drafts, setDrafts] = useState<StoredDrafts>(readStored);
+  const [lastSaved, setLastSaved] = useState<Record<string, SavedDesign>>({});
+  const { user } = useAuth();
 
-  const setDraft = useCallback(<K extends StudioSlug>(slug: K, draft: DraftMap[K]) => {
-    setDrafts((d) => {
-      if (d[slug] === draft) return d;
-      const next = { ...d, [slug]: draft };
-      draftsRef.current = next;
-      return next;
-    });
-  }, []);
+  // A saved design belongs to the account that saved it.
+  useEffect(() => setLastSaved({}), [user?.id]);
 
-  const load = useCallback(
-    <K extends StudioSlug>(slug: K, draft: DraftMap[K], savedId?: string) => {
-      savedIds.current[slug] = savedId;
-      setDraft(slug, draft);
+  useEffect(() => {
+    try {
+      const stored: StoredDrafts = {};
+      for (const [id, entry] of Object.entries(drafts)) stored[id] = { ...entry, draft: persistable(entry.draft) };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    } catch {
+      // Storage full or blocked: drafts still live for this visit.
+    }
+  }, [drafts]);
+
+  const getDraft = useCallback(
+    <K extends DraftKind>(categoryId: string, kind: K): DraftOf<K> => {
+      const existing = drafts[categoryId]?.draft;
+      return existing?.kind === kind ? (existing as DraftOf<K>) : EMPTY_DRAFTS[kind]();
     },
-    [setDraft],
+    [drafts],
   );
 
-  const save = useCallback((slug: StudioSlug, info: DesignInfo) => {
-    const draft = draftsRef.current[slug];
-    const existing = savedRef.current.find((s) => s.id === savedIds.current[slug]);
-    const base = `Custom ${getStudio(slug)?.name ?? "design"}`;
-    const taken = savedRef.current.filter((s) => s.name.startsWith(base)).length;
-    const entry: SavedDesign = {
-      id: existing?.id ?? `my-${slug}-${Date.now().toString(36)}`,
-      studio: slug,
-      name: existing?.name ?? (taken ? `${base} ${taken + 1}` : base),
-      ...info,
-      quantity: info.quantity ?? 1,
-      draft,
-    };
-    const next = existing ? savedRef.current.map((s) => (s.id === entry.id ? entry : s)) : [entry, ...savedRef.current];
-    savedRef.current = next;
-    setSaved(next);
-    savedIds.current[slug] = entry.id;
-    return entry.id;
+  const setDraft = useCallback((categoryId: string, draft: AnyDraft) => {
+    setDrafts((d) => (d[categoryId]?.draft === draft ? d : { ...d, [categoryId]: { draft, updatedAt: Date.now() } }));
   }, []);
 
-  return <StudioContext.Provider value={{ drafts, setDraft, load, saved, save }}>{children}</StudioContext.Provider>;
+  const markSaved = useCallback((categoryId: string, saved: SavedDesign) => setLastSaved((s) => ({ ...s, [categoryId]: saved })), []);
+
+  const clearOrdered = useCallback(
+    (productId: string) => {
+      const categoryId = Object.keys(lastSaved).find((id) => lastSaved[id].product.id === productId);
+      const current = categoryId ? drafts[categoryId]?.draft : undefined;
+      if (!categoryId || !current) return;
+      setDraft(categoryId, afterOrder(current));
+      setLastSaved(({ [categoryId]: _ordered, ...rest }) => rest);
+    },
+    [drafts, lastSaved, setDraft],
+  );
+
+  return <StudioContext.Provider value={{ drafts, getDraft, setDraft, lastSaved, markSaved, clearOrdered }}>{children}</StudioContext.Provider>;
 }
 
-/** Undo/redo history for one studio, kept in sync with its draft in context. */
-export function useStudioHistory<K extends StudioSlug>(slug: K) {
-  const { drafts, setDraft } = useStudio();
-  const history = useHistory<DraftMap[K], (d: DraftMap[K]) => DraftMap[K]>(applyUpdate, () => drafts[slug]);
-  useEffect(() => setDraft(slug, history.state), [slug, history.state, setDraft]);
+/** Like the app: a mug starts empty, a case keeps its phone, a set keeps its shape and size, a gift its box, jewelry its size. */
+function afterOrder(d: AnyDraft): AnyDraft {
+  switch (d.kind) {
+    case "JEWELRY":
+      return { ...d, pieces: [] };
+    case "GIFT":
+      return { ...d, elements: [] };
+    case "CASE":
+      return { ...d, elements: [] };
+    case "STICKER":
+      return { ...EMPTY_DRAFTS.STICKER(), sizeId: d.sizeId };
+    case "MUG":
+      return EMPTY_DRAFTS.MUG();
+    case "APPAREL":
+      return EMPTY_DRAFTS.APPAREL();
+  }
+}
+
+/** Undo/redo history for one studio, kept in sync with its draft. */
+export function useStudioHistory<K extends DraftKind>(categoryId: string, kind: K) {
+  const { getDraft, setDraft } = useStudio();
+  const history = useHistory<DraftOf<K>, (d: DraftOf<K>) => DraftOf<K>>(applyUpdate, () => getDraft(categoryId, kind));
+  useEffect(() => setDraft(categoryId, history.state), [categoryId, history.state, setDraft]);
   return history;
 }
 
-/** "Save design" and "Continue to order" for a studio. */
-export function useDesignActions(slug: StudioSlug, info: DesignInfo) {
-  const { save } = useStudio();
+export interface BuiltDesign {
+  input: ProductInput;
+  files: DesignFiles;
+}
+
+/**
+ * "Save design" and "Continue to order". Signed out, the login modal opens over the studio and
+ * the action continues after signing in. An unchanged design reuses the last saved product.
+ */
+export function useSaveDesign(category: Category, build: () => Promise<BuiltDesign>, options: { quantity?: number } = {}) {
+  const { requireAuth } = useAuth();
+  const { lastSaved, markSaved } = useStudio();
   const toast = useToast();
-  return {
-    save: () => {
-      save(slug, info);
+  const [saving, setSaving] = useState(false);
+  const busy = useRef(false);
+
+  const persist = async () => {
+    const { input, files } = await build();
+    const signature = JSON.stringify({ input, uploads: files.customDesigns?.map((f) => f.size) ?? [] });
+    const previous = lastSaved[category.id];
+    if (previous?.signature === signature) return previous.product;
+    const product = await createProduct(productFormData(input, files));
+    markSaved(category.id, { signature, product });
+    invalidate("my-designs");
+    return product;
+  };
+
+  const run = (then: "stay" | "order"): (() => Promise<void>) => async () => {
+    if (busy.current) return;
+    busy.current = true;
+    setSaving(true);
+    try {
+      const product = await persist();
       toast("Saved to My Designs.");
-    },
-    order: () => {
-      const id = save(slug, info);
-      navigate(`#/checkout?design=${id}&qty=${info.quantity ?? 1}`);
-    },
+      if (then === "order") navigate(`#/checkout?design=${product.id}${options.quantity ? `&qty=${options.quantity}` : ""}`);
+    } catch (e) {
+      // No preview, no save: nothing was sent and the studio stays as it is.
+      if (e instanceof CaptureError) toast(CAPTURE_FAILED, { action: { label: "Try again", onClick: () => void run(then)() } });
+      else toast(errorMessage(e));
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
   };
-}
 
-/** The item behind `?design=`: a design saved this session, or one of the sample designs. */
-export function useOrderItem(query: URLSearchParams): OrderItem {
-  const { saved } = useStudio();
-  const design = saved.find((s) => s.id === query.get("design"));
-  return design ? savedItem(design) : resolveItem(query);
-}
-
-export function savedItem(d: SavedDesign): OrderItem {
   return {
-    name: d.name,
-    meta: d.meta,
-    image: getStudio(d.studio)?.image ?? "",
-    unitPrice: d.price,
-    editHref: `#/studios/${d.studio}/design?load=${d.id}`,
-    ref: `design=${d.id}`,
-    savedId: d.id,
+    saving,
+    save: () => requireAuth(run("stay"), "Sign in to save your design. It stays exactly as it is."),
+    order: () => requireAuth(run("order"), "Sign in to order your design. It stays exactly as it is."),
   };
+}
+
+/** The upload behind a blob URL, for the multipart request. */
+export async function uploadBlob(src: string) {
+  try {
+    return await (await fetch(src)).blob();
+  } catch {
+    throw new Error("One of your images is no longer available. Re-upload it and try again.");
+  }
 }

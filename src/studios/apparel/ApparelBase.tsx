@@ -1,105 +1,100 @@
-import { money } from "../../data/mock";
-import { APPAREL_SIZES, GARMENTS, GARMENT_COLORS } from "../../data/studioCatalog";
 import { SectionLabel } from "../../components/Page";
+import { studioHref } from "../../data/homeCategories";
+import { money } from "../../lib/format";
 import { useStudio } from "../../studio/StudioContext";
 import { ContinueButton, StudioShell } from "../../studio/StudioShell";
-import { GarmentShape } from "./silhouettes";
-import { colorOf } from "./logic";
+import type { StudioProps } from "../data";
+import { baseOf, sizesOf } from "./logic";
+import { corsImage } from "../../studio/capture";
 
-export function ApparelBase() {
-  const { drafts, setDraft } = useStudio();
-  const d = drafts.apparel;
-  const color = colorOf(d.colorId);
-  const ready = !!(d.garmentId && d.colorId && d.sizeId);
+/** Step 1: the piece (one product per colour) and its size, with stock per size. */
+export function ApparelBase({ category, data }: StudioProps) {
+  const { getDraft, setDraft } = useStudio();
+  const d = getDraft(category.id, "APPAREL");
+  const base = baseOf(d, data);
+  const sizes = sizesOf(base);
+  const sizeOk = sizes.length === 0 || sizes.some((s) => s.size === d.size && s.stock > 0);
+  const ready = !!base && sizeOk;
 
   return (
     <StudioShell
-      slug="apparel"
+      category={category}
       step={0}
+      others
       title={
         <>
           Start from a piece <em className="font-normal text-primary">you love.</em>
         </>
       }
-      intro="Pick your piece, colour and size. Then add logos, graphics, text or your own artwork."
+      intro="Pick your piece and size. Then add logos, graphics, text or your own artwork."
     >
-      <section className="mt-10" aria-label="Piece">
-        <SectionLabel as="h2">Piece</SectionLabel>
-        <div className="grid gap-4 sm:grid-cols-3" role="radiogroup" aria-label="Piece">
-          {GARMENTS.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              role="radio"
-              aria-checked={d.garmentId === g.id}
-              onClick={() => setDraft("apparel", { ...d, garmentId: g.id })}
-              className={`rounded-[2rem] border p-5 text-left transition-colors ${
-                d.garmentId === g.id ? "border-primary bg-primary/10" : "border-border bg-card hover:border-foreground/30"
-              }`}
-            >
-              <svg viewBox="0 0 200 220" className="mx-auto h-40 w-auto" aria-hidden="true">
-                <GarmentShape garment={g.id} color={color.color} dark={color.dark} side="front" />
-              </svg>
-              <span className="mt-4 block font-display text-2xl font-semibold">{g.name}</span>
-              <span className="mt-1 block text-primary">{money(g.price)}</span>
-            </button>
-          ))}
-        </div>
-      </section>
+      {data.products.length === 0 ? (
+        <p className="mt-10 rounded-[2rem] border border-border bg-card px-6 py-12 text-center text-muted-foreground">No pieces to design on yet. Please check back soon.</p>
+      ) : (
+        <>
+          <section className="mt-10" aria-label="Piece">
+            <SectionLabel as="h2">Piece</SectionLabel>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Piece">
+              {data.products.map((p) => {
+                const soldOut = sizesOf(p).length ? sizesOf(p).every((s) => s.stock <= 0) : (p.stock ?? 0) <= 0;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={d.baseProductId === p.id}
+                    disabled={soldOut}
+                    onClick={() =>
+                      setDraft(category.id, { ...d, baseProductId: p.id, size: sizesOf(p).some((s) => s.size === d.size && s.stock > 0) ? d.size : null })
+                    }
+                    className={`flex flex-col overflow-hidden rounded-[2rem] border text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                      d.baseProductId === p.id ? "border-primary bg-primary/10" : "border-border bg-card hover:border-foreground/30"
+                    }`}
+                  >
+                    {p.imageUrl ? <img {...corsImage} src={p.imageUrl} alt="" loading="lazy" className="aspect-square w-full bg-secondary object-contain" /> : <span className="aspect-square w-full bg-secondary" />}
+                    <span className="p-5">
+                      <span className="flex items-center gap-2 font-display text-xl font-semibold">
+                        {p.colorHex && <span className="h-4 w-4 rounded-full border border-border" style={{ background: p.colorHex }} />}
+                        {p.name}
+                      </span>
+                      <span className="mt-1 block text-primary">{soldOut ? "Sold out" : money(p.price)}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <section className="rounded-[2rem] border border-border bg-card p-6 sm:p-8" aria-label="Colour">
-          <SectionLabel as="h2">Colour · {d.colorId ? color.name : "choose one"}</SectionLabel>
-          <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Colour">
-            {GARMENT_COLORS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                role="radio"
-                aria-checked={d.colorId === c.id}
-                aria-label={c.name}
-                title={c.name}
-                onClick={() => setDraft("apparel", { ...d, colorId: c.id })}
-                className={`h-12 w-12 rounded-full border border-border ${d.colorId === c.id ? "ring-2 ring-primary ring-offset-4 ring-offset-card" : ""}`}
-                style={{ background: c.color }}
-              />
-            ))}
+          {base && sizes.length > 0 && (
+            <section className="mt-6 rounded-[2rem] border border-border bg-card p-6 sm:p-8" aria-label="Size">
+              <SectionLabel as="h2">Size</SectionLabel>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Size">
+                {sizes.map((s) => (
+                  <button
+                    key={s.size}
+                    type="button"
+                    role="radio"
+                    aria-checked={d.size === s.size}
+                    disabled={s.stock <= 0}
+                    onClick={() => setDraft(category.id, { ...d, size: s.size })}
+                    className={`min-w-14 rounded-full border px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:line-through disabled:opacity-40 ${
+                      d.size === s.size ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
+                    }`}
+                  >
+                    {s.size}
+                    {s.stock <= 0 ? <span className="sr-only"> (sold out)</span> : s.stock <= 5 ? <span className="ml-1 text-[10px] font-normal">· {s.stock} left</span> : null}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-4 text-sm text-muted-foreground">Your size is only reserved when you place the order.</p>
+            </section>
+          )}
+
+          <div className="mt-8">
+            <ContinueButton ready={ready} href={studioHref(category, "design")} label={`Continue to ${category.name} Studio`} blockedLabel={base ? "Choose a size to continue" : "Choose a piece to continue"} />
           </div>
-        </section>
-
-        <section className="rounded-[2rem] border border-border bg-card p-6 sm:p-8" aria-label="Size">
-          <SectionLabel as="h2">Size</SectionLabel>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Size">
-            {APPAREL_SIZES.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                role="radio"
-                aria-checked={d.sizeId === s.id}
-                disabled={s.soldOut}
-                onClick={() => setDraft("apparel", { ...d, sizeId: s.id })}
-                className={`min-w-14 rounded-full border px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:line-through disabled:opacity-40 ${
-                  d.sizeId === s.id ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-secondary"
-                }`}
-              >
-                {s.id}
-                {s.soldOut && <span className="sr-only"> (sold out)</span>}
-              </button>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-muted-foreground">XL is sold out right now.</p>
-          <p className="mt-4 text-sm text-muted-foreground">Your size is only reserved when you place the order.</p>
-        </section>
-      </div>
-
-      <div className="mt-8">
-        <ContinueButton
-          ready={ready}
-          href="#/studios/apparel/design"
-          label="Continue to Apparel Studio"
-          blockedLabel="Choose a piece, colour and size"
-        />
-      </div>
+        </>
+      )}
     </StudioShell>
   );
 }

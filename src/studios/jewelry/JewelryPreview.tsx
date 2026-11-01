@@ -1,67 +1,64 @@
-import { money } from "../../data/mock";
-import { JEWELRY } from "../../data/studioCatalog";
-import { useDesignActions, useStudio } from "../../studio/StudioContext";
+import { useMemo, type ReactNode } from "react";
+import { cm, money } from "../../lib/format";
+import { useSaveDesign, useStudio } from "../../studio/StudioContext";
 import { DetailRows, NothingToPreview, PreviewActions, PreviewLayout, StudioShell } from "../../studio/StudioShell";
-import { JewelryCanvas } from "./JewelryCanvas";
-import { TOLERANCE_MM, formatCm, groupPieces, isComplete, jewelryInfo, jewelryPrice, sizeLabel, usedMm, type JewelrySlug } from "./logic";
+import { componentById, stockProblem, type StudioProps } from "../data";
+import { JewelryCanvas, captureJewelry } from "./JewelryCanvas";
+import { cordOf, groupPieces, isComplete, jewelryInput, missingForMinimum, nounOf, orderProblem, piecesOf, priceOf, sizeLabel, usedMm } from "./logic";
 
-export function JewelryPreview({ slug }: { slug: JewelrySlug }) {
-  const config = JEWELRY[slug];
-  const draft = useStudio().drafts[slug];
-  const actions = useDesignActions(slug, jewelryInfo(draft));
-  const groups = groupPieces(draft.pieces);
-  const price = jewelryPrice(draft.pieces);
-  const complete = isComplete(draft);
+export function JewelryPreview({ category, data }: StudioProps) {
+  const { getDraft, lastSaved } = useStudio();
+  const draft = getDraft(category.id, "JEWELRY");
+  const byId = useMemo(() => componentById(data), [data]);
+  const noun = nounOf(category);
+  const pieces = piecesOf(draft.pieces, byId);
+  const saver = useSaveDesign(category, async () => ({
+    input: jewelryInput(category, draft),
+    files: { preview: await captureJewelry(cordOf(category), pieces, draft.lengthMm) },
+  }));
+  const complete = isComplete(draft, byId);
+  // Once this exact design is saved, its server price counts (like the app's saved?.price).
+  const saved = lastSaved[category.id];
+  const price = saved && saved.signature === JSON.stringify({ input: jewelryInput(category, draft), uploads: [] }) ? saved.product.price : priceOf(draft.pieces, byId);
   const title = (
     <>
-      Your <em className="font-normal text-primary">{config.noun}.</em>
+      Your <em className="font-normal text-primary">{noun}.</em>
     </>
   );
 
-  if (draft.pieces.length === 0) {
+  if (!pieces.length) {
     return (
-      <StudioShell slug={slug} step={2} title={title}>
-        <NothingToPreview slug={slug} message="Add at least one bead to your design." />
+      <StudioShell category={category} step={2} title={title}>
+        <NothingToPreview category={category} message="Add at least one item to your design." />
       </StudioShell>
     );
   }
 
-  const orderBlocked = !complete
-    ? `Your ${config.noun} needs to reach ${formatCm(draft.lengthMm)} (±${TOLERANCE_MM} mm) before you can order. You can still save it.`
-    : price < config.minPrice
-      ? `Orders start at ${money(config.minPrice)}.`
-      : null;
-
   return (
-    <StudioShell slug={slug} step={2} title={title} intro="Check every bead, then save it or continue to order.">
+    <StudioShell category={category} step={2} title={title} intro="Check every bead, then save it or continue to order.">
       <PreviewLayout
-        visual={
-          <JewelryCanvas
-            kind={config.cord}
-            pieces={draft.pieces}
-            lengthMm={draft.lengthMm}
-            label={`Your ${config.noun} with ${draft.pieces.length} components`}
-            className="w-full max-w-[600px]"
-          />
-        }
+        visual={<JewelryCanvas kind={cordOf(category)} pieces={pieces} lengthMm={draft.lengthMm} label={`Your ${noun} with ${pieces.length} components`} className="w-full max-w-[600px]" />}
       >
         <DetailRows
           rows={[
-            ["Size", sizeLabel(slug, draft)],
-            ["Length", formatCm(draft.lengthMm)],
-            ["Used", <span className={complete ? "text-success" : ""}>{`${usedMm(draft.pieces)} mm${complete ? " · Complete" : ""}`}</span>],
+            ["Size", sizeLabel(category, draft)],
+            ["Length", cm(draft.lengthMm)],
+            ["Used", <span className={complete ? "text-success" : ""}>{`${usedMm(draft.pieces, byId)} mm${complete ? " · Complete" : ""}`}</span>],
+            ...(complete ? [["Fit", <span className="text-success">{`Your ${noun} fits perfectly`}</span>] as [string, ReactNode]] : []),
           ]}
         />
         <section>
           <h2 className="font-display text-xl font-semibold">Beads &amp; price details</h2>
           <ul className="mt-4 space-y-2.5 text-sm">
-            {groups.map((g) => (
-              <li key={g.piece.id} className="flex items-center gap-3">
-                <span className="h-3.5 w-3.5 rounded-full border border-border" style={{ background: g.piece.color }} />
+            {groupPieces(draft.pieces, byId).map((g) => (
+              <li key={g.component.id} className="flex items-center gap-3">
                 <span className="flex-1 text-muted-foreground">
-                  {g.piece.name} × {g.count}
+                  {g.component.name} × {g.count}
+                  {g.component.trackStock && g.component.stock < g.count && (
+                    <span className="ml-2 rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-semibold text-destructive">{g.component.stock <= 0 ? "Sold out" : `${g.component.stock} in stock`}</span>
+                  )}
                 </span>
-                <span>{money(g.piece.price * g.count)}</span>
+                <span>{money(g.component.price * g.count)}</span>
               </li>
             ))}
           </ul>
@@ -69,8 +66,9 @@ export function JewelryPreview({ slug }: { slug: JewelrySlug }) {
             <span className="font-semibold">Total</span>
             <span className="font-display text-3xl font-semibold text-primary">{money(price)}</span>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">The final price is confirmed when you save.</p>
         </section>
-        <PreviewActions slug={slug} onSave={actions.save} onOrder={actions.order} orderBlocked={orderBlocked} />
+        <PreviewActions category={category} onSave={saver.save} onOrder={saver.order} saving={saver.saving} orderBlocked={stockProblem(draft.pieces, byId) ?? orderProblem(category, price)} orderHint={stockProblem(draft.pieces, byId) ? null : missingForMinimum(price)} />
       </PreviewLayout>
     </StudioShell>
   );

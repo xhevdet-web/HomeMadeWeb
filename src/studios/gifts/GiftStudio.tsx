@@ -1,59 +1,92 @@
-import { useState } from "react";
-import { money } from "../../data/mock";
-import { GIFT_ITEMS, getGiftItem, stockState, type GiftGroup, type GiftItem } from "../../data/studioCatalog";
+import { useMemo, useRef, useState } from "react";
+import type { Component } from "../../api/models";
+import { Icon } from "../../components/Icon";
+import { studioHref } from "../../data/homeCategories";
+import { money } from "../../lib/format";
 import { navigate } from "../../router";
-import { Artwork } from "../../studio/artworks";
+import { BottomSheet } from "../../studio/BottomSheet";
+import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
+import { imageSize, corsImage } from "../../studio/capture";
 import { elementsReducer, imageElement, type ElementsAction, type PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
-import { useDesignActions, useStudioHistory } from "../../studio/StudioContext";
-import { BaseChip, CanvasToolbar, PickerCard, Stage, StudioLayout, StudioShell, Tabs, ToolSection } from "../../studio/StudioShell";
-import { StudioSummaryBar } from "../../studio/StudioSummaryBar";
+import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
+import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { Tabs } from "../../studio/StudioShell";
 import { TextTool } from "../../studio/TextTool";
-import { useToast } from "../../studio/Toasts";
-import { GiftBox } from "./GiftBox";
-import { boxGeometry, giftGroups, giftInfo, giftPrice, itemElements, packagingLabel, textElements } from "./logic";
+import { useUndoShortcuts } from "../../studio/useHistory";
+import { useDndHint, useIsPhone, useNotice } from "../../studio/ui";
+import { CoachMark } from "../jewelry/JewelryParts";
+import { componentById, stockState, type StudioProps } from "../data";
+import { DraftBox } from "./GiftBox";
+import { GIFT_GROUPS, boxGeometry, colorOf, giftGroups, captureGift, giftInput, giftPrice, groupOf, imageEls, packagingOf } from "./logic";
 
-type Tab = GiftGroup | "Text";
-const TABS: Tab[] = ["Items", "Decorations", "Filler", "Bags & boxes", "Text"];
-const jitter = (n: number) => (Math.random() - 0.5) * n;
-
-export function GiftStudio() {
-  const history = useStudioHistory("gifts");
+export function GiftStudio({ category, data }: StudioProps) {
+  const history = useStudioHistory(category.id, "GIFT");
   const { state: d, dispatch: update } = history;
-  const toast = useToast();
+  useUndoShortcuts(history.undo, history.redo);
+  const [notice, notify] = useNotice();
+  const [coach, dismissCoach] = useDndHint();
+  const phone = useIsPhone();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("Items");
-  const actions = useDesignActions("gifts", giftInfo(d));
+  const [tab, setTab] = useState<string>("ALL");
+  const [textOpen, setTextOpen] = useState(false);
+  const stageRef = useRef<HTMLElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const byId = useMemo(() => componentById(data), [data]);
+  const saver = useSaveDesign(category, async () => ({ input: giftInput(category, d, byId), files: { preview: await captureGift(d, data) } }));
 
-  const g = boxGeometry(d.shape);
-  const items = itemElements(d);
-  const texts = textElements(d);
+  const packaging = packagingOf(d, data);
+  const color = colorOf(d, packaging);
+  const g = boxGeometry(packaging?.shape);
+  const items = imageEls(d);
+  const textEls = d.elements.filter((e) => e.kind === "text");
   const selected = d.elements.find((e) => e.id === selectedId) ?? null;
   const used = (ref: string) => items.filter((e) => e.ref === ref).length;
+  const groups = GIFT_GROUPS.filter((grp) => data.components.some((c) => groupOf(c.type).key === grp.key));
+  const shown = data.components.filter((c) => tab === "ALL" || groupOf(c.type).key === tab);
 
   const apply = (a: ElementsAction, merge?: string) => update((x) => ({ ...x, elements: elementsReducer(x.elements, a) }), merge);
 
-  const add = (item: GiftItem) => {
-    const stock = stockState(item.stock, used(item.id));
-    if (stock.disabled) return toast(`${item.name}: ${stock.label}.`);
+  /** Tapped items appear near the middle of the box, each slightly offset (the app's dropPosition). */
+  const nextSpot = () => {
+    const step = items.length % 9;
+    const cx = (g.inner.x0 + g.inner.x1) / 2;
+    const cy = (g.inner.y0 + g.inner.y1) / 2;
+    return { x: cx + ((step % 3) - 1) * 0.12, y: cy + (Math.floor(step / 3) - 1) * 0.1 };
+  };
+
+  const add = async (c: Component, at?: { x: number; y: number }) => {
+    const stock = stockState(c, used(c.id));
+    if (stock.disabled) return notify(stock.label === "Sold out" ? `${c.name} is sold out.` : `All available ${c.name} are already on your design.`, "warn");
+    if (!c.imageUrl) return notify(`${c.name} has no picture yet.`, "warn");
+    const size = await imageSize(c.imageUrl);
     const el = imageElement({
-      art: item.art,
-      ref: item.id,
-      aspect: 1,
-      scale: (item.size * 100) / g.w,
-      x: 0.5 + jitter(0.3),
-      y: 0.6 + jitter(0.2),
-      rotation: Math.round(jitter(16)),
+      src: c.imageUrl,
+      ref: c.id,
+      name: c.name,
+      aspect: size.height / size.width,
+      // New pieces start at their group's base size (items 0.2, decorations 0.14, filler 0.28, containers 0.6).
+      scale: groupOf(c.type).base * (100 / g.w),
+      ...(at ?? nextSpot()),
     });
     apply({ type: "add", el });
     setSelectedId(el.id);
-    toast(`${item.name} added to your gift.`);
+    notify(`${c.name} added to your gift.`);
+    if (coach) dismissCoach();
   };
+
+  const chip = useCanvasDrop(stageRef, boxRef, "Release to add", (fx, fy, payload) => {
+    const c = byId.get(payload.id);
+    if (!c) return false;
+    // Dropped exactly where the finger is; the layer then keeps it inside the box.
+    void add(c, { x: fx, y: fy });
+    return true;
+  });
 
   const command = (cmd: LayerCommand, id: string) => {
     if (cmd === "duplicate") {
-      const item = getGiftItem(d.elements.find((e) => e.id === id)?.ref);
-      if (item && stockState(item.stock, used(item.id)).disabled) return toast(`All ${item.stock} ${item.name.toLowerCase()} in use.`);
+      const c = byId.get(d.elements.find((e) => e.id === id)?.ref ?? "");
+      if (c && stockState(c, used(c.id)).disabled) return notify(`All available ${c.name} are already on your design.`, "warn");
     }
     if (cmd === "reset") return;
     apply({ type: cmd, id });
@@ -63,16 +96,37 @@ export function GiftStudio() {
   const clear = () => {
     apply({ type: "clear" });
     setSelectedId(null);
-    toast("Canvas cleared. Undo to bring it back.");
+    notify("Canvas cleared. Tap Undo to bring it back.");
   };
 
-  const groups = giftGroups(d.elements);
   const empty = items.length === 0;
+  const unavailable = !packaging ? "Choose how your gift should arrive first." : null;
+  const textTool = (
+    <TextTool
+      texts={textEls}
+      selected={selected}
+      onAdd={(el) => {
+        apply({ type: "add", el: { ...el, y: (g.inner.y0 + g.inner.y1) / 2 - 0.1 } });
+        setSelectedId(el.id);
+        notify("Message added to your gift.");
+      }}
+      onUpdate={(el, merge) => apply({ type: "update", el }, merge)}
+      onDone={() => {
+        setSelectedId(null);
+        setTextOpen(false);
+      }}
+    />
+  );
 
   const stage = (
-    <Stage label={`Gift box with ${items.length} items and ${texts.length} messages`} toolbar={<CanvasToolbar {...history} onClear={clear} canClear={d.elements.length > 0} />}>
-      <div className={`w-full ${d.shape === "rect" ? "max-w-[620px]" : "max-w-[460px]"}`}>
-        <GiftBox draft={d}>
+    <StageFrame
+      ref={stageRef}
+      label={`${category.name} with ${items.length} pieces${textEls.length ? ` and ${textEls.length} text` : ""}`}
+      chip={chip}
+      overlay={<StageControls {...history} onClear={clear} canClear={d.elements.length > 0} className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2" />}
+    >
+      <div ref={boxRef} className="relative" style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${g.w / g.h}))` }}>
+        <DraftBox draft={d} data={data}>
           <PlacementLayer
             elements={d.elements}
             label="Gift box contents"
@@ -82,93 +136,110 @@ export function GiftStudio() {
             onCommand={command}
             bounds={g.inner}
           />
-        </GiftBox>
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Drag to move · corner handle to resize and rotate · everything stays inside the box
-        </p>
+        </DraftBox>
       </div>
-    </Stage>
+    </StageFrame>
   );
 
-  const tools = (
-    <>
-      <BaseChip label="Packaging" value={packagingLabel(d)} href="#/studios/gifts" />
+  const toolbar = selected ? (
+    <SelectionToolbar
+      title={selected.kind === "text" ? "Text" : (selected.name ?? "Item")}
+      image={selected.kind === "text" ? null : selected.src}
+      onDone={() => setSelectedId(null)}
+      actions={[
+        ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
+        ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { duplicate: selected.kind === "image" }),
+      ]}
+    />
+  ) : null;
 
-      <ToolSection title="Fill your box">
-        <Tabs label="Item groups" value={tab} onChange={setTab} tabs={TABS.map((t) => ({ id: t, label: t }))} />
-        <div className="mt-4">
-          {tab === "Text" ? (
-            <TextTool
-              texts={texts}
-              selected={selected}
-              onAdd={(el) => {
-                apply({ type: "add", el });
-                setSelectedId(el.id);
-                toast("Message added to your gift.");
-              }}
-              onUpdate={(el, merge) => apply({ type: "update", el }, merge)}
-              onDone={() => setSelectedId(null)}
-            />
-          ) : (
-            <ul className="grid grid-cols-3 gap-2">
-              {GIFT_ITEMS.filter((i) => i.group === tab).map((item) => {
-                const stock = stockState(item.stock, used(item.id));
-                return (
-                  <li key={item.id}>
-                    <PickerCard title={item.name} price={money(item.price)} badge={stock.label} disabled={stock.disabled} onClick={() => add(item)}>
-                      <Artwork id={item.art} className="h-full w-full" />
-                    </PickerCard>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </ToolSection>
+  const picker = (
+    <div className="flex flex-col gap-4">
+      {coach && <CoachMark onDismiss={dismissCoach} text="Tap to add · Hold and drag into the box" />}
+      <Tabs
+        label="Item groups"
+        value={tab}
+        onChange={(t) => (t === "TEXT" && phone ? setTextOpen(true) : setTab(t))}
+        tabs={[{ id: "ALL", label: "All" }, ...groups.map((grp) => ({ id: grp.key as string, label: grp.label })), { id: "TEXT", label: "Text" }]}
+      />
+      {tab === "TEXT" && !phone ? (
+        textTool
+      ) : shown.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">Nothing in this group yet.</p>
+      ) : (
+        <TileRow>
+          {shown.map((c) => {
+            const stock = stockState(c, used(c.id));
+            return (
+              <TileItem key={c.id}>
+                <DragTile id={c.id} name={c.name} image={c.imageUrl} price={money(c.price)} badge={stock.label} disabled={stock.disabled} onTap={() => void add(c)} />
+              </TileItem>
+            );
+          })}
+        </TileRow>
+      )}
 
-      <ToolSection title="In your gift" aside={`${items.length} items`}>
-        {groups.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Your box is empty. Tap an item to put it inside.</p>
-        ) : (
-          <ul className="divide-y divide-border rounded-2xl border border-border">
-            {groups.map((grp) => (
-              <li key={grp.key}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(grp.ids[0])}
-                  aria-pressed={grp.ids.includes(selectedId ?? "")}
-                  className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-secondary/50 ${
-                    grp.ids.includes(selectedId ?? "") ? "bg-secondary/60" : ""
-                  }`}
-                >
-                  <span className="flex-1 truncate">{grp.label}</span>
-                  <span className="text-xs text-primary">{grp.price ? money(grp.price * grp.count) : "Free"}</span>
-                  <span className="w-8 text-right font-display font-semibold text-muted-foreground">×{grp.count}</span>
-                </button>
-              </li>
-            ))}
+      {d.elements.length > 0 && (
+        <section aria-label="In your gift">
+          <p className="mb-2 text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">In your gift</p>
+          <ul className="flex flex-wrap gap-2">
+            {giftGroups(d.elements, byId).map((grp) => {
+              const el = d.elements.find((e) => e.id === grp.ids[0]);
+              const active = grp.ids.includes(selectedId ?? "");
+              return (
+                <li key={grp.key}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(grp.ids[(grp.ids.indexOf(selectedId ?? "") + 1) % grp.ids.length])}
+                    aria-pressed={active}
+                    className={`flex min-h-11 items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-sm transition-colors ${active ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"}`}
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-secondary">
+                      {el?.kind === "text" ? <Icon name="type" size={14} /> : el?.src && <img {...corsImage} src={el.src} alt="" className="h-7 w-7 object-contain" draggable={false} />}
+                    </span>
+                    <span className="max-w-32 truncate">{grp.label}</span>
+                    <span className="font-display text-xs font-semibold text-muted-foreground">×{grp.count}</span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
-        )}
-      </ToolSection>
-    </>
+        </section>
+      )}
+
+      <BottomSheet title={selected?.kind === "text" ? "Edit text" : "Add text"} open={phone && textOpen} onClose={() => setTextOpen(false)}>
+        {textTool}
+      </BottomSheet>
+    </div>
   );
 
   return (
-    <StudioShell slug="gifts" step={1}>
-      <StudioLayout
-        stage={stage}
-        tools={tools}
-        bar={
-          <StudioSummaryBar
-            summary={`${items.length} items${texts.length ? ` · ${texts.length} message${texts.length > 1 ? "s" : ""}` : ""}`}
-            price={giftPrice(d)}
-            onSave={actions.save}
-            saveBlocked={empty ? "Add at least one item to your design." : null}
-            onPrimary={() => navigate("#/studios/gifts/preview")}
-            primaryBlocked={empty ? "Add at least one item to your design." : null}
-          />
-        }
-      />
-    </StudioShell>
+    <StudioFrame
+      category={category}
+      subtitle={packaging ? `Arrives in ${packaging.name}${color ? `, ${color.name}` : ""}` : "Choose your packaging"}
+      onSave={saver.save}
+      saving={saver.saving}
+      saveBlocked={unavailable ?? (empty ? "Add at least one item to your design." : null)}
+      top={
+        <a href={studioHref(category)} className="flex min-h-11 items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm transition-colors hover:bg-secondary">
+          {packaging?.imageUrl ? <img {...corsImage} src={packaging.imageUrl} alt="" className="h-8 w-8 object-contain" /> : <Icon name="package" size={18} className="text-primary" />}
+          <span className="min-w-0 flex-1 truncate">
+            Arrives in <span className="font-semibold">{packaging?.name ?? "—"}</span>
+            {color ? `, ${color.name}` : ""}
+          </span>
+          <span className="font-semibold text-primary">Change</span>
+        </a>
+      }
+      stage={stage}
+      notice={notice}
+      toolbar={toolbar}
+      picker={picker}
+      footer={{
+        summary: `${items.length} item${items.length === 1 ? "" : "s"}${textEls.length ? ` · ${textEls.length} message${textEls.length > 1 ? "s" : ""}` : ""} · packaging ${money((packaging?.price ?? 0) + (color?.priceAdjustment ?? 0))}`,
+        price: giftPrice(d, data, byId),
+        onPrimary: () => navigate(studioHref(category, "preview")),
+        primaryBlocked: unavailable ?? (empty ? "Add at least one item to your design." : null),
+      }}
+    />
   );
 }
