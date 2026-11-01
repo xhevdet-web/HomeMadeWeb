@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+:root {
+  --background: oklch(0.17 0.03 265);
+  --foreground: oklch(0.96 0.01 80);
+  --card: oklch(0.22 0.035 265);
+  --primary: oklch(0.78 0.13 55);
+  --primary-foreground: oklch(0.18 0.03 265);
+  --secondary: oklch(0.28 0.04 265);
+  --muted-foreground: oklch(0.72 0.03 265);
+  --border: oklch(1 0 0 / 12%);
+
+  --gradient-fade: linear-gradient(
+    90deg,
+    oklch(0.14 0.03 265) 15%,
+    oklch(0.14 0.03 265 / 0.6) 50%,
+    transparent
+  );
+  --gradient-bottom: linear-gradient(0deg, var(--background), transparent 40%);
+  --gradient-glow: radial-gradient(
+    ellipse at 70% 20%,
+    oklch(0.78 0.13 55 / 0.25),
+    transparent 60%
+  );
+  --shadow-glow: 0 20px 60px -15px oklch(0.78 0.13 55 / 0.5);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+
+  --shadow-glow: var(--shadow-glow);
+  --radius-card: 2rem;
+
+  --animate-rise: rise 1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-slowzoom: slowzoom 2.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slowzoom {
+  from { transform: scale(1.15); }
+  to { transform: scale(1); }
+}
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+}
+
+html::-webkit-scrollbar {
+  display: none; /* Chrome, Edge, Safari */
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility bg-fade {
+  background-image: var(--gradient-fade);
+}
+@utility bg-bottom-fade {
+  background-image: var(--gradient-bottom);
+}
+@utility bg-glow {
+  background-image: var(--gradient-glow);
+}
+@utility eyebrow {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
