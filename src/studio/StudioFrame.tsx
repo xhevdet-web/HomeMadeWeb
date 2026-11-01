@@ -66,10 +66,9 @@ function DesktopFrame({ category, top, stage, side, notice, toolbar, picker, pic
       <div className="mt-8 grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
         <div className="flex min-w-0 flex-col gap-3 md:sticky md:top-28">
           {top}
-          <div className="flex min-w-0 gap-3">
-            <div className="min-w-0 flex-1">{stage}</div>
-            {side}
-          </div>
+          {stage}
+          {/* On desktop the side strip (the bead sequence) runs under the stage. */}
+          {side}
           <Notice notice={notice} />
         </div>
         <aside aria-label="Design tools" className="flex min-w-0 flex-col gap-6 rounded-[2rem] border border-border bg-card p-5 sm:p-7 md:max-h-[calc(100vh-8rem)] md:overflow-y-auto md:overscroll-contain">

@@ -4,7 +4,7 @@ import { Icon } from "../../components/Icon";
 import { money } from "../../lib/format";
 import { BottomSheet } from "../../studio/BottomSheet";
 import { useDragSource } from "../../studio/dnd/hooks";
-import { playOnce } from "../../studio/ui";
+import { playOnce, useIsPhone } from "../../studio/ui";
 import { stockState, typeLabel } from "../data";
 import { PieceSwatch } from "./JewelryCanvas";
 import { STEP_MM, TOLERANCE_MM, toPiece, type Piece } from "./logic";
@@ -108,15 +108,23 @@ function LengthSheet({ open, onClose, noun, size, lengthMm, usedMm, onLength }: 
 /** The placed beads in order, in a narrow column beside the stage. Tapping one selects it. */
 export function BeadSequence({ pieces, selected, onSelect }: { pieces: Piece[]; selected: number | null; onSelect: (i: number | null) => void }) {
   const list = useRef<HTMLOListElement>(null);
+  // Phones: a slim column beside the stage, like the app. Desktop: a row under the stage.
+  const row = !useIsPhone();
   useEffect(() => {
     if (selected === null) return;
-    list.current?.children[selected]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    list.current?.children[selected]?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   }, [selected]);
   if (!pieces.length) return null;
   return (
-    <ol ref={list} aria-label="Bead sequence" className="flex h-full w-[46px] flex-col items-center gap-1 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card py-2 [scrollbar-width:none]">
+    <ol
+      ref={list}
+      aria-label="Bead sequence"
+      className={`flex items-center gap-1 overscroll-contain rounded-2xl border border-border bg-card [scrollbar-width:none] ${
+        row ? "w-full overflow-x-auto px-2 py-1.5" : "h-full w-[46px] flex-col overflow-y-auto py-2"
+      }`}
+    >
       {pieces.map((p, i) => (
-        <li key={`${i}-${p.id}`}>
+        <li key={`${i}-${p.id}`} className={row ? "flex shrink-0 flex-col items-center" : ""}>
           <button
             type="button"
             onClick={() => onSelect(selected === i ? null : i)}
@@ -126,6 +134,7 @@ export function BeadSequence({ pieces, selected, onSelect }: { pieces: Piece[]; 
           >
             <PieceSwatch piece={p} size={24} />
           </button>
+          {row && <span className={`text-[10px] tabular-nums ${selected === i ? "font-semibold text-primary" : "text-muted-foreground"}`}>{i + 1}</span>}
         </li>
       ))}
     </ol>
