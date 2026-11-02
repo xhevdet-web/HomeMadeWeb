@@ -19,7 +19,9 @@ export interface LoginRequest {
 interface AuthValue {
   status: AuthStatus;
   user: User | null;
-  signIn: (identifier: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  /** Resolves to whether the account still needs a first or last name. */
+  signInWithGoogle: (idToken: string, password?: string) => Promise<{ profileComplete: boolean }>;
   registerAndSignIn: (input: authApi.RegistrationInput) => Promise<void>;
   signOut: () => Promise<void>;
   setUser: (user: User) => void;
@@ -99,9 +101,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [expire]);
 
   const signIn = useCallback(
-    async (identifier: string, password: string) => {
-      const { user: u, expiresAt } = await authApi.login(identifier, password);
+    async (email: string, password: string) => {
+      const { user: u, expiresAt } = await authApi.login(email, password);
       signedIn(u, expiresAt);
+    },
+    [signedIn],
+  );
+
+  const signInWithGoogle = useCallback(
+    async (idToken: string, password?: string) => {
+      const { user: u, expiresAt, profileComplete } = await authApi.googleLogin(idToken, password);
+      signedIn(u, expiresAt);
+      return { profileComplete };
     },
     [signedIn],
   );
@@ -140,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ status, user, signIn, registerAndSignIn, signOut, setUser: (u) => setUserState(u), requireAuth, openLogin }}>
+    <AuthContext.Provider value={{ status, user, signIn, signInWithGoogle, registerAndSignIn, signOut, setUser: (u) => setUserState(u), requireAuth, openLogin }}>
       {children}
       {modal && <LoginModal request={modal} onDone={() => close(true)} onDismiss={() => close(false)} />}
     </AuthContext.Provider>

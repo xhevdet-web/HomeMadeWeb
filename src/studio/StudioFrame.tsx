@@ -33,7 +33,7 @@ interface FrameProps {
   /** A narrow column beside the stage (the bead sequence). */
   side?: ReactNode;
   notice?: { text: string; tone: "info" | "warn"; id: number } | null;
-  /** Shown only while something is selected, right above the picker. */
+  /** The studio's StudioToolbar, right above the picker. */
   toolbar?: ReactNode;
   picker: ReactNode;
   /** Pinned under the picker on phones (sticker design tabs). */
@@ -184,16 +184,13 @@ export const StageFrame = forwardRef<
     variant?: "tray" | "photo";
     toolbar?: ReactNode;
     overlay?: ReactNode;
-    /** "bottom" keeps a strip free for undo / redo / clear centred under the canvas; "none" when they sit at the side. */
-    controls?: "bottom" | "none";
     className?: string;
     children: ReactNode;
   }
->(function StageFrame({ label, chip, variant = "photo", toolbar, overlay, controls = "bottom", className = "", children }, ref) {
+>(function StageFrame({ label, chip, variant = "photo", toolbar, overlay, className = "", children }, ref) {
   const inner = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
   const phone = useIsPhone();
-  const bottom = controls === "bottom";
 
   useLayoutEffect(() => {
     const node = inner.current;
@@ -222,8 +219,8 @@ export const StageFrame = forwardRef<
       {toolbar}
       <div
         ref={inner}
-        className={`relative flex min-h-0 flex-1 items-center justify-center ${phone ? "px-3 pt-3" : "px-6 pt-16"} ${bottom ? "pb-[60px]" : phone ? "pb-3" : "pb-6"}`}
-        style={{ "--stage-w": `${box.w - (phone ? 24 : 48)}px`, "--stage-h": `${box.h - (phone ? 12 : 64) - (bottom ? 60 : phone ? 12 : 24)}px` } as CSSProperties}
+        className={`relative flex min-h-0 flex-1 items-center justify-center ${phone ? "px-3 pt-3 pb-3" : "px-6 pt-16 pb-6"}`}
+        style={{ "--stage-w": `${box.w - (phone ? 24 : 48)}px`, "--stage-h": `${box.h - (phone ? 12 : 64) - (phone ? 12 : 24)}px` } as CSSProperties}
       >
         {children}
       </div>
@@ -249,16 +246,57 @@ export interface ToolbarAction {
   danger?: boolean;
 }
 
-/** The contextual toolbar for a selection: scrolls sideways on narrow phones. */
-export function SelectionToolbar({ title, image, actions, onDone }: { title: string; image?: string | null; actions: ToolbarAction[]; onDone: () => void }) {
+/** What is selected on the canvas, with its own actions (Smaller, Larger, Rotate…). */
+export interface ToolbarSelection {
+  title: string;
+  /** The item's picture; null shows a text icon; leave out for no picture. */
+  image?: string | null;
+  actions: ToolbarAction[];
+  onDone: () => void;
+}
+
+/**
+ * Every studio's one toolbar, always shown above the picker: undo, redo and clear all, plus the
+ * selected item's actions. The buttons wrap onto more rows instead of scrolling out of sight;
+ * labels show where there is room (phones show icons, with the label as the button name).
+ */
+export function StudioToolbar({ undo, redo, canUndo, canRedo, onClear, canClear, selection = null }: {
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onClear: () => void;
+  canClear: boolean;
+  selection?: ToolbarSelection | null;
+}) {
+  const phone = useIsPhone();
+  const actions: (ToolbarAction & { title?: string })[] = [
+    { icon: "undo", label: "Undo", title: "Undo (Ctrl+Z)", onClick: undo, disabled: !canUndo },
+    { icon: "redo", label: "Redo", title: "Redo (Ctrl+Shift+Z)", onClick: redo, disabled: !canRedo },
+    ...(selection?.actions ?? []),
+    // An eraser, so it never looks like the selected item's Delete.
+    { icon: "eraser", label: "Clear all", onClick: onClear, disabled: !canClear, danger: true },
+  ];
   return (
-    <div role="toolbar" aria-label={`${title} actions`} className="flex items-center gap-2 rounded-2xl border border-primary/40 bg-primary/10 p-2">
-      {image !== undefined && (
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-background/60">
-          {image ? <img {...corsImage} src={image} alt="" className="h-8 w-8 object-contain" draggable={false} /> : <Icon name="type" size={16} />}
-        </span>
+    <div
+      role="toolbar"
+      aria-label={selection ? `${selection.title} actions` : "Design actions"}
+      className={`flex flex-col gap-1.5 rounded-2xl border p-2 transition-colors ${selection ? "border-primary/40 bg-primary/10" : "border-border bg-background/40"}`}
+    >
+      {selection && (
+        <div className="flex items-center gap-2">
+          {selection.image !== undefined && (
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-background/60">
+              {selection.image ? <img {...corsImage} src={selection.image} alt="" className="h-8 w-8 object-contain" draggable={false} /> : <Icon name="type" size={16} />}
+            </span>
+          )}
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold">{selection.title}</p>
+          <button type="button" onClick={selection.onDone} className="h-10 shrink-0 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground">
+            Done
+          </button>
+        </div>
       )}
-      <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]">
+      <div className={`grid gap-1 ${phone ? "grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))]" : "grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))]"}`}>
         {actions.map((a) => (
           <button
             key={a.label}
@@ -266,45 +304,16 @@ export function SelectionToolbar({ title, image, actions, onDone }: { title: str
             onClick={a.onClick}
             disabled={a.disabled}
             aria-label={a.label}
-            title={a.label}
-            className={`flex h-11 min-w-11 shrink-0 flex-col items-center justify-center rounded-xl px-2 text-[10px] font-semibold transition-colors hover:bg-background/50 disabled:opacity-35 ${
+            title={a.title ?? a.label}
+            className={`flex min-w-0 flex-col items-center justify-center rounded-xl px-1 font-semibold transition-colors hover:bg-background/50 disabled:opacity-35 disabled:hover:bg-transparent ${phone ? "h-11" : "h-14 gap-1 text-[11px]"} ${
               a.danger ? "text-destructive" : "text-foreground"
             }`}
           >
-            <Icon name={a.icon} size={17} />
-            <span className="mt-0.5 hidden whitespace-nowrap sm:block">{a.label}</span>
+            <Icon name={a.icon} size={18} />
+            {!phone && <span className="max-w-full truncate">{a.label}</span>}
           </button>
         ))}
       </div>
-      <button type="button" onClick={onDone} className="h-11 shrink-0 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground">
-        Done
-      </button>
-    </div>
-  );
-}
-
-/** Round undo/redo/clear buttons over the stage. */
-export function StageControls({ undo, redo, canUndo, canRedo, onClear, canClear, className = "" }: {
-  undo: () => void;
-  redo: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
-  onClear: () => void;
-  canClear: boolean;
-  className?: string;
-}) {
-  const btn = "flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background/75 backdrop-blur-md transition-colors hover:bg-secondary disabled:opacity-35";
-  return (
-    <div className={`flex gap-2 ${className}`}>
-      <button type="button" className={btn} onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
-        <Icon name="undo" size={18} />
-      </button>
-      <button type="button" className={btn} onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
-        <Icon name="redo" size={18} />
-      </button>
-      <button type="button" className={btn} onClick={onClear} disabled={!canClear} aria-label="Clear" title="Clear">
-        <Icon name="trash" size={18} />
-      </button>
     </div>
   );
 }

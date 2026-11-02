@@ -9,7 +9,7 @@ import { imageSize } from "../../studio/capture";
 import { describeElement, elementsReducer, type ElementsAction, type PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
 import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
-import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { StageFrame, StudioFrame, StudioToolbar } from "../../studio/StudioFrame";
 import { Notice as InfoNotice, ToolSection } from "../../studio/StudioShell";
 import { TextTool } from "../../studio/TextTool";
 import { QualityWarning, UploadButton, type UploadedImage } from "../../studio/UploadButton";
@@ -18,7 +18,7 @@ import { useIsPhone, useNotice } from "../../studio/ui";
 import { ReadyMade } from "../ReadyMade";
 import { customUpload, libraryDesigns, type StudioProps } from "../data";
 import { StudioShell } from "../../studio/StudioShell";
-import { MugWrap } from "./MugMockup";
+import { MugEditor, MugViewTabs, mugGeometry, mugSafeBounds, type MugView } from "./MugMockup";
 import { MAX_MUG_IMAGES, blankMug, captureMug, fittedImage, mugArea, mugImage, mugInput, mugSummary, mugTexts, readyMugs, type MugArea } from "./logic";
 
 /** About 150 dpi: warn when an upload has fewer pixels than that for its printed size. */
@@ -47,6 +47,10 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
   const phone = useIsPhone();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [textOpen, setTextOpen] = useState(false);
+  // The side of the mug facing the customer; positions are always on the whole print.
+  const [view, setView] = useState<MugView>("front");
+  const geometry = mugGeometry(area, view);
+  const facing = { x: geometry.centre, y: 0.5 };
   const stageRef = useRef<HTMLElement>(null);
   const areaRef = useRef<HTMLDivElement>(null);
   const upload = customUpload(data);
@@ -65,9 +69,10 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
   const selected = d.elements.find((e) => e.id === selectedId) ?? null;
   const apply = (a: ElementsAction, merge?: string) => update((x) => ({ ...x, elements: elementsReducer(x.elements, a) }), merge);
 
-  /** One image per mug: a new image replaces the current one; texts stay. */
+  /** One image per mug: a new image replaces the current one; texts stay. It lands where it was
+   * dropped, or in the middle of the side being viewed. */
   const placeImage = (props: Partial<PlacedElement> & { aspect: number }, message: string, at?: { x: number; y: number }) => {
-    const el = { ...fittedImage(area, props), ...(at ?? {}) };
+    const el = { ...fittedImage(area, props), ...(at ?? facing) };
     update((x) => {
       const images = x.elements.filter((e) => e.kind === "image");
       const kept = x.elements.filter((e) => e.kind !== "image" || images.indexOf(e) < MAX_MUG_IMAGES - 1);
@@ -87,7 +92,9 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
     placeImage({ src: c.imageUrl, ref: c.id, name: c.name, aspect: size.height / size.width }, `${c.name} is on your mug.`, at);
   };
 
+  // Fractions of the whole print; a drop on the mug but off the print isn't placed.
   const chip = useCanvasDrop(stageRef, areaRef, image ? "Release to replace the image" : "Release to add", (fx, fy, payload) => {
+    if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return false;
     void pickDesign(payload.id, { x: fx, y: fy });
     return true;
   });
@@ -117,7 +124,7 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
       selected={selected}
       defaultColor="navy"
       onAdd={(el) => {
-        apply({ type: "add", el });
+        apply({ type: "add", el: { ...el, x: facing.x } });
         setSelectedId(el.id);
       }}
       onUpdate={(el, merge) => apply({ type: "update", el }, merge)}
@@ -134,16 +141,13 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
       label={`Your mug design with ${mugSummary(d)}`}
       chip={chip}
       overlay={
-        <>
-          <span className="pointer-events-none absolute top-3 left-4 text-[10px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">
-            Printable area: {area.widthMm / 10} × {area.heightMm / 10} cm
-          </span>
-          <StageControls {...history} onClear={clear} canClear={!empty} className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2" />
-        </>
+        <span className="pointer-events-none absolute top-3 left-4 text-[10px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">
+          Printable area: {area.widthMm / 10} × {area.heightMm / 10} cm
+        </span>
       }
     >
-      <div ref={areaRef} style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${area.widthMm / area.heightMm}))` }}>
-        <MugWrap area={area}>
+      <div style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${geometry.width / geometry.height}))` }}>
+        <MugEditor area={area} view={view} printRef={areaRef} onBackground={() => setSelectedId(null)}>
           <PlacementLayer
             elements={d.elements}
             label="Mug print"
@@ -151,23 +155,33 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
             onSelect={setSelectedId}
             onChange={(el, merge) => apply({ type: "update", el }, merge)}
             onCommand={command}
+            bounds={mugSafeBounds(area)}
           />
-        </MugWrap>
+        </MugEditor>
       </div>
     </StageFrame>
   );
 
-  const toolbar = selected ? (
-    <SelectionToolbar
-      title={describeElement(selected)}
-      image={selected.kind === "text" ? null : (selected.src ?? null)}
-      onDone={() => setSelectedId(null)}
-      actions={[
-        ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => setTextOpen(true) }] : []),
-        ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { reset: selected.kind === "image" }),
-      ]}
+  const toolbar = (
+    <StudioToolbar
+      {...history}
+      onClear={clear}
+      canClear={!empty}
+      selection={
+        selected
+          ? {
+              title: describeElement(selected),
+              image: selected.kind === "text" ? null : (selected.src ?? null),
+              onDone: () => setSelectedId(null),
+              actions: [
+                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => setTextOpen(true) }] : []),
+                ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { reset: selected.kind === "image" }),
+              ],
+            }
+          : null
+      }
     />
-  ) : null;
+  );
 
   const picker = (
     <div className="flex flex-col gap-5">
@@ -208,6 +222,7 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
         onSave={saver.save}
         saving={saver.saving}
         saveBlocked={blocked}
+        top={geometry.turns ? <MugViewTabs view={view} onChange={setView} /> : undefined}
         stage={stage}
         notice={notice}
         toolbar={toolbar}

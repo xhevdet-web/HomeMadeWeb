@@ -26,6 +26,6 @@ export default defineConfig({
     command: `npx vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}/`,
     reuseExistingServer: false,
-    env: { VITE_API_URL: "http://api.test/api/v1" },
+    env: { VITE_API_URL: "http://api.test/api/v1", VITE_GOOGLE_CLIENT_ID: "test-client.apps.googleusercontent.com" },
   },
 });

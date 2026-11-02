@@ -12,7 +12,7 @@ import { isDragging } from "../../studio/dnd/controller";
 import type { PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
 import { useSaveDesign, useStudio, useStudioHistory } from "../../studio/StudioContext";
-import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { StageFrame, StudioFrame, StudioToolbar } from "../../studio/StudioFrame";
 import { ToolSection } from "../../studio/StudioShell";
 import { QualityWarning, UploadButton, type UploadedImage } from "../../studio/UploadButton";
 import { useUndoShortcuts } from "../../studio/useHistory";
@@ -152,7 +152,6 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
                 ))}
               </div>
             )}
-            <StageControls {...history} onClear={clear} canClear={withImages > 0 || d.designs.length > 1} className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2" />
           </>
         }
       >
@@ -180,15 +179,23 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
     </div>
   );
 
-  const toolbar =
-    image && selectedId === image.id ? (
-      <SelectionToolbar
-        title={image.name ?? `Design ${active + 1}`}
-        image={image.src ?? null}
-        onDone={() => setSelectedId(null)}
-        actions={elementActions(image, (el) => setImage(el), command, { layers: false, reset: true })}
-      />
-    ) : null;
+  const toolbar = (
+    <StudioToolbar
+      {...history}
+      onClear={clear}
+      canClear={withImages > 0 || d.designs.length > 1}
+      selection={
+        image && selectedId === image.id
+          ? {
+              title: image.name ?? `Design ${active + 1}`,
+              image: image.src ?? null,
+              onDone: () => setSelectedId(null),
+              actions: elementActions(image, (el) => setImage(el), command, { layers: false, reset: true }),
+            }
+          : null
+      }
+    />
+  );
 
   const tabs = (
     <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label={`Designs, ${d.designs.length} of ${MAX_DESIGNS}`}>

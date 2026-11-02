@@ -10,7 +10,7 @@ import { imageSize, corsImage } from "../../studio/capture";
 import { elementsReducer, imageElement, type ElementsAction, type PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
 import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
-import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { StageFrame, StudioFrame, StudioToolbar } from "../../studio/StudioFrame";
 import { Tabs } from "../../studio/StudioShell";
 import { TextTool } from "../../studio/TextTool";
 import { useUndoShortcuts } from "../../studio/useHistory";
@@ -123,7 +123,6 @@ export function GiftStudio({ category, data }: StudioProps) {
       ref={stageRef}
       label={`${category.name} with ${items.length} pieces${textEls.length ? ` and ${textEls.length} text` : ""}`}
       chip={chip}
-      overlay={<StageControls {...history} onClear={clear} canClear={d.elements.length > 0} className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2" />}
     >
       <div ref={boxRef} className="relative" style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${g.w / g.h}))` }}>
         <DraftBox draft={d} data={data}>
@@ -141,17 +140,26 @@ export function GiftStudio({ category, data }: StudioProps) {
     </StageFrame>
   );
 
-  const toolbar = selected ? (
-    <SelectionToolbar
-      title={selected.kind === "text" ? "Text" : (selected.name ?? "Item")}
-      image={selected.kind === "text" ? null : selected.src}
-      onDone={() => setSelectedId(null)}
-      actions={[
-        ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
-        ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { duplicate: selected.kind === "image" }),
-      ]}
+  const toolbar = (
+    <StudioToolbar
+      {...history}
+      onClear={clear}
+      canClear={d.elements.length > 0}
+      selection={
+        selected
+          ? {
+              title: selected.kind === "text" ? "Text" : (selected.name ?? "Item"),
+              image: selected.kind === "text" ? null : selected.src,
+              onDone: () => setSelectedId(null),
+              actions: [
+                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
+                ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { duplicate: selected.kind === "image" }),
+              ],
+            }
+          : null
+      }
     />
-  ) : null;
+  );
 
   const picker = (
     <div className="flex flex-col gap-4">

@@ -7,7 +7,10 @@ import { apiFraction, apiRotation, apiScale, designName, textElementOf, textLaye
 /** A customer mug holds one image (plus text), like the API's MAX_MUG_ELEMENTS. */
 export const MAX_MUG_IMAGES = 1;
 export const MAX_MUGS = 100;
-export const CERAMIC = "#F3EFE8";
+/** The mug is white, so the saved print is drawn on white, like the app's. */
+export const MUG_WHITE = "#FFFFFF";
+/** The cream that prints saved before were drawn on; shown as white on the mug. */
+export const OLD_PRINT_CREAM = [243, 239, 232] as const;
 
 /** At API scale 1 an image is this share of the print height. */
 const BASE_HEIGHT_SHARE = 0.6;
@@ -21,7 +24,7 @@ export interface MugArea {
 const mm = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
 
 /** The print area of the blank mug (the COMPANY product whose front area has a size in mm). */
-export function mugArea(p: Product | null | undefined): MugArea | null {
+export function mugArea(p: Pick<Product, "printAreas"> | null | undefined): MugArea | null {
   const front = (p?.printAreas as { front?: Record<string, unknown> } | null | undefined)?.front;
   if (!front || !mm(front.widthMm) || !mm(front.heightMm) || !front.widthMm || !front.heightMm) return null;
   const safe = (front.safeMm ?? {}) as Record<string, unknown>;
@@ -83,7 +86,7 @@ export function captureMug(d: MugDraft, area: MugArea) {
   const W = 1200;
   const H = W * printAspect(area);
   return renderPng(W, H, async (ctx) => {
-    ctx.fillStyle = CERAMIC;
+    ctx.fillStyle = MUG_WHITE;
     ctx.fillRect(0, 0, W, H);
     await drawElements(ctx, d.elements, W, H);
   });

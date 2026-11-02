@@ -20,7 +20,8 @@ export default function ProfilePage() {
   const { user, setUser, signOut } = useAuth();
   const toast = useToast();
   const { theme, setTheme } = useTheme();
-  const [editing, setEditing] = useState(false);
+  // Opens straight away when the account has no name yet (a new Google account without one).
+  const [editing, setEditing] = useState(() => !!user && (!user.firstName.trim() || !user.lastName.trim()));
   const [changingPassword, setChangingPassword] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
   if (!user) return null;
@@ -46,7 +47,7 @@ export default function ProfilePage() {
         Profile
       </p>
       <h1 className="animate-rise mt-5 font-display text-5xl leading-[1.02] font-semibold tracking-tight sm:text-6xl" style={rise(150)}>
-        Hello, <em className="font-normal text-primary">{user.firstName}.</em>
+        Hello{user.firstName && ","} <em className="font-normal text-primary">{user.firstName || "there"}.</em>
       </h1>
 
       <div className="mt-12 grid items-start gap-8 lg:grid-cols-[340px_minmax(0,1fr)]">
@@ -55,9 +56,7 @@ export default function ProfilePage() {
           <h2 className="mt-5 font-display text-3xl font-semibold break-words">
             {user.firstName} {user.lastName}
           </h2>
-          <p className="mt-2 break-all text-muted-foreground">{user.email}</p>
-          {user.userName && <p className="text-muted-foreground">@{user.userName}</p>}
-          <Button variant="secondary" size="sm" className="mt-6" aria-expanded={editing} onClick={() => setEditing((e) => !e)}>
+          <p className="mt-2 break-all text-muted-foreground">{user.email}</p>          <Button variant="secondary" size="sm" className="mt-6" aria-expanded={editing} onClick={() => setEditing((e) => !e)}>
             <Icon name="pencil" size={15} /> {editing ? "Close editor" : "Edit details"}
           </Button>
         </aside>

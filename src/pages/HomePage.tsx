@@ -154,12 +154,15 @@ function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolea
     if (prefersReducedMotion()) return;
     let frame = 0;
 
+    // Phones show the cards unstacked (see the wrapper below), so they stay flat and clear.
+    const stacked = window.matchMedia("(min-width: 640px)");
+
     const update = () => {
       const vh = window.innerHeight;
       items.current.forEach((card, i) => {
         if (!card) return;
         const next = wrappers.current[i + 1];
-        const p = next ? Math.min(1, Math.max(0, 1 - next.getBoundingClientRect().top / vh)) : 0;
+        const p = next && stacked.matches ? Math.min(1, Math.max(0, 1 - next.getBoundingClientRect().top / vh)) : 0;
         card.style.transform = `translateY(${p * 40}px) scale(${1 - p * 0.12}) rotateX(${p * 8}deg)`;
         card.style.opacity = String(1 - p * 0.6);
         card.style.filter = `blur(${p * 4}px)`;
@@ -198,14 +201,18 @@ function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolea
           ref={(el) => {
             wrappers.current[i] = el;
           }}
-          className="sticky top-0 flex h-screen items-center px-4 [perspective:1200px] sm:px-6"
+          // Phones: plain cards one after another, so no card ever lies over another's button.
+          // From sm up the cards stack: each wrapper is a transparent full-screen sticky layer
+          // over the previous card, so it lets taps through and only the card is clickable.
+          // svh is the height between a browser's bars, so the card always fits on screen.
+          className="pointer-events-none flex items-center px-4 py-2 [perspective:1200px] sm:sticky sm:top-0 sm:h-svh sm:px-6 sm:py-0"
         >
           <article
             ref={(el) => {
               items.current[i] = el;
             }}
             data-theme="dark"
-            className="relative mx-auto h-[82vh] w-full max-w-7xl origin-top overflow-hidden rounded-[2rem] border border-border bg-card text-foreground will-change-transform"
+            className="pointer-events-auto relative mx-auto h-[72svh] w-full max-w-7xl origin-top overflow-hidden rounded-[2rem] border border-border bg-card text-foreground will-change-transform sm:h-[82svh]"
           >
             {c.image ? (
               <img src={c.image} alt={`Custom ${c.name.toLowerCase()} by HomeCreator`} width={1280} height={960} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
@@ -214,17 +221,17 @@ function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolea
             )}
             <div className="bg-fade absolute inset-0" />
 
-            <div className="relative flex h-full flex-col justify-between p-8 sm:p-14">
+            <div className="relative flex h-full flex-col justify-between p-6 sm:p-14">
               <span className="font-display text-sm tracking-[0.3em] text-muted-foreground">
                 {String(i + 1).padStart(2, "0")} / {total}
               </span>
               <div className="max-w-lg">
-                <p className="font-display text-2xl text-primary italic">{c.line}</p>
-                <h3 className="mt-2 font-display text-6xl leading-none font-extrabold tracking-tight break-words sm:text-8xl">{c.name}</h3>
-                <p className="mt-5 text-lg text-muted-foreground">{c.text}</p>
+                <p className="font-display text-xl text-primary italic sm:text-2xl">{c.line}</p>
+                <h3 className="mt-2 font-display text-5xl leading-none font-extrabold tracking-tight break-words sm:text-8xl">{c.name}</h3>
+                <p className="mt-3 text-base text-muted-foreground sm:mt-5 sm:text-lg">{c.text}</p>
                 <a
                   href={c.href}
-                  className="mt-8 inline-block rounded-full bg-primary px-7 py-3.5 font-semibold text-primary-foreground transition-transform duration-300 hover:scale-105"
+                  className="mt-5 inline-block rounded-full bg-primary px-7 py-3.5 font-semibold text-primary-foreground transition-transform duration-300 hover:scale-105 sm:mt-8"
                 >
                   Design a {c.name.toLowerCase()} →
                 </a>

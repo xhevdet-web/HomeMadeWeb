@@ -8,7 +8,7 @@ import { imageSize } from "../../studio/capture";
 import type { PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
 import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
-import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { StageFrame, StudioFrame, StudioToolbar } from "../../studio/StudioFrame";
 import { Notice as InfoNotice, ToolSection } from "../../studio/StudioShell";
 import { QualityWarning, UploadButton, type UploadedImage } from "../../studio/UploadButton";
 import { useUndoShortcuts } from "../../studio/useHistory";
@@ -94,8 +94,6 @@ export function CaseStudio({ category, data }: StudioProps) {
       ref={stageRef}
       label={`Phone case with your design${image ? "" : ", no design yet"}`}
       chip={chip}
-      controls="none"
-      overlay={<StageControls {...history} onClear={clear} canClear={!!image} className="absolute right-3 bottom-3 z-20 flex-col" />}
     >
       <div ref={caseRef} style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${shownRatio}))` }}>
         <CaseCanvas model={model}>
@@ -114,15 +112,23 @@ export function CaseStudio({ category, data }: StudioProps) {
     </StageFrame>
   );
 
-  const toolbar =
-    image && selectedId === image.id ? (
-      <SelectionToolbar
-        title={image.name ?? "Your photo"}
-        image={image.src ?? null}
-        onDone={() => setSelectedId(null)}
-        actions={elementActions(image, (el) => setImage(el), command, { layers: false, reset: true })}
-      />
-    ) : null;
+  const toolbar = (
+    <StudioToolbar
+      {...history}
+      onClear={clear}
+      canClear={!!image}
+      selection={
+        image && selectedId === image.id
+          ? {
+              title: image.name ?? "Your photo",
+              image: image.src ?? null,
+              onDone: () => setSelectedId(null),
+              actions: elementActions(image, (el) => setImage(el), command, { layers: false, reset: true }),
+            }
+          : null
+      }
+    />
+  );
 
   const picker = (
     <div className="flex flex-col gap-5">

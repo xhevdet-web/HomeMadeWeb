@@ -115,6 +115,24 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       : route.fulfill({ status: 200, contentType: "image/png", body: PNG, headers: { "Access-Control-Allow-Origin": "*" } }),
   );
 
+  // Google's script is never loaded: a stand-in draws the button and hands back the ID token in
+  // window.__googleCredential (default "test-id-token") when clicked.
+  await page.route("https://accounts.google.com/gsi/client", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: `window.google = { accounts: { id: {
+        initialize(config) { window.__googleConfig = config; },
+        renderButton(parent) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Continue with Google";
+          button.onclick = () => window.__googleConfig.callback({ credential: window.__googleCredential || "test-id-token" });
+          parent.appendChild(button);
+        },
+      } } };`,
+    }),
+  );
+
   await page.route(`${API}/**`, async (route: Route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -125,11 +143,20 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     const reply = async (json: unknown, status = 200) => route.fulfill({ status, headers: cors, contentType: "application/json", body: JSON.stringify(json) });
 
     if (path === "/auth/me") return user ? reply(user) : reply({ message: "Unauthorized" }, 401);
+    if (path === "/auth/google") {
+      const body = req.postDataJSON() as { idToken: string; password?: string };
+      if (body.idToken === "bad") return reply({ message: "Unable to sign in with Google" }, 401);
+      if (body.idToken === "link-me") {
+        if (body.password === undefined)
+          return reply({ message: "An account with this email already exists. Enter your password to connect Google.", email: USER.email }, 409);
+        if (body.password !== "right-password") return reply({ message: "Incorrect password" }, 401);
+      }
+      const named = body.idToken !== "no-name";
+      return reply({ expiresIn: 3600, user: { ...USER, lastName: named ? USER.lastName : "" }, profileComplete: named });
+    }
     if (path === "/auth/register") {
       const body = req.postDataJSON() as Record<string, string>;
-      if (body.email === "taken@example.test") return reply({ message: "Email is already in use" }, 409);
-      if (body.userName === "taken") return reply({ message: "Username is already in use" }, 409);
-      return reply({ ...USER, ...body, id: "u-new" }, 201);
+      if (body.email === "taken@example.test") return reply({ message: "Email is already in use" }, 409);      return reply({ ...USER, ...body, id: "u-new" }, 201);
     }
     if (path === "/auth/login") return reply({ expiresIn: 3600, user: { ...USER, id: "u-new" } });
     if (path === "/categories") return reply([CATEGORY]);

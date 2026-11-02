@@ -6,7 +6,7 @@ import { navigate } from "../../router";
 import { useStageDrop } from "../../studio/dnd/hooks";
 import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
 import { useUndoShortcuts } from "../../studio/useHistory";
-import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { StageFrame, StudioFrame, StudioToolbar } from "../../studio/StudioFrame";
 import { useBecameTrue, useDndHint, useNotice } from "../../studio/ui";
 import { componentById, stockState, type StudioProps } from "../data";
 import { JewelryCanvas, captureJewelry, cordHit, type DropPreview } from "./JewelryCanvas";
@@ -182,7 +182,6 @@ export function JewelryStudio({ category, data }: StudioProps) {
             {noun} · {size?.name ?? ""}
           </span>
           <span className="pointer-events-none absolute top-3 right-4 text-[11px] font-semibold text-muted-foreground">{counter}</span>
-          <StageControls {...history} onClear={clear} canClear={!empty} className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2" />
         </>
       }
     >
@@ -221,19 +220,27 @@ export function JewelryStudio({ category, data }: StudioProps) {
     </StageFrame>
   );
 
-  const toolbar =
-    selectedComp && selected !== null ? (
-      <SelectionToolbar
-        title={selectedComp.name}
-        image={selectedComp.imageUrl}
-        onDone={() => setSelected(null)}
-        actions={[
-          { icon: "chevronLeft", label: "Move detail left", onClick: () => moveSelected(-1), disabled: selected === 0 },
-          { icon: "chevronRight", label: "Move detail right", onClick: () => moveSelected(1), disabled: selected === draft.pieces.length - 1 },
-          { icon: "trash", label: "Remove selected detail", onClick: () => remove(selected), danger: true },
-        ]}
-      />
-    ) : null;
+  const toolbar = (
+    <StudioToolbar
+      {...history}
+      onClear={clear}
+      canClear={!empty}
+      selection={
+        selectedComp && selected !== null
+          ? {
+              title: selectedComp.name,
+              image: selectedComp.imageUrl,
+              onDone: () => setSelected(null),
+              actions: [
+                { icon: "chevronLeft", label: "Move left", onClick: () => moveSelected(-1), disabled: selected === 0 },
+                { icon: "chevronRight", label: "Move right", onClick: () => moveSelected(1), disabled: selected === draft.pieces.length - 1 },
+                { icon: "trash", label: "Remove", onClick: () => remove(selected), danger: true },
+              ],
+            }
+          : null
+      }
+    />
+  );
 
   return (
     <StudioFrame

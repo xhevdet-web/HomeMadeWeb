@@ -12,7 +12,7 @@ import { useStudioData, type StudioData } from "./data";
 import { GiftThumb } from "./gifts/GiftBox";
 import { JewelryCanvas } from "./jewelry/JewelryCanvas";
 import { TYPICAL_MM, cordOf, toPiece } from "./jewelry/logic";
-import { MugWrap } from "./mugs/MugMockup";
+import { MugEditor, MugPrintImage } from "./mugs/MugMockup";
 import { blankMug, mugArea } from "./mugs/logic";
 import { moduleFor } from "./registry";
 import { StickerThumb } from "./stickers/StickerCanvas";
@@ -42,6 +42,33 @@ export function DesignPreview({ product, category, className = "aspect-square w-
   const cat = category ?? categories.data?.find((c) => c.id === product.categoryId);
   const url = productImage(product);
   const [open, setOpen] = useState<string | null>(null);
+  // A mug design shows on the studio's mug: its saved print wrapped on the blank mug it was made for.
+  const mug = product.origin !== "COMPANY" && (cat ? studioBuilder(cat) : product.category?.builderType) === "MUG" ? mugArea(product.baseProduct) : null;
+
+  if (url && mug) {
+    const shown = (
+      <div className="w-full">
+        <MugEditor area={mug} view="front" guides={false} label={`${product.name}, on the mug`}>
+          <MugPrintImage src={url} />
+        </MugEditor>
+      </div>
+    );
+    return (
+      <>
+        <div className={`relative flex items-center justify-center overflow-hidden ${round} bg-secondary ${compact ? "p-1" : "p-4"} ${className}`}>
+          {lightbox ? (
+            // Full size shows the flat print, so every detail can be checked.
+            <button type="button" onClick={() => setOpen(url)} className="block w-full cursor-zoom-in" aria-label={`Open the print of ${product.name} full size`}>
+              {shown}
+            </button>
+          ) : (
+            shown
+          )}
+        </div>
+        {open && <Lightbox src={open} alt={product.name} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
 
   if (url) {
     // Apparel with a designed back shows both sides.
@@ -160,9 +187,9 @@ function Drawn({ draft, data, category }: { draft: AnyDraft; data: StudioData; c
       const area = mugArea(blankMug(data));
       return area ? (
         <div className="w-full">
-          <MugWrap area={area} safeArea={false}>
+          <MugEditor area={area} view="front" guides={false} label="Your mug">
             <PlacementLayer elements={draft.elements} label="Mug print" readOnly />
-          </MugWrap>
+          </MugEditor>
         </div>
       ) : null;
     }

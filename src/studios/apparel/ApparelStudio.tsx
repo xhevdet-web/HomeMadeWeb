@@ -10,7 +10,7 @@ import { useActiveDrag } from "../../studio/dnd/hooks";
 import { describeElement, elementsReducer, imageElement, type ElementsAction, type PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
 import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
-import { SelectionToolbar, StageControls, StageFrame, StudioFrame } from "../../studio/StudioFrame";
+import { StageFrame, StudioFrame, StudioToolbar } from "../../studio/StudioFrame";
 import { Tabs, ToolSection } from "../../studio/StudioShell";
 import { TextTool } from "../../studio/TextTool";
 import { QualityWarning, UploadButton, type UploadedImage } from "../../studio/UploadButton";
@@ -126,7 +126,6 @@ export function ApparelStudio({ category, data }: StudioProps) {
       ref={stageRef}
       label={`${side === "front" ? "Front" : "Back"} with ${elements.length} design${elements.length === 1 ? "" : "s"}`}
       chip={chip}
-      overlay={<StageControls {...history} onClear={clear} canClear={!empty} className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2" />}
     >
       {/* Switching sides flips the garment (no motion with reduced motion). */}
       <div key={side} ref={garmentRef} className="flip-in" style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${ratio}))` }}>
@@ -145,17 +144,26 @@ export function ApparelStudio({ category, data }: StudioProps) {
     </StageFrame>
   );
 
-  const toolbar = selected ? (
-    <SelectionToolbar
-      title={describeElement(selected)}
-      image={selected.kind === "text" ? null : (selected.src ?? null)}
-      onDone={() => setSelectedId(null)}
-      actions={[
-        ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
-        ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { centre, duplicate: !selected.uploaded }),
-      ]}
+  const toolbar = (
+    <StudioToolbar
+      {...history}
+      onClear={clear}
+      canClear={!empty}
+      selection={
+        selected
+          ? {
+              title: describeElement(selected),
+              image: selected.kind === "text" ? null : (selected.src ?? null),
+              onDone: () => setSelectedId(null),
+              actions: [
+                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
+                ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { centre, duplicate: !selected.uploaded }),
+              ],
+            }
+          : null
+      }
     />
-  ) : null;
+  );
 
   const picker = (
     <div className="flex flex-col gap-5">

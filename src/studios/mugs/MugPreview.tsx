@@ -3,7 +3,8 @@ import { Stepper } from "../../components/Controls";
 import { useSaveDesign, useStudio } from "../../studio/StudioContext";
 import { NothingToPreview, PreviewActions, PreviewLayout, PriceLines, StudioShell, Tabs } from "../../studio/StudioShell";
 import { componentById, stockProblem, type StudioProps } from "../data";
-import { MugMockup, type MugView } from "./MugMockup";
+import { PlacementLayer } from "../../studio/PlacementLayer";
+import { MugEditor, type MugView } from "./MugMockup";
 import { MAX_MUGS, blankMug, captureMug, mugArea, mugImage, mugInput, mugSummary } from "./logic";
 
 export function MugPreview({ category, data }: StudioProps) {
@@ -53,7 +54,12 @@ export function MugPreview({ category, data }: StudioProps) {
               }}
               onPointerCancel={() => (swipe.current = null)}
             >
-              <MugMockup draft={d} area={area} view={view} />
+              {/* The studio's mug, turned to the chosen side. */}
+              <div className="mx-auto w-full max-w-[460px]">
+                <MugEditor area={area} view={view} guides={false} label={`Mug with ${mugSummary(d)}, ${view} side`}>
+                  <PlacementLayer elements={d.elements} label="Mug print" readOnly />
+                </MugEditor>
+              </div>
             </div>
             <p className="mt-3 text-center text-xs text-muted-foreground md:hidden">Swipe the mug to turn it</p>
             <div className="mx-auto mt-5 max-w-sm">

@@ -1,16 +1,12 @@
 import { request } from "./client";
 import { parseUser, type User } from "./models";
 
+/** Delivery details are not asked at sign-up; checkout asks for them before the first order. */
 export interface RegistrationInput {
   firstName: string;
   lastName: string;
   email: string;
   password: string;
-  userName?: string;
-  phone?: string;
-  country?: string;
-  address?: string;
-  postalCode?: string;
 }
 
 export interface ProfileInput {
@@ -23,20 +19,35 @@ export interface ProfileInput {
   notificationsEnabled?: boolean;
 }
 
-/** Sets the httpOnly `hc_session` cookie and returns the user; there is no token in the response. */
-export async function login(identifier: string, password: string) {
+/** Email-only sign-in. Sets the httpOnly `hc_session` cookie and returns the user; there is no token in the response. */
+export async function login(email: string, password: string) {
   const data = await request<{ expiresIn: number; user: unknown }>("/auth/login", {
     method: "POST",
-    body: { identifier: identifier.trim().toLowerCase(), password },
+    body: { email: email.trim().toLowerCase(), password },
   });
   return { user: parseUser(data.user), expiresAt: Date.now() + (Number(data.expiresIn) || 3600) * 1000 };
+}
+
+/**
+ * Sign in or sign up with a Google ID token; the API verifies it and sets the same cookie as
+ * `login`. A 409 means an account with that email exists: send its password once to link Google.
+ */
+export async function googleLogin(idToken: string, password?: string) {
+  const data = await request<{ expiresIn: number; user: unknown; profileComplete?: boolean }>("/auth/google", {
+    method: "POST",
+    body: { idToken, password },
+  });
+  return {
+    user: parseUser(data.user),
+    expiresAt: Date.now() + (Number(data.expiresIn) || 3600) * 1000,
+    profileComplete: data.profileComplete !== false,
+  };
 }
 
 export const logout = () => request<null>("/auth/logout", { method: "POST" });
 
 /** Registration does not sign in; call `login` afterwards with the same credentials. */
 export function register(input: RegistrationInput) {
-  const opt = (v?: string) => v?.trim() || undefined;
   return request<unknown>("/auth/register", {
     method: "POST",
     body: {
@@ -44,11 +55,6 @@ export function register(input: RegistrationInput) {
       lastName: input.lastName.trim(),
       email: input.email.trim().toLowerCase(),
       password: input.password,
-      userName: opt(input.userName)?.toLowerCase(),
-      phone: opt(input.phone),
-      country: opt(input.country),
-      address: opt(input.address),
-      postalCode: opt(input.postalCode),
     },
   });
 }
@@ -66,7 +72,6 @@ export const updateProfile = (body: ProfileInput) =>
 
 export const PASSWORD_MIN = 12;
 export const PASSWORD_MAX = 128;
-export const USERNAME_PATTERN = /^[a-z0-9_.-]{3,30}$/;
 
 export const passwordRules = (password: string) => [
   { label: `At least ${PASSWORD_MIN} characters`, met: password.length >= PASSWORD_MIN },

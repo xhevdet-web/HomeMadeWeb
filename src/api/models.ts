@@ -202,7 +202,7 @@ export interface Product {
   designPreviewUrl?: string | null;
   backDesignPreviewUrl?: string | null;
   baseProductId?: string | null;
-  baseProduct?: { id: string; name: string; price?: number; color?: string | null; colorHex?: string | null; imageUrl?: string | null } | null;
+  baseProduct?: { id: string; name: string; price?: number; color?: string | null; colorHex?: string | null; imageUrl?: string | null; printAreas?: unknown } | null;
   selectedSize?: { id: string; name: string; selectedMeasurementMm?: number } & Record<string, unknown>;
   textLayers?: unknown;
   giftPackagingId?: string | null;
@@ -321,8 +321,11 @@ export interface User {
 
 export function parseUser(value: unknown): User {
   if (!isObject(value)) throw new Error("The server sent account data we couldn't read.");
-  for (const field of ["id", "firstName", "lastName", "email"])
+  for (const field of ["id", "email"])
     if (typeof value[field] !== "string" || !value[field]) throw new Error("The server sent account data we couldn't read.");
+  // Accounts made with Google can have an empty name until the customer adds it.
+  for (const field of ["firstName", "lastName"])
+    if (typeof value[field] !== "string") throw new Error("The server sent account data we couldn't read.");
   if (value.isActive === false) throw new Error("This account is not active.");
   return {
     id: value.id as string,
