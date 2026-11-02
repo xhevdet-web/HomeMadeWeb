@@ -1,10 +1,11 @@
+import i18n from "../i18n";
 import { Fragment } from "react";
 import { Icon } from "./Icon";
 
 /** "1 Choose base → 2 Design → 3 Review". Steps before `active` show as done. */
 export function StepIndicator({ steps, active, className = "" }: { steps: string[]; active: number; className?: string }) {
   return (
-    <ol className={`flex flex-wrap items-center gap-x-3 gap-y-3 text-sm ${className}`} aria-label="Progress">
+    <ol className={`flex flex-wrap items-center gap-x-3 gap-y-3 text-sm ${className}`} aria-label={i18n.t("controls.progress")}>
       {steps.map((label, i) => {
         const done = i < active;
         const current = i === active;

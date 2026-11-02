@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { ORDER_STATUSES, statusIndex, statusLabel } from "../api/models";
 import { Icon } from "./Icon";
 
@@ -22,7 +23,7 @@ export function OrderProgress({ status, className = "" }: { status: string; clas
     <div
       className={`flex gap-1.5 ${className}`}
       role="progressbar"
-      aria-label="Order progress"
+      aria-label={i18n.t("controls.orderProgress")}
       aria-valuemin={0}
       aria-valuemax={ORDER_STATUSES.length}
       aria-valuenow={current + 1}

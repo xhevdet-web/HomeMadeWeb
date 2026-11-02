@@ -3,6 +3,7 @@ import { isNecklace } from "../../data/homeCategories";
 import { cm, money } from "../../lib/format";
 import type { JewelryDraft } from "../../studio/drafts";
 import { designName } from "../data";
+import i18n from "../../i18n";
 
 /** Must match the API: a 200 mm piece is complete at 198–202 mm and never passes 202. */
 export const TOLERANCE_MM = 2;
@@ -33,7 +34,9 @@ export const toPiece = (c: Pick<Component, "id" | "name" | "effectiveLengthMm" |
 });
 
 export const cordOf = (category: Category) => (isNecklace(category) ? "u" : "circle");
-export const nounOf = (category: Category) => (isNecklace(category) ? "necklace" : "bracelet");
+export const nounOf = (category: Pick<Category, "name" | "builderConfig">) => (isNecklace(category) ? "necklace" : "bracelet");
+/** "bracelet" or "necklace": picks the sentences written for that piece. */
+export type Noun = ReturnType<typeof nounOf>;
 
 export function piecesOf(ids: string[], byId: Map<string, Component>): Piece[] {
   return ids.flatMap((id) => {
@@ -60,7 +63,7 @@ export function sizeOf(category: Category, d: JewelryDraft) {
 
 export function sizeLabel(category: Category, d: JewelryDraft) {
   const size = sizeOf(category, d);
-  return size ? `${size.name} · ${cm(d.lengthMm)}` : "No size";
+  return size ? `${size.name} · ${cm(d.lengthMm)}` : i18n.t("jewelry.noSize");
 }
 
 /** Pieces grouped per component, in order of first appearance. */
@@ -110,10 +113,10 @@ export function jewelryFromProduct(p: Product, category: Category): JewelryDraft
 
 /** The app's wording: "Bracelets start at €5.00. Add a few more components to continue." */
 export const minimumMessage = (category: Pick<Category, "name" | "builderConfig">) =>
-  `${isNecklace(category) ? "Necklaces" : "Bracelets"} start at ${money(MIN_JEWELRY_PRICE_CENTS)}. Add a few more components to continue.`;
+  i18n.t(`jewelry.nouns.${nounOf(category)}.startsAt`, { price: money(MIN_JEWELRY_PRICE_CENTS) });
 
 /** "Add €1.40 more to order.", or null at or above the minimum. */
-export const missingForMinimum = (price: number) => (price < MIN_JEWELRY_PRICE_CENTS ? `Add ${money(MIN_JEWELRY_PRICE_CENTS - price)} more to order.` : null);
+export const missingForMinimum = (price: number) => (price < MIN_JEWELRY_PRICE_CENTS ? i18n.t("jewelry.addMore", { price: money(MIN_JEWELRY_PRICE_CENTS - price) }) : null);
 
 /**
  * Why the design can't be ordered yet, if anything. A piece may be ordered before it fills its

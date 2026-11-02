@@ -11,8 +11,12 @@ import { useApi } from "../hooks/useApi";
 import { money } from "../lib/format";
 import { useUndoShortcuts } from "./useHistory";
 import { corsImage } from "./capture";
+import i18n from "../i18n";
 
-export const STUDIO_STEPS = ["Choose base", "Design", "Preview"];
+// Components here re-render with the app when the language changes.
+const t = i18n.t.bind(i18n);
+
+export const studioSteps = () => [t("studio.steps.base"), t("studio.steps.design"), t("studio.steps.preview")];
 
 /** Header + step indicator around every studio step. "Created by others" shows on the first step when signed in. */
 export function StudioShell({ category, step, title, intro, children, others = false }: {
@@ -26,18 +30,18 @@ export function StudioShell({ category, step, title, intro, children, others = f
   return (
     <Page>
       <PageHeader
-        back={{ href: "#/studios", label: "All studios" }}
-        eyebrow="Creative studio"
+        back={{ href: "#/studios", label: t("studio.allStudios") }}
+        eyebrow={t("studio.eyebrow")}
         title={
           title ?? (
             <>
-              {category.name} <em className="font-normal text-primary">studio.</em>
+              {category.name} <em className="font-normal text-primary">{t("studio.titleAccent")}</em>
             </>
           )
         }
         intro={intro ?? lookFor(category).studio}
       />
-      <StepIndicator steps={STUDIO_STEPS} active={step} className="mt-10" />
+      <StepIndicator steps={studioSteps()} active={step} className="mt-10" />
       {children}
       {others && <CreatedByOthers category={category} />}
     </Page>
@@ -52,9 +56,9 @@ function CreatedByOthers({ category }: { category: Category }) {
   if (!creations.length) return null;
   return (
     <section className="mt-20" aria-labelledby="others-title">
-      <p className="eyebrow">For inspiration</p>
+      <p className="eyebrow">{t("studio.inspiration")}</p>
       <h2 id="others-title" className="mt-4 font-display text-4xl font-semibold tracking-tight">
-        Created by <em className="font-normal text-primary">others.</em>
+        {t("studio.createdBy")} <em className="font-normal text-primary">{t("studio.others")}</em>
       </h2>
       <ul className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {creations.map((c) => (
@@ -74,7 +78,7 @@ export function StudioLayout({ stage, tools, bar }: { stage: ReactNode; tools: R
     <>
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
         {stage}
-        <aside aria-label="Design tools" className="flex min-w-0 flex-col gap-8 rounded-[2rem] border border-border bg-card p-5 sm:p-8">
+        <aside aria-label={t("studio.tools")} className="flex min-w-0 flex-col gap-8 rounded-[2rem] border border-border bg-card p-5 sm:p-8">
           {tools}
         </aside>
       </div>
@@ -116,9 +120,9 @@ export function CanvasToolbar({ undo, redo, canUndo, canRedo, onClear, canClear 
 }) {
   useUndoShortcuts(undo, redo);
   const tools: [IconName, string, () => void, boolean][] = [
-    ["undo", "Undo", undo, canUndo],
-    ["redo", "Redo", redo, canRedo],
-    ["trash", "Clear", onClear, canClear],
+    ["undo", t("studio.toolbar.undo"), undo, canUndo],
+    ["redo", t("studio.toolbar.redo"), redo, canRedo],
+    ["trash", t("studio.toolbar.clear"), onClear, canClear],
   ];
   return (
     <div className="absolute top-4 left-1/2 z-20 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-background/70 p-1 backdrop-blur-md">
@@ -218,7 +222,7 @@ export function PickerCard({ title, price, sub, badge, disabled, dim, selected, 
 }
 
 /** A selected base (piece, packaging, phone…) with a Change link back to step 1. */
-export function BaseChip({ label, value, href, action = "Change" }: { label: string; value: string; href: string; action?: string }) {
+export function BaseChip({ label, value, href, action = t("studio.change") }: { label: string; value: string; href: string; action?: string }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-secondary/40 px-4 py-3">
       <div className="min-w-0">
@@ -242,19 +246,19 @@ export function ImageControls({ onZoom, onRotate, onReset, children }: {
   const btn = "flex h-10 w-10 items-center justify-center rounded-full border border-border transition-colors hover:bg-secondary";
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button type="button" className={btn} aria-label="Zoom out" title="Zoom out" onClick={() => onZoom(1 / 1.15)}>
+      <button type="button" className={btn} aria-label={t("studio.zoomOut")} title={t("studio.zoomOut")} onClick={() => onZoom(1 / 1.15)}>
         <Icon name="zoomOut" size={17} />
       </button>
-      <button type="button" className={btn} aria-label="Zoom in" title="Zoom in" onClick={() => onZoom(1.15)}>
+      <button type="button" className={btn} aria-label={t("studio.zoomIn")} title={t("studio.zoomIn")} onClick={() => onZoom(1.15)}>
         <Icon name="zoomIn" size={17} />
       </button>
-      <button type="button" className={btn} aria-label="Rotate left" title="Rotate left" onClick={() => onRotate(-15)}>
+      <button type="button" className={btn} aria-label={t("studio.actions.rotateLeft")} title={t("studio.actions.rotateLeft")} onClick={() => onRotate(-15)}>
         <Icon name="rotateLeft" size={17} />
       </button>
-      <button type="button" className={btn} aria-label="Rotate right" title="Rotate right" onClick={() => onRotate(15)}>
+      <button type="button" className={btn} aria-label={t("studio.actions.rotateRight")} title={t("studio.actions.rotateRight")} onClick={() => onRotate(15)}>
         <Icon name="rotateRight" size={17} />
       </button>
-      <button type="button" className={btn} aria-label="Reset position" title="Reset" onClick={onReset}>
+      <button type="button" className={btn} aria-label={t("studio.resetPosition")} title={t("studio.actions.reset")} onClick={onReset}>
         <Icon name="reset" size={17} />
       </button>
       {children}
@@ -301,7 +305,7 @@ export function DetailRows({ rows }: { rows: [string, ReactNode][] }) {
   );
 }
 
-export function PriceLines({ lines, total, totalLabel = "Total" }: { lines: [string, number][]; total: number; totalLabel?: string }) {
+export function PriceLines({ lines, total, totalLabel = t("common.total") }: { lines: [string, number][]; total: number; totalLabel?: string }) {
   return (
     <dl className="space-y-2.5 text-sm">
       {lines.map(([k, v], i) => (
@@ -331,7 +335,7 @@ export function PreviewActions({ category, onSave, onOrder, orderBlocked, orderH
   return (
     <div className="flex flex-col gap-3">
       <Button glow size="lg" onClick={onOrder} disabled={!!orderBlocked || saving} className="w-full">
-        {saving ? "Saving…" : "Continue to order"} <Icon name="arrowRight" size={18} />
+        {saving ? t("common.saving") : t("studio.continueToOrder")} <Icon name="arrowRight" size={18} />
       </Button>
       {orderBlocked && (
         <p role="status" className="text-center text-sm text-muted-foreground">
@@ -341,10 +345,10 @@ export function PreviewActions({ category, onSave, onOrder, orderBlocked, orderH
       )}
       <div className="grid grid-cols-2 gap-3">
         <ButtonLink href={studioHref(category, "design")} variant="secondary" size="sm">
-          <Icon name="arrowLeft" size={15} /> Back to the studio
+          <Icon name="arrowLeft" size={15} /> {t("studio.backToStudio")}
         </ButtonLink>
         <Button variant="secondary" size="sm" onClick={onSave} disabled={!!saveBlocked || saving}>
-          Save design
+          {t("studio.saveDesign")}
         </Button>
       </div>
     </div>
@@ -355,10 +359,10 @@ export function PreviewActions({ category, onSave, onOrder, orderBlocked, orderH
 export function NothingToPreview({ category, message }: { category: Category; message: string }) {
   return (
     <div className="mt-8 rounded-[2rem] border border-border bg-card px-6 py-16 text-center">
-      <p className="font-display text-3xl font-semibold">Nothing to preview yet.</p>
+      <p className="font-display text-3xl font-semibold">{t("studio.nothingToPreview")}</p>
       <p className="mt-3 text-muted-foreground">{message}</p>
       <ButtonLink href={studioHref(category, "design")} className="mt-8">
-        Back to the studio
+        {t("studio.backToStudio")}
       </ButtonLink>
     </div>
   );
@@ -383,7 +387,7 @@ export function StudioSkeleton() {
     <Page>
       <div className="h-6 w-32 animate-pulse rounded-full bg-secondary" />
       <div className="mt-6 h-14 w-2/3 animate-pulse rounded-2xl bg-secondary" />
-      <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]" role="status" aria-label="Loading the studio">
+      <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]" role="status" aria-label={t("studio.loading")}>
         <div className="h-[420px] animate-pulse rounded-[2rem] bg-card" />
         <div className="h-[420px] animate-pulse rounded-[2rem] bg-card" />
       </div>
@@ -400,7 +404,7 @@ export function LoadError({ message, onRetry, className = "" }: { message: strin
       </span>
       <p className="mt-4 font-semibold">{message}</p>
       <Button variant="secondary" size="sm" className="mt-6" onClick={onRetry}>
-        Try again
+        {t("common.retry")}
       </Button>
     </div>
   );

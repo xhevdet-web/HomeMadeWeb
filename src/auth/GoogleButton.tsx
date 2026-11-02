@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 /* Google Identity Services: Google's own "Continue with Google" button, which hands back an ID
  * token (the "credential"). The token goes to the API, which verifies it; nothing here trusts it. */
@@ -48,17 +49,21 @@ function loadGoogle() {
  * calls nothing back and the modal simply stays as it was.
  */
 export function GoogleButton({ onCredential, disabled = false }: { onCredential: (idToken: string) => void; disabled?: boolean }) {
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
   const box = useRef<HTMLDivElement>(null);
   const latest = useRef(onCredential);
   latest.current = onCredential;
   const [failed, setFailed] = useState(false);
 
+  // Drawn again when the language changes: Google writes the button's text itself.
   useEffect(() => {
     if (!CLIENT_ID) return;
     let live = true;
     loadGoogle()
       .then((google) => {
         if (!live || !box.current) return;
+        box.current.replaceChildren();
         google.initialize({
           client_id: CLIENT_ID,
           callback: ({ credential }) => credential && latest.current(credential),
@@ -74,6 +79,7 @@ export function GoogleButton({ onCredential, disabled = false }: { onCredential:
           text: "continue_with",
           shape: "pill",
           logo_alignment: "left",
+          locale: language,
           // Google draws buttons 200–400px wide.
           width: Math.max(200, Math.min(400, Math.floor(box.current.offsetWidth))),
         });
@@ -82,7 +88,7 @@ export function GoogleButton({ onCredential, disabled = false }: { onCredential:
     return () => {
       live = false;
     };
-  }, []);
+  }, [language]);
 
   if (!CLIENT_ID) return null;
   return (
@@ -98,7 +104,7 @@ export function GoogleButton({ onCredential, disabled = false }: { onCredential:
       />
       {failed && (
         <p role="alert" className="mt-2 text-center text-xs text-muted-foreground">
-          Google sign-in is unavailable right now. You can still use your email.
+          {t("auth.google.loadFailed")}
         </p>
       )}
     </div>

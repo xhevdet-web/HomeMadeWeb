@@ -5,7 +5,8 @@ import type { Category, Product, ProductInput } from "../api/models";
 import { useAuth } from "../auth/AuthContext";
 import { invalidate } from "../hooks/useApi";
 import { navigate } from "../router";
-import { CAPTURE_FAILED, CaptureError } from "./capture";
+import i18n from "../i18n";
+import { CaptureError } from "./capture";
 import { EMPTY_DRAFTS, persistable, type AnyDraft, type DraftKind, type DraftOf } from "./drafts";
 import { useToast } from "./Toasts";
 import { applyUpdate, useHistory } from "./useHistory";
@@ -144,7 +145,8 @@ export function useSaveDesign(category: Category, build: () => Promise<BuiltDesi
 
   const persist = async () => {
     const { input, files } = await build();
-    const signature = JSON.stringify({ input, uploads: files.customDesigns?.map((f) => f.size) ?? [] });
+    // `preview` changes when a studio draws its preview differently, so older saves are uploaded again.
+    const signature = JSON.stringify({ preview: 2, input, uploads: files.customDesigns?.map((f) => f.size) ?? [] });
     const previous = lastSaved[category.id];
     if (previous?.signature === signature) return previous.product;
     const product = await createProduct(productFormData(input, files));
@@ -159,11 +161,11 @@ export function useSaveDesign(category: Category, build: () => Promise<BuiltDesi
     setSaving(true);
     try {
       const product = await persist();
-      toast("Saved to My Designs.");
+      toast(i18n.t("studio.savedToDesigns"));
       if (then === "order") navigate(`#/checkout?design=${product.id}${options.quantity ? `&qty=${options.quantity}` : ""}`);
     } catch (e) {
       // No preview, no save: nothing was sent and the studio stays as it is.
-      if (e instanceof CaptureError) toast(CAPTURE_FAILED, { action: { label: "Try again", onClick: () => void run(then)() } });
+      if (e instanceof CaptureError) toast(i18n.t("studio.captureFailed"), { action: { label: i18n.t("common.retry"), onClick: () => void run(then)() } });
       else toast(errorMessage(e));
     } finally {
       busy.current = false;
@@ -173,8 +175,8 @@ export function useSaveDesign(category: Category, build: () => Promise<BuiltDesi
 
   return {
     saving,
-    save: () => requireAuth(run("stay"), "Sign in to save your design. It stays exactly as it is."),
-    order: () => requireAuth(run("order"), "Sign in to order your design. It stays exactly as it is."),
+    save: () => requireAuth(run("stay"), i18n.t("auth.prompts.save")),
+    order: () => requireAuth(run("order"), i18n.t("auth.prompts.order")),
   };
 }
 
@@ -183,6 +185,6 @@ export async function uploadBlob(src: string) {
   try {
     return await (await fetch(src)).blob();
   } catch {
-    throw new Error("One of your images is no longer available. Re-upload it and try again.");
+    throw new Error(i18n.t("studio.imageGone"));
   }
 }

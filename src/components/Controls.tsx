@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { useState, type ReactNode } from "react";
 import { Icon } from "./Icon";
 
@@ -57,13 +58,13 @@ export function Stepper({ value, onChange, label, min = 1, max = Infinity }: {
     "flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-secondary disabled:opacity-40 disabled:hover:bg-transparent";
   return (
     <div className="inline-flex items-center gap-1 rounded-full border border-border p-1" role="group" aria-label={label}>
-      <button type="button" className={btn} onClick={() => onChange(value - 1)} disabled={value <= min} aria-label={`Decrease ${label}`}>
+      <button type="button" className={btn} onClick={() => onChange(value - 1)} disabled={value <= min} aria-label={i18n.t("controls.decrease", { label })}>
         <Icon name="minus" size={16} />
       </button>
       <span className="w-8 text-center font-display font-semibold" aria-live="polite">
         {value}
       </span>
-      <button type="button" className={btn} onClick={() => onChange(value + 1)} disabled={value >= max} aria-label={`Increase ${label}`}>
+      <button type="button" className={btn} onClick={() => onChange(value + 1)} disabled={value >= max} aria-label={i18n.t("controls.increase", { label })}>
         <Icon name="plus" size={16} />
       </button>
     </div>

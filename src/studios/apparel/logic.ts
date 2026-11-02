@@ -4,6 +4,7 @@ import { imageSize, renderPng, drawElements, loadImage } from "../../studio/capt
 import type { ApparelDraft } from "../../studio/drafts";
 import { imageElement, newId, type Bounds, type PlacedElement } from "../../studio/elements";
 import { apiFraction, apiRotation, apiScale, customUpload, designName, textElementOf, textLayerOf, uploadsOf, type StudioData } from "../data";
+import i18n from "../../i18n";
 
 export type Side = "front" | "back";
 export type Silhouette = "HOODIE" | "TSHIRT";
@@ -47,8 +48,8 @@ export function apparelPrice(d: ApparelDraft, data: StudioData, byId: Map<string
 
 export function apparelSummary(d: ApparelDraft, data: StudioData) {
   const n = allElements(d).length;
-  if (!n) return "Add a logo, graphic, text or your own artwork";
-  return `${baseOf(d, data)?.name ?? "Piece"} + ${n} design${n > 1 ? "s" : ""}`;
+  if (!n) return i18n.t("apparel.addFirstShort");
+  return `${baseOf(d, data)?.name ?? i18n.t("apparel.piece")} + ${i18n.t("stickers.designsCount", { count: n })}`;
 }
 
 /** Placements are saved relative to the print area (centre 0–1 within it). */
@@ -57,7 +58,7 @@ const fromArea = (x: number, y: number, a: PrintArea) => ({ x: a.x + x * a.width
 
 export async function apparelInput(category: Category, d: ApparelDraft, data: StudioData): Promise<{ input: ProductInput; uploads: Blob[] }> {
   const base = baseOf(d, data);
-  if (!base) throw new Error("Choose the piece to design on.");
+  if (!base) throw new Error(i18n.t("apparel.choosePieceError"));
   const sides: [Side, PlacedElement[]][] = [
     ["front", [...d.front].sort((a, b) => a.z - b.z)],
     ["back", [...d.back].sort((a, b) => a.z - b.z)],

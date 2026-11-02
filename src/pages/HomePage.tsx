@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { publicStats } from "../api/catalog";
 import { communityGallery } from "../api/designs";
 import type { PublicStats } from "../api/models";
 import { useAuth } from "../auth/AuthContext";
 import { Chip } from "../components/Controls";
-import { LOOK, STATIC_CATEGORIES, lookFor, studioHref, useStudioCategories } from "../data/homeCategories";
+import { STATIC_CATEGORIES, lookByKey, lookFor, studioHref, useStudioCategories } from "../data/homeCategories";
 import { useApi } from "../hooks/useApi";
-import { countWord, formatNumber } from "../lib/format";
+import i18n from "../i18n";
+import { formatNumber } from "../lib/format";
 
 const EASE = "cubic-bezier(.2,.7,.2,1)";
 
@@ -44,13 +46,14 @@ function useInView<T extends Element>(threshold = 0.3) {
 /* ---------------- Hero ---------------- */
 
 function Hero() {
+  const { t } = useTranslation();
   const rise = (delay: number) => ({ animationDelay: `${delay}ms` });
 
   return (
     <section data-theme="dark" className="relative h-screen min-h-[640px] overflow-hidden bg-background text-foreground">
       <img
         src="/images/hero.jpg"
-        alt="Custom mug, beaded bracelet, gold pendant necklace and folded hoodie on dark navy velvet"
+        alt={t("home.heroImage")}
         width={1920}
         height={1080}
         loading="eager"
@@ -62,35 +65,34 @@ function Hero() {
 
       <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-center px-6">
         <p className="animate-rise" style={rise(0)}>
-          <span className="eyebrow">Design · Order · Delivered</span>
+          <span className="eyebrow">{t("home.heroEyebrow")}</span>
         </p>
         <h1
           style={rise(150)}
           className="animate-rise mt-6 font-display text-6xl leading-[0.95] font-extrabold tracking-tight sm:text-8xl lg:text-[128px]"
         >
-          Your idea.
+          {t("home.heroTitle")}
           <br />
-          <em className="font-normal text-primary">Made real.</em>
+          <em className="font-normal text-primary">{t("home.heroTitleAccent")}</em>
         </h1>
         <p
           style={rise(300)}
           className="animate-rise mt-8 max-w-md text-lg text-muted-foreground"
         >
-          Create something that's completely yours. We make it by hand and
-          deliver it to your door.
+          {t("home.heroBody")}
         </p>
         <div style={rise(450)} className="animate-rise mt-10 flex flex-wrap gap-4">
           <a
             href="#/create"
             className="rounded-full bg-primary px-8 py-4 font-semibold text-primary-foreground shadow-glow transition-transform duration-300 hover:scale-105"
           >
-            Create your own →
+            {t("home.createYourOwn")}
           </a>
           <a
             href="#/studios"
             className="rounded-full border border-border px-8 py-4 font-semibold backdrop-blur-md transition-colors hover:bg-secondary"
           >
-            Explore categories
+            {t("home.exploreCategories")}
           </a>
         </div>
       </div>
@@ -99,7 +101,7 @@ function Hero() {
         href="#home-categories"
         className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[11px] font-semibold tracking-[0.3em] text-[var(--page-muted)] uppercase"
       >
-        Scroll ↓
+        {t("home.scroll")}
       </a>
     </section>
   );
@@ -130,23 +132,28 @@ function useStackCards(): { cards: StackCard[]; loading: boolean } {
   if (error)
     return {
       loading: false,
-      cards: STATIC_CATEGORIES.map((c) => ({ key: c.key, name: c.name, image: LOOK[c.key].image, line: LOOK[c.key].line, text: LOOK[c.key].text, href: "#/studios" })),
+      cards: STATIC_CATEGORIES.map((key) => {
+        const look = lookByKey(key);
+        return { key, name: i18n.t(`looks.${key}.name`), image: look.image, line: look.line, text: look.text, href: "#/studios" };
+      }),
     };
   return { loading, cards: [] };
 }
 
 function CategoryIntro({ count }: { count: number | null }) {
+  const { t } = useTranslation();
   return (
     <div className="mx-auto max-w-7xl px-6 pt-32 pb-10">
-      <p className="eyebrow">{count === null ? "Ways to create" : `${countWord(count)} ${count === 1 ? "way" : "ways"} to create`}</p>
+      <p className="eyebrow">{count === null ? t("home.waysToCreate") : t("home.waysToCreateCount", { count })}</p>
       <h2 className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
-        Pick a canvas. <em className="font-normal text-primary">Make it yours.</em>
+        {t("home.pickCanvas")} <em className="font-normal text-primary">{t("home.makeItYours")}</em>
       </h2>
     </div>
   );
 }
 
 function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolean }) {
+  const { t } = useTranslation();
   const wrappers = useRef<(HTMLDivElement | null)[]>([]);
   const items = useRef<(HTMLElement | null)[]>([]);
 
@@ -186,7 +193,7 @@ function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolea
 
   if (loading)
     return (
-      <div className="flex h-screen items-center px-4 sm:px-6" role="status" aria-label="Loading categories">
+      <div className="flex h-screen items-center px-4 sm:px-6" role="status" aria-label={t("home.loadingCategories")}>
         <div className="mx-auto h-[82vh] w-full max-w-7xl animate-pulse rounded-[2rem] border border-border bg-card" />
       </div>
     );
@@ -215,7 +222,7 @@ function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolea
             className="pointer-events-auto relative mx-auto h-[72svh] w-full max-w-7xl origin-top overflow-hidden rounded-[2rem] border border-border bg-card text-foreground will-change-transform sm:h-[82svh]"
           >
             {c.image ? (
-              <img src={c.image} alt={`Custom ${c.name.toLowerCase()} by HomeCreator`} width={1280} height={960} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={c.image} alt={t("home.categoryImage", { name: c.name })} width={1280} height={960} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
               <div className="bg-glow absolute inset-0" />
             )}
@@ -233,7 +240,7 @@ function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolea
                   href={c.href}
                   className="mt-5 inline-block rounded-full bg-primary px-7 py-3.5 font-semibold text-primary-foreground transition-transform duration-300 hover:scale-105 sm:mt-8"
                 >
-                  Design a {c.name.toLowerCase()} →
+                  {t("home.designCategory", { name: c.name.toLowerCase() })}
                 </a>
               </div>
             </div>
@@ -271,14 +278,15 @@ function Counter({ value, start }: { value: number; start: boolean }) {
   return <>{formatNumber(Math.round(current))}</>;
 }
 
-/** Tiles shown in the stats grid; add a tile by adding a field here. */
-const STAT_TILES: { label: string; field: keyof PublicStats }[] = [
-  { label: "Registered users", field: "registeredUsers" },
-  { label: "Completed orders", field: "completedOrders" },
-  { label: "Products", field: "products" },
+/** Tiles shown in the stats grid; add a tile by adding a field here (labels are translation keys). */
+const STAT_TILES: { label: "home.statUsers" | "home.statOrders" | "home.statProducts"; field: keyof PublicStats }[] = [
+  { label: "home.statUsers", field: "registeredUsers" },
+  { label: "home.statOrders", field: "completedOrders" },
+  { label: "home.statProducts", field: "products" },
 ];
 
 function Stats() {
+  const { t } = useTranslation();
   const [ref, inView] = useInView<HTMLElement>(0.3);
   // Loaded lazily, when the section scrolls into view.
   const { data, error } = useApi(inView ? "stats" : null, publicStats, { ttl: 60_000 });
@@ -294,10 +302,10 @@ function Stats() {
       <div className="bg-glow pointer-events-none absolute inset-0" />
       <div className="relative mx-auto max-w-7xl px-6">
         <p className="eyebrow" style={reveal(0, "translateY(32px)")}>
-          HomeCreator in numbers
+          {t("home.statsEyebrow")}
         </p>
         <h2 className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl" style={reveal(150, "translateY(32px)")}>
-          Made by hand. <em className="font-normal text-primary">Loved by thousands.</em>
+          {t("home.statsTitle")} <em className="font-normal text-primary">{t("home.statsTitleAccent")}</em>
         </h2>
 
         {/* Never a fake number: the grid is hidden if the stats can't be loaded. */}
@@ -308,7 +316,7 @@ function Stats() {
                 <div className="font-display text-5xl font-extrabold tracking-tight text-primary sm:text-6xl">
                   {data ? <Counter value={Number(data[s.field]) || 0} start /> : " "}
                 </div>
-                <p className="mt-3 text-muted-foreground">{s.label}</p>
+                <p className="mt-3 text-muted-foreground">{t(s.label)}</p>
               </div>
             ))}
           </div>
@@ -321,18 +329,19 @@ function Stats() {
 /* ---------------- Community gallery (signed in only) ---------------- */
 
 function Community() {
+  const { t } = useTranslation();
   const { status } = useAuth();
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const { data } = useApi(status === "signedIn" ? `community:${categoryId ?? ""}` : null, (signal) => communityGallery(categoryId, signal));
   if (!data?.creations.length) return null;
   return (
     <section className="mx-auto max-w-7xl px-6 pb-32" aria-labelledby="community-title">
-      <p className="eyebrow">From the community</p>
+      <p className="eyebrow">{t("home.communityEyebrow")}</p>
       <h2 id="community-title" className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
-        Made for <em className="font-normal text-primary">someone special.</em>
+        {t("home.communityTitle")} <em className="font-normal text-primary">{t("home.communityTitleAccent")}</em>
       </h2>
       {data.categories.length > 1 && (
-        <div className="mt-8 flex flex-wrap gap-2" role="group" aria-label="Category">
+        <div className="mt-8 flex flex-wrap gap-2" role="group" aria-label={t("home.communityFilter")}>
           {data.categories.map((c) => (
             <Chip key={c.id} selected={c.id === data.categoryId} onClick={() => setCategoryId(c.id)}>
               {c.name}
@@ -359,26 +368,22 @@ function Community() {
 
 /* ---------------- Steps ---------------- */
 
-const STEPS = [
-  { title: "Create", text: "Choose a category and design it your way." },
-  { title: "Order", text: "Review your piece and place the order." },
-  { title: "Track", text: "Our maker crafts it by hand while you follow along." },
-  { title: "Enjoy", text: "Delivered to your door, ready to wear or gift." },
-];
+const STEPS = ["create", "order", "track", "enjoy"] as const;
 
 function Steps() {
+  const { t } = useTranslation();
   const [ref, inView] = useInView<HTMLOListElement>(0.3);
 
   return (
     <section id="how-it-works" className="px-4 pb-32 sm:px-6">
       <div className="mx-auto max-w-7xl rounded-[2rem] border border-border bg-card p-8 sm:p-16">
-        <p className="eyebrow">How it works</p>
+        <p className="eyebrow">{t("home.howItWorks")}</p>
         <h2 className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
-          Your idea. <em className="font-normal text-primary">Made real.</em>
+          {t("home.heroTitle")} <em className="font-normal text-primary">{t("home.heroTitleAccent")}</em>
         </h2>
 
         <ol ref={ref} className="mt-14 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((s, i) => (
+          {STEPS.map((step) => ({ title: t(`home.steps.${step}.title`), text: t(`home.steps.${step}.text`) })).map((s, i) => (
             <li
               key={s.title}
               style={{
@@ -400,7 +405,7 @@ function Steps() {
           href="#/create"
           className="mt-14 inline-block rounded-full bg-primary px-8 py-4 font-semibold text-primary-foreground shadow-glow transition-transform duration-300 hover:scale-105"
         >
-          Create your own →
+          {t("home.createYourOwn")}
         </a>
       </div>
     </section>
@@ -410,6 +415,8 @@ function Steps() {
 /* ---------------- Page ---------------- */
 
 export default function HomePage() {
+  // Re-renders the category copy when the language changes.
+  useTranslation();
   const { cards, loading } = useStackCards();
   return (
     <>

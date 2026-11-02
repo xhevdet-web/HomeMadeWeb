@@ -1,3 +1,4 @@
+import i18n from "../../i18n";
 import { parseStickerSize, stickerSizes, type Category, type Product, type ProductInput, type StickerShape, type StickerSize } from "../../api/models";
 import { imageSize, loadImage, renderPng } from "../../studio/capture";
 import { DEFAULT_STICKER_QTY, type StickerDraft } from "../../studio/drafts";
@@ -18,7 +19,7 @@ export const sizeOf = (category: Category, d: StickerDraft) => stickerSizes(cate
 
 const cmText = (mm: number) => String(Math.round(mm) / 10);
 export const dimensions = (s: StickerSize) => (s.shape === "CIRCLE" ? `⌀ ${cmText(s.widthMm)} cm` : `${cmText(s.widthMm)} × ${cmText(s.heightMm)} cm`);
-export const setLabel = (s: StickerSize | null) => (s ? `${SHAPE_NAMES[s.shape]} · ${dimensions(s)}` : "No size yet");
+export const setLabel = (s: StickerSize | null) => (s ? `${i18n.t(`stickers.shapes.${s.shape}`)} · ${dimensions(s)}` : i18n.t("stickers.noSizeYet"));
 
 /** Height ÷ width of the printable area inside the border. */
 export const innerAspect = (s: StickerSize) => (s.heightMm / s.widthMm - 2 * BORDER) / (1 - 2 * BORDER);
@@ -50,7 +51,7 @@ export const newDesign = () => ({ id: newId(), image: null, quantity: DEFAULT_ST
 
 /** One item per design with its artwork, placement and how many to print. */
 export async function stickerInput(category: Category, d: StickerDraft, s: StickerSize): Promise<{ input: ProductInput; uploads: Blob[] }> {
-  if (!allHaveImages(d)) throw new Error("Add an image to every design before saving your set.");
+  if (!allHaveImages(d)) throw new Error(i18n.t("stickers.imageEveryDesignSave"));
   const images = d.designs.map((x) => x.image!);
   let upload = 0;
   return {

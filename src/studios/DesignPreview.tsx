@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { createPortal } from "react-dom";
 import { productImage, type Category, type Product } from "../api/models";
 import { Icon } from "../components/Icon";
@@ -37,6 +39,7 @@ interface Props {
  * Never a single component.
  */
 export function DesignPreview({ product, category, className = "aspect-square w-full", lightbox = false, missingNote = false, compact = false }: Props) {
+  const { t } = useTranslation();
   const round = compact ? "rounded-xl" : "rounded-[1.5rem]";
   const categories = useStudioCategories();
   const cat = category ?? categories.data?.find((c) => c.id === product.categoryId);
@@ -48,7 +51,7 @@ export function DesignPreview({ product, category, className = "aspect-square w-
   if (url && mug) {
     const shown = (
       <div className="w-full">
-        <MugEditor area={mug} view="front" guides={false} label={`${product.name}, on the mug`}>
+        <MugEditor area={mug} view="front" guides={false} label={t("preview.onMug", { name: product.name })}>
           <MugPrintImage src={url} />
         </MugEditor>
       </div>
@@ -58,7 +61,7 @@ export function DesignPreview({ product, category, className = "aspect-square w-
         <div className={`relative flex items-center justify-center overflow-hidden ${round} bg-secondary ${compact ? "p-1" : "p-4"} ${className}`}>
           {lightbox ? (
             // Full size shows the flat print, so every detail can be checked.
-            <button type="button" onClick={() => setOpen(url)} className="block w-full cursor-zoom-in" aria-label={`Open the print of ${product.name} full size`}>
+            <button type="button" onClick={() => setOpen(url)} className="block w-full cursor-zoom-in" aria-label={t("preview.openPrint", { name: product.name })}>
               {shown}
             </button>
           ) : (
@@ -72,7 +75,7 @@ export function DesignPreview({ product, category, className = "aspect-square w-
 
   if (url) {
     // Apparel with a designed back shows both sides.
-    const sides = product.backDesignPreviewUrl ? [{ src: url, label: "front" }, { src: product.backDesignPreviewUrl, label: "back" }] : [{ src: url, label: "" }];
+    const sides = product.backDesignPreviewUrl ? [{ src: url, label: t("preview.front") }, { src: product.backDesignPreviewUrl, label: t("preview.back") }] : [{ src: url, label: "" }];
     return (
       <>
         <div className={sides.length > 1 ? "grid grid-cols-2 gap-3" : ""}>
@@ -81,7 +84,7 @@ export function DesignPreview({ product, category, className = "aspect-square w-
             return (
               <div key={side.src} className={`relative overflow-hidden ${round} bg-secondary ${className}`}>
                 {lightbox ? (
-                  <button type="button" onClick={() => setOpen(side.src)} className="block h-full w-full cursor-zoom-in" aria-label={`Open ${alt} full size`}>
+                  <button type="button" onClick={() => setOpen(side.src)} className="block h-full w-full cursor-zoom-in" aria-label={t("preview.openFull", { name: alt })}>
                     <img {...corsImage} src={side.src} alt={alt} className="h-full w-full object-contain" />
                   </button>
                 ) : (
@@ -102,7 +105,7 @@ export function DesignPreview({ product, category, className = "aspect-square w-
     <div>
       <div className={`relative flex items-center justify-center overflow-hidden ${round} bg-secondary ${compact ? "p-1" : "p-4"} ${className}`}>
         {product.origin === "COMPANY" || !cat ? (
-          !compact && <span className="text-sm text-muted-foreground">No preview</span>
+          !compact && <span className="text-sm text-muted-foreground">{t("preview.none")}</span>
         ) : studioBuilder(cat) === "JEWELRY" ? (
           <LiveJewelry product={product} category={cat} />
         ) : (
@@ -112,10 +115,10 @@ export function DesignPreview({ product, category, className = "aspect-square w-
       {missingNote && product.origin !== "COMPANY" && (
         <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <Icon name="alert" size={14} className="text-primary" />
-          Preview image missing. Re-save this design so our makers see it.
+          {t("preview.missing")}
           {editable && (
             <a href={`${studioHref(cat!, "design")}?load=${product.id}`} className="font-semibold text-primary hover:underline">
-              Edit copy
+              {t("designs.editCopy")}
             </a>
           )}
         </p>
@@ -132,7 +135,7 @@ function LiveJewelry({ product, category }: { product: Product; category: Catego
       Array.from({ length: Math.max(1, item.quantity) }, () =>
         toPiece({
           id: item.subCategoryId,
-          name: item.subCategory?.name ?? "Bead",
+          name: item.subCategory?.name ?? i18n.t("preview.bead"),
           effectiveLengthMm: item.subCategory?.effectiveLengthMm ?? TYPICAL_MM,
           imageUrl: item.subCategory?.imageUrl ?? null,
           color: item.subCategory?.color ?? null,
@@ -141,7 +144,7 @@ function LiveJewelry({ product, category }: { product: Product; category: Catego
     );
   const used = pieces.reduce((n, p) => n + p.lengthMm, 0);
   const length = Number(product.selectedSize?.selectedMeasurementMm) || used || 180;
-  return <JewelryCanvas kind={cordOf(category)} pieces={pieces} lengthMm={length} label={`${product.name} with ${pieces.length} components`} className="h-full w-full" />;
+  return <JewelryCanvas kind={cordOf(category)} pieces={pieces} lengthMm={length} label={i18n.t("preview.withComponents", { name: product.name, count: pieces.length })} className="h-full w-full" />;
 }
 
 /** The other studios: the saved design restored read-only and drawn with the studio's own canvas. */
@@ -162,7 +165,7 @@ function LiveStudio({ product, category }: { product: Product; category: Categor
     };
   }, [data, module, product, category]);
 
-  if (!draft || !data) return <span className="h-full w-full animate-pulse rounded-2xl bg-card" aria-label="Drawing your design" role="img" />;
+  if (!draft || !data) return <span className="h-full w-full animate-pulse rounded-2xl bg-card" aria-label={i18n.t("preview.drawing")} role="img" />;
   return <Drawn draft={draft} data={data} category={category} />;
 }
 
@@ -187,8 +190,8 @@ function Drawn({ draft, data, category }: { draft: AnyDraft; data: StudioData; c
       const area = mugArea(blankMug(data));
       return area ? (
         <div className="w-full">
-          <MugEditor area={area} view="front" guides={false} label="Your mug">
-            <PlacementLayer elements={draft.elements} label="Mug print" readOnly />
+          <MugEditor area={area} view="front" guides={false} label={i18n.t("preview.yourMug")}>
+            <PlacementLayer elements={draft.elements} label={i18n.t("preview.mugPrint")} readOnly />
           </MugEditor>
         </div>
       ) : null;
@@ -209,7 +212,7 @@ function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: ()
   return createPortal(
     <div role="dialog" aria-modal="true" aria-label={alt} className="fixed inset-0 z-[70] flex items-center justify-center bg-background/90 p-4 backdrop-blur-md" onClick={onClose}>
       <img {...corsImage} src={src} alt={alt} className="max-h-full max-w-full rounded-2xl bg-secondary object-contain" />
-      <button type="button" onClick={onClose} aria-label="Close" className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card">
+      <button type="button" onClick={onClose} aria-label={i18n.t("common.close")} className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card">
         <Icon name="close" size={18} />
       </button>
     </div>,

@@ -3,13 +3,14 @@ import { drawElements, imageSize, renderPng } from "../../studio/capture";
 import type { GiftDraft } from "../../studio/drafts";
 import { imageElement, newId, type Bounds, type PlacedElement } from "../../studio/elements";
 import { apiFraction, apiRotation, apiScale, designName, textElementOf, textLayerOf, texts, type StudioData } from "../data";
+import i18n from "../../i18n";
 
 /** Picker groups, matched by keyword on the admin-set component type (the app's GIFT groups). */
 export const GIFT_GROUPS = [
-  { key: "ITEMS", label: "Items", match: /ITEM|PRODUCT|MUG|CUP|FOOD|SWEET|CHOC|COOKIE|DRINK|COFFEE|TEA|CANDLE|TOY|BEAR/, base: 0.2 },
-  { key: "DECORATIONS", label: "Decorations", match: /DECOR|RIBBON|BOW|CARD|HEART|TAG|FLOWER|ROSE|STICKER|BALLOON/, base: 0.14 },
-  { key: "FILLER", label: "Filler", match: /FILL|SHRED|STRAW|NEST/, base: 0.28 },
-  { key: "CONTAINER", label: "Bags & boxes", match: /BAG|BOX|BASKET|CONTAINER|PACKAG|HAMPER/, base: 0.6 },
+  { key: "ITEMS", get label() { return i18n.t("giftGroups.ITEMS"); }, match: /ITEM|PRODUCT|MUG|CUP|FOOD|SWEET|CHOC|COOKIE|DRINK|COFFEE|TEA|CANDLE|TOY|BEAR/, base: 0.2 },
+  { key: "DECORATIONS", get label() { return i18n.t("giftGroups.DECORATIONS"); }, match: /DECOR|RIBBON|BOW|CARD|HEART|TAG|FLOWER|ROSE|STICKER|BALLOON/, base: 0.14 },
+  { key: "FILLER", get label() { return i18n.t("giftGroups.FILLER"); }, match: /FILL|SHRED|STRAW|NEST/, base: 0.28 },
+  { key: "CONTAINER", get label() { return i18n.t("giftGroups.CONTAINER"); }, match: /BAG|BOX|BASKET|CONTAINER|PACKAG|HAMPER/, base: 0.6 },
 ] as const;
 
 export type GroupKey = (typeof GIFT_GROUPS)[number]["key"];
@@ -56,7 +57,7 @@ export function giftGroups(elements: PlacedElement[], byId: Map<string, Componen
     if (g) {
       g.count++;
       g.ids.push(e.id);
-    } else groups.push({ key: e.ref ?? e.id, label: e.name ?? "Item", count: 1, ids: [e.id], price: byId.get(e.ref ?? "")?.price ?? 0 });
+    } else groups.push({ key: e.ref ?? e.id, label: e.name ?? i18n.t("order.item"), count: 1, ids: [e.id], price: byId.get(e.ref ?? "")?.price ?? 0 });
   }
   return groups;
 }

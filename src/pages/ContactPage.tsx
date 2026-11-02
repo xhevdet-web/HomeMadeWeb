@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { errorMessage } from "../api/client";
 import { sendContact } from "../api/contact";
 import { useAuth } from "../auth/AuthContext";
@@ -8,6 +9,7 @@ import { Icon } from "../components/Icon";
 import { Page, PageHeader } from "../components/Page";
 
 export default function ContactPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [form, setForm] = useState({
     name: user ? `${user.firstName} ${user.lastName}` : "",
@@ -26,8 +28,9 @@ export default function ContactPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await sendContact(form);
-      setSent(res?.message || "Thanks! We'll reply to your email soon.");
+      await sendContact(form);
+      // Our own wording in the page's language; the server's reply is in English.
+      setSent(t("contact.sentBody"));
     } catch (err) {
       // Includes the server's rate-limit (429) message as it is.
       setError(errorMessage(err));
@@ -39,7 +42,7 @@ export default function ContactPage() {
   const field = (k: keyof typeof form, label: string, opts: { type?: string; auto?: string; optional?: boolean } = {}) => (
     <div>
       <label htmlFor={`contact-${k}`} className="mb-1.5 block text-sm font-semibold">
-        {label} {opts.optional && <span className="font-normal text-muted-foreground">(optional)</span>}
+        {label} {opts.optional && <span className="font-normal text-muted-foreground">{t("common.optional")}</span>}
       </label>
       <input id={`contact-${k}`} type={opts.type ?? "text"} autoComplete={opts.auto} required={!opts.optional} value={form[k]} onChange={set(k)} className={inputClass} />
     </div>
@@ -48,13 +51,13 @@ export default function ContactPage() {
   return (
     <Page>
       <PageHeader
-        eyebrow="Contact us"
+        eyebrow={t("contact.eyebrow")}
         title={
           <>
-            We're here <em className="font-normal text-primary">to help.</em>
+            {t("contact.title")} <em className="font-normal text-primary">{t("contact.titleAccent")}</em>
           </>
         }
-        intro="Questions about a design or an order? Write to us and we'll reply by email."
+        intro={t("contact.intro")}
       />
       <div className="mt-12 max-w-2xl rounded-[2rem] border border-border bg-card p-6 sm:p-10">
         {sent ? (
@@ -62,20 +65,20 @@ export default function ContactPage() {
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
               <Icon name="check" size={24} />
             </span>
-            <p className="mt-5 font-display text-2xl font-semibold">Message sent.</p>
+            <p className="mt-5 font-display text-2xl font-semibold">{t("contact.sent")}</p>
             <p className="mt-2 text-muted-foreground">{sent}</p>
           </div>
         ) : (
           <form onSubmit={submit} className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              {field("name", "Name", { auto: "name" })}
-              {field("email", "Email", { type: "email", auto: "email" })}
+              {field("name", t("contact.name"), { auto: "name" })}
+              {field("email", t("contact.email"), { type: "email", auto: "email" })}
             </div>
-            {field("subject", "Subject")}
-            {field("orderNumber", "Order number", { optional: true })}
+            {field("subject", t("contact.subject"))}
+            {field("orderNumber", t("contact.orderNumber"), { optional: true })}
             <div>
               <label htmlFor="contact-message" className="mb-1.5 block text-sm font-semibold">
-                Message
+                {t("contact.message")}
               </label>
               <textarea id="contact-message" required rows={6} value={form.message} onChange={set("message")} className={`${inputClass} resize-y`} />
             </div>
@@ -86,7 +89,7 @@ export default function ContactPage() {
             )}
             <div>
               <Button type="submit" glow disabled={busy}>
-                {busy ? "Sending…" : "Send message"}
+                {busy ? t("contact.sending") : t("contact.send")}
               </Button>
             </div>
           </form>

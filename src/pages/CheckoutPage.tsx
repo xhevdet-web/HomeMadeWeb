@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { updateProfile } from "../api/auth";
 import { product as fetchProduct } from "../api/catalog";
 import { ApiError, errorMessage } from "../api/client";
@@ -13,6 +14,7 @@ import { Page, PageHeader } from "../components/Page";
 import { StepIndicator } from "../components/StepIndicator";
 import { invalidate, useApi } from "../hooks/useApi";
 import { studioBuilder, studioHref, useStudioCategories } from "../data/homeCategories";
+import i18n from "../i18n";
 import { cm, money } from "../lib/format";
 import { isPending, setPending } from "../lib/pendingOrders";
 import { navigate } from "../router";
@@ -22,26 +24,22 @@ import { useStudio } from "../studio/StudioContext";
 import { DesignPreview } from "../studios/DesignPreview";
 import { MIN_JEWELRY_PRICE_CENTS, minimumMessage, missingForMinimum } from "../studios/jewelry/logic";
 
-/* The app's checkout wording. */
-const UNCERTAIN = "We could not confirm whether your order was placed. Check My Orders before doing anything else. This checkout will not submit again.";
-const PENDING = "An order was submitted for this design. Check My Orders for its status before placing another order.";
-const NEED_DELIVERY = "We need an address and phone number to deliver your order.";
-
 /** The app's companyUnavailable: why a ready-made product can't be ordered right now. */
 function companyUnavailable(product: Product, sizes: SizeStock[], size: string | null) {
-  if (product.isActive !== true) return "This product is unavailable.";
+  if (product.isActive !== true) return i18n.t("checkout.unavailable");
   if (sizes.length) {
-    if (!size) return "Choose a size";
-    return (sizes.find((s) => s.size === size)?.stock ?? 0) > 0 ? null : `Size ${size} is sold out`;
+    if (!size) return i18n.t("checkout.chooseSize");
+    return (sizes.find((s) => s.size === size)?.stock ?? 0) > 0 ? null : i18n.t("checkout.sizeSoldOut", { size });
   }
-  if (!Number.isSafeInteger(product.stock) || product.stock! < 0) return "Stock information is not available right now. Please try again later.";
-  return product.stock === 0 ? "Out of stock" : null;
+  if (!Number.isSafeInteger(product.stock) || product.stock! < 0) return i18n.t("checkout.stockUnknown");
+  return product.stock === 0 ? i18n.t("checkout.outOfStock") : null;
 }
 
 const PROFILE_ERROR = /profile|firstName|lastName|phone|country|address/i;
 const STOCK_ERROR = /stock|inventory|insufficient|sold out/i;
 
-export function DeliveryForm({ user, onSaved, submitLabel = "Save delivery details" }: { user: User; onSaved: (u: User) => void; submitLabel?: string }) {
+export function DeliveryForm({ user, onSaved, submitLabel }: { user: User; onSaved: (u: User) => void; submitLabel?: string }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     firstName: user.firstName,
     lastName: user.lastName,
@@ -76,7 +74,7 @@ export function DeliveryForm({ user, onSaved, submitLabel = "Save delivery detai
   const field = (k: keyof typeof form, label: string, opts: { type?: string; auto?: string; required?: boolean; wide?: boolean } = {}) => (
     <div className={opts.wide ? "sm:col-span-2" : ""}>
       <label htmlFor={`delivery-${k}`} className="mb-1.5 block text-sm font-semibold">
-        {label} {!opts.required && <span className="font-normal text-muted-foreground">(optional)</span>}
+        {label} {!opts.required && <span className="font-normal text-muted-foreground">{t("common.optional")}</span>}
       </label>
       <input id={`delivery-${k}`} type={opts.type ?? "text"} autoComplete={opts.auto} required={opts.required} value={form[k]} onChange={set(k)} className={inputClass} />
     </div>
@@ -84,12 +82,12 @@ export function DeliveryForm({ user, onSaved, submitLabel = "Save delivery detai
 
   return (
     <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-      {field("firstName", "First name", { auto: "given-name", required: true })}
-      {field("lastName", "Last name", { auto: "family-name", required: true })}
-      {field("phone", "Phone", { type: "tel", auto: "tel", required: true })}
-      {field("country", "Country", { auto: "country-name", required: true })}
-      {field("address", "Address", { auto: "street-address", required: true, wide: true })}
-      {field("postalCode", "Postal code", { auto: "postal-code" })}
+      {field("firstName", t("delivery.firstName"), { auto: "given-name", required: true })}
+      {field("lastName", t("delivery.lastName"), { auto: "family-name", required: true })}
+      {field("phone", t("delivery.phone"), { type: "tel", auto: "tel", required: true })}
+      {field("country", t("delivery.country"), { auto: "country-name", required: true })}
+      {field("address", t("delivery.address"), { auto: "street-address", required: true, wide: true })}
+      {field("postalCode", t("delivery.postalCode"), { auto: "postal-code" })}
       {error && (
         <p role="alert" className="text-sm text-destructive sm:col-span-2">
           {error}
@@ -97,7 +95,7 @@ export function DeliveryForm({ user, onSaved, submitLabel = "Save delivery detai
       )}
       <div className="sm:col-span-2">
         <Button type="submit" disabled={busy}>
-          {busy ? "Saving…" : submitLabel}
+          {busy ? t("common.saving") : (submitLabel ?? t("delivery.save"))}
         </Button>
       </div>
     </form>
@@ -105,6 +103,7 @@ export function DeliveryForm({ user, onSaved, submitLabel = "Save delivery detai
 }
 
 export default function CheckoutPage({ query }: { query: URLSearchParams }) {
+  const { t } = useTranslation();
   const { user, setUser } = useAuth();
   const { clearOrdered } = useStudio();
   const categories = useStudioCategories();
@@ -124,19 +123,19 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
   if (!productId)
     return (
       <Page>
-        <LoadError message="There is nothing to check out. Pick a design first." onRetry={() => navigate("#/designs")} />
+        <LoadError message={t("checkout.nothing")} onRetry={() => navigate("#/designs")} />
       </Page>
     );
   if (loading || !user)
     return (
       <Page>
-        <div className="h-[520px] animate-pulse rounded-[2rem] bg-card" role="status" aria-label="Loading checkout" />
+        <div className="h-[520px] animate-pulse rounded-[2rem] bg-card" role="status" aria-label={t("checkout.loading")} />
       </Page>
     );
   if (error || !product)
     return (
       <Page>
-        <LoadError message={error ?? "We couldn't load this design."} onRetry={retry} />
+        <LoadError message={error ?? t("checkout.loadFailed")} onRetry={retry} />
       </Page>
     );
 
@@ -172,7 +171,7 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
       if (readyMade) setProduct(await fetchProduct(product.id));
       else invalidate(`studio:${product.categoryId}`);
     } catch {
-      setOrderError((m) => `${m ?? ""} Could not refresh stock. Reopen this order review to check availability.`.trim());
+      setOrderError((m) => `${m ?? ""} ${t("checkout.stockRefreshFailed")}`.trim());
     }
   };
 
@@ -218,20 +217,20 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
   };
 
   const locked = pending || uncertain;
-  const caption = needsDelivery ? NEED_DELIVERY : (unavailable ?? "Pay cash when your order arrives.");
+  const caption = needsDelivery ? t("checkout.needDelivery") : (unavailable ?? t("checkout.payCash"));
 
   return (
     <Page>
       <PageHeader
-        back={{ href: query.get("design") ? "#/designs" : "#/studios", label: query.get("design") ? "Back to my designs" : "Back to studios" }}
-        eyebrow="Checkout"
+        back={{ href: query.get("design") ? "#/designs" : "#/studios", label: query.get("design") ? t("checkout.backToDesigns") : t("checkout.backToStudios") }}
+        eyebrow={t("checkout.eyebrow")}
         title={
           <>
-            Almost <em className="font-normal text-primary">yours.</em>
+            {t("checkout.title")} <em className="font-normal text-primary">{t("checkout.titleAccent")}</em>
           </>
         }
       />
-      <StepIndicator steps={["Step 1 of 2: Your design", "Step 2 of 2: Delivery & payment"]} active={1} className="mt-10" />
+      <StepIndicator steps={[t("checkout.stepDesign"), t("checkout.stepDelivery")]} active={1} className="mt-10" />
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
         <div className="flex flex-col gap-6">
@@ -242,19 +241,21 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
                 !needsDelivery &&
                 !locked && (
                   <button type="button" onClick={openDelivery} className="text-sm font-semibold text-primary hover:underline">
-                    Edit delivery
+                    {t("checkout.editDelivery")}
                   </button>
                 )
               }
             >
-              Deliver to
+              {t("checkout.deliverTo")}
             </CardTitle>
             {needsDelivery ? (
               <>
-                <p className="mb-5 text-sm text-muted-foreground">{NEED_DELIVERY} The postal code is optional.</p>
+                <p className="mb-5 text-sm text-muted-foreground">
+                  {t("checkout.needDelivery")} {t("checkout.postalOptional")}
+                </p>
                 <DeliveryForm
                   user={user}
-                  submitLabel="Save and continue"
+                  submitLabel={t("checkout.saveAndContinue")}
                   onSaved={(u) => {
                     setUser(u);
                     setEditing(false);
@@ -274,15 +275,15 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
           </section>
 
           <section className="rounded-[2rem] border border-border bg-card p-6 sm:p-8">
-            <CardTitle icon="cash">Payment</CardTitle>
-            <div role="radiogroup" aria-label="Payment method">
+            <CardTitle icon="cash">{t("checkout.payment")}</CardTitle>
+            <div role="radiogroup" aria-label={t("checkout.paymentMethod")}>
               <div role="radio" aria-checked="true" tabIndex={0} className="flex items-start gap-4 rounded-2xl border border-primary bg-primary/10 p-5">
                 <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-primary">
                   <span className="h-2.5 w-2.5 rounded-full bg-primary" />
                 </span>
                 <span>
                   <span className="block font-semibold">{paymentLabel("CASH_ON_DELIVERY")}</span>
-                  <span className="mt-1 block text-sm text-muted-foreground">Pay cash when your order arrives.</span>
+                  <span className="mt-1 block text-sm text-muted-foreground">{t("checkout.payCash")}</span>
                 </span>
               </div>
             </div>
@@ -294,13 +295,13 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
                 <Icon name="message" size={18} />
               </span>
               <span className="flex-1">
-                <span className="block font-display text-xl font-semibold">Add a delivery note</span>
-                <span className="block text-sm text-muted-foreground">Optional · anything your courier should know</span>
+                <span className="block font-display text-xl font-semibold">{t("checkout.noteTitle")}</span>
+                <span className="block text-sm text-muted-foreground">{t("checkout.noteSummary")}</span>
               </span>
               <Icon name="chevronDown" className="text-muted-foreground transition-transform group-open:rotate-180" />
             </summary>
             <label htmlFor="delivery-note" className="sr-only">
-              Delivery note
+              {t("checkout.noteLabel")}
             </label>
             <textarea
               id="delivery-note"
@@ -309,14 +310,14 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
               value={notes}
               disabled={locked}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Ring twice, the doorbell is quiet."
+              placeholder={t("checkout.notePlaceholder")}
               className={`${inputClass} mt-5 resize-none`}
             />
           </details>
         </div>
 
-        <aside aria-label="Order summary" className="rounded-[2rem] border border-border bg-card p-6 sm:p-8 lg:sticky lg:top-28">
-          <h2 className="font-display text-xl font-semibold">Order summary</h2>
+        <aside aria-label={t("checkout.summary")} className="rounded-[2rem] border border-border bg-card p-6 sm:p-8 lg:sticky lg:top-28">
+          <h2 className="font-display text-xl font-semibold">{t("checkout.summary")}</h2>
           <div className="mt-5">
             <DesignPreview product={product} category={category} lightbox missingNote className="aspect-square min-h-40 w-full" />
           </div>
@@ -326,7 +327,7 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
           {!readyMade && (product.items?.length ?? 0) > 0 && (
             <details className="group mt-5 rounded-2xl border border-border">
               <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-                {jewelry ? "Beads & price details" : "Items & price details"}
+                {jewelry ? t("checkout.beadsDetails") : t("checkout.itemsDetails")}
                 <Icon name="chevronDown" size={16} className="text-muted-foreground transition-transform group-open:rotate-180" />
               </summary>
               <ul className="space-y-2.5 border-t border-border px-4 py-3 text-sm">
@@ -338,7 +339,7 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
                         {src && <img {...corsImage} src={src} alt="" loading="lazy" className="h-8 w-8 object-contain" />}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                        {item.customImageUrl ? "Your image" : item.subCategory?.name} × {item.quantity}
+                        {item.customImageUrl ? t("checkout.yourImage") : item.subCategory?.name} × {item.quantity}
                       </span>
                       <span>{money(item.unitPrice * item.quantity)}</span>
                     </li>
@@ -350,8 +351,8 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
 
           {sizes.length > 0 && (
             <div className="mt-6">
-              <p className="mb-2 text-sm text-muted-foreground">Size</p>
-              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Size">
+              <p className="mb-2 text-sm text-muted-foreground">{t("checkout.size")}</p>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("checkout.size")}>
                 {sizes.map((s) => (
                   <button
                     key={s.size}
@@ -371,8 +372,8 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
 
           {rule && (
             <div className="mt-6 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Quantity{rule.min > 1 ? ` (from ${rule.min})` : ""}</span>
-              <Stepper value={qty} min={rule.min} max={rule.max} onChange={setQuantity} label="quantity" />
+              <span className="text-sm text-muted-foreground">{rule.min > 1 ? t("checkout.quantityFrom", { min: rule.min }) : t("checkout.quantity")}</span>
+              <Stepper value={qty} min={rule.min} max={rule.max} onChange={setQuantity} label={t("checkout.quantityLabel")} />
             </div>
           )}
 
@@ -385,30 +386,30 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
               <dd>{money(product.price * qty)}</dd>
             </div>
             <div className="flex items-baseline justify-between border-t border-border pt-4">
-              <dt className="font-semibold">Total due on delivery</dt>
+              <dt className="font-semibold">{t("checkout.totalDue")}</dt>
               <dd className="font-display text-3xl font-semibold text-primary">{money(product.price * qty)}</dd>
             </div>
           </dl>
-          <p className="mt-2 text-xs text-muted-foreground">The order confirmation shows the final total, including any delivery charge.</p>
+          <p className="mt-2 text-xs text-muted-foreground">{t("checkout.finalTotalNote")}</p>
 
           {locked && !placing ? (
             <div className="mt-8">
               <ButtonLink href="#/orders" size="lg" className="w-full">
-                Check my orders
+                {t("checkout.checkOrders")}
               </ButtonLink>
               <p role="alert" className="mt-3 rounded-2xl border border-primary/40 bg-primary/10 p-4 text-sm">
-                {uncertain ? UNCERTAIN : PENDING}
+                {uncertain ? t("checkout.uncertain") : t("checkout.pendingNotice")}
               </p>
             </div>
           ) : (
             <>
               {needsDelivery && !editing ? (
                 <Button size="lg" glow className="mt-8 w-full" onClick={openDelivery}>
-                  Add delivery details
+                  {t("checkout.addDelivery")}
                 </Button>
               ) : (
                 <Button size="lg" glow className="mt-8 w-full" onClick={() => void place()} disabled={needsDelivery || !!unavailable || placing}>
-                  {placing ? "Placing your order…" : "Place Order"}
+                  {placing ? t("checkout.placing") : t("checkout.placeOrder")}
                 </Button>
               )}
               <p role="status" className="mt-3 text-center text-sm text-muted-foreground">
@@ -418,7 +419,7 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
               {belowMinimum && editHref && (
                 <p className="mt-2 text-center">
                   <a href={editHref} className="text-sm font-semibold text-primary hover:underline">
-                    Edit design
+                    {t("checkout.editDesign")}
                   </a>
                 </p>
               )}

@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 import { useSaveDesign, useStudio } from "../../studio/StudioContext";
 import { DetailRows, NothingToPreview, PreviewActions, PreviewLayout, PriceLines, StudioShell } from "../../studio/StudioShell";
 import { useImageRatio } from "../apparel/logic";
@@ -20,43 +24,43 @@ export function CasePreview({ category, data }: StudioProps) {
   });
   const title = (
     <>
-      Your <em className="font-normal text-primary">case.</em>
+      {t("cases.previewTitle")} <em className="font-normal text-primary">{t("cases.previewTitleAccent")}</em>
     </>
   );
 
   if (!image || !model) {
     return (
       <StudioShell category={category} step={2} title={title}>
-        <NothingToPreview category={category} message="Add a design or your own photo first." />
+        <NothingToPreview category={category} message={t("cases.addFirst")} />
       </StudioShell>
     );
   }
 
   const designPrice = byId.get(image.ref ?? "")?.price ?? 0;
   const blocked = isSoldOut(model)
-    ? "This phone model is no longer available. Choose another one; your image stays."
+    ? t("cases.modelGone")
     : image.missing
-      ? "Re-upload your photo to continue."
+      ? t("cases.reuploadToContinue")
       : null;
 
   return (
-    <StudioShell category={category} step={2} title={title} intro="This is how your case will look. We print it by hand once you order.">
+    <StudioShell category={category} step={2} title={title} intro={t("cases.previewIntro")}>
       <PreviewLayout
         visual={
           <Tilt>
             <CaseCanvas model={model} safeArea={false}>
-              <PlacementLayer elements={d.elements} label={`${model.name} case`} readOnly />
+              <PlacementLayer elements={d.elements} label={t("cases.caseOf", { name: model.name })} readOnly />
             </CaseCanvas>
           </Tilt>
         }
       >
         <DetailRows
           rows={[
-            ["Phone", model.name],
-            ["Design", image.name ?? "Your photo"],
+            [t("cases.phone"), model.name],
+            [t("mugs.design"), image.name ?? t("cases.yourPhoto")],
           ]}
         />
-        <PriceLines lines={[[`${model.name} case`, model.price], ...(designPrice ? [[image.name ?? "Design", designPrice] as [string, number]] : [])]} total={casePrice(d, model, byId)} />
+        <PriceLines lines={[[t("cases.caseOf", { name: model.name }), model.price], ...(designPrice ? [[image.name ?? t("mugs.design"), designPrice] as [string, number]] : [])]} total={casePrice(d, model, byId)} />
         <PreviewActions category={category} onSave={saver.save} onOrder={saver.order} saving={saver.saving} orderBlocked={blocked ?? stockProblem(d.elements.map((e) => e.ref), byId)} saveBlocked={blocked} />
       </PreviewLayout>
     </StudioShell>
@@ -130,7 +134,7 @@ function Tilt({ children }: { children: ReactNode }) {
       </div>
       {touch && supported && !still && motion !== "on" && (
         <button type="button" onClick={() => void enable()} className="mt-6 min-h-11 rounded-full border border-border px-4 text-sm font-semibold transition-colors hover:bg-secondary">
-          {motion === "denied" ? "Motion access was declined" : "Tilt your phone to look around"}
+          {motion === "denied" ? i18n.t("cases.motionDeclined") : i18n.t("cases.tilt")}
         </button>
       )}
     </div>

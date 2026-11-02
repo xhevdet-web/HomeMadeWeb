@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { request } from "./client";
 import { parseUser, type User } from "./models";
 
@@ -74,8 +75,8 @@ export const PASSWORD_MIN = 12;
 export const PASSWORD_MAX = 128;
 
 export const passwordRules = (password: string) => [
-  { label: `At least ${PASSWORD_MIN} characters`, met: password.length >= PASSWORD_MIN },
-  { label: `No more than ${PASSWORD_MAX} characters`, met: password.length <= PASSWORD_MAX },
+  { label: i18n.t("auth.ruleMin", { count: PASSWORD_MIN }), met: password.length >= PASSWORD_MIN },
+  { label: i18n.t("auth.ruleMax", { count: PASSWORD_MAX }), met: password.length <= PASSWORD_MAX },
 ];
 
 export type { User };

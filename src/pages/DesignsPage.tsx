@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { userProducts } from "../api/designs";
 import { type Category, type Product } from "../api/models";
 import { useAuth } from "../auth/AuthContext";
@@ -16,8 +17,9 @@ import { DesignPreview } from "../studios/DesignPreview";
 const MAX_CHIPS = 3;
 
 function DesignSkeleton() {
+  const { t } = useTranslation();
   return (
-    <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label="Loading your designs">
+    <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label={t("designs.loading")}>
       {Array.from({ length: 3 }, (_, i) => (
         <li key={i} className="h-[480px] animate-pulse rounded-[2rem] border border-border bg-card" />
       ))}
@@ -26,17 +28,18 @@ function DesignSkeleton() {
 }
 
 /** "Amber ×8", grouped per component. */
-function materials(p: Product) {
+function materials(p: Product, item: string) {
   const lines = new Map<string, number>();
-  for (const item of p.items ?? []) {
-    const name = item.subCategory?.name ?? "Item";
-    lines.set(name, (lines.get(name) ?? 0) + item.quantity);
+  for (const it of p.items ?? []) {
+    const name = it.subCategory?.name ?? item;
+    lines.set(name, (lines.get(name) ?? 0) + it.quantity);
   }
   return [...lines].map(([name, n]) => `${name} ×${n}`);
 }
 
 function DesignCard({ product, category }: { product: Product; category: Category | undefined }) {
-  const chips = materials(product);
+  const { t } = useTranslation();
+  const chips = materials(product, t("order.item"));
   const editable = product.origin !== "COMPANY" && !!category && !!studioBuilder(category);
   const meta = [product.category?.name ?? category?.name, product.selectedSize?.name, product.baseProduct?.name, product.createdAt && formatDate(product.createdAt)]
     .filter(Boolean)
@@ -46,7 +49,7 @@ function DesignCard({ product, category }: { product: Product; category: Categor
     <li className="flex flex-col rounded-[2rem] border border-border bg-card p-4">
       <div className="relative">
         <DesignPreview product={product} category={category} missingNote />
-        {product.origin === "COMPANY" && <span className="absolute top-4 left-4 rounded-full bg-background/80 px-3 py-1 text-xs font-semibold backdrop-blur-md">Ready-made</span>}
+        {product.origin === "COMPANY" && <span className="absolute top-4 left-4 rounded-full bg-background/80 px-3 py-1 text-xs font-semibold backdrop-blur-md">{t("designs.readyMade")}</span>}
       </div>
       <div className="flex flex-1 flex-col px-2 pt-5">
         <div className="flex items-start justify-between gap-4">
@@ -61,20 +64,20 @@ function DesignCard({ product, category }: { product: Product; category: Categor
                 {m}
               </li>
             ))}
-            {chips.length > MAX_CHIPS && <li className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">+{chips.length - MAX_CHIPS} more</li>}
+            {chips.length > MAX_CHIPS && <li className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">{t("designs.more", { count: chips.length - MAX_CHIPS })}</li>}
           </ul>
         )}
         <div className="mt-auto" />
         <div className="mt-6 flex items-center justify-between gap-4 border-t border-border pt-4">
           {editable ? (
             <a href={`${studioHref(category!, "design")}?load=${product.id}`} className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground">
-              <Icon name="pencil" size={15} /> Edit copy
+              <Icon name="pencil" size={15} /> {t("designs.editCopy")}
             </a>
           ) : (
-            <span className="text-sm text-muted-foreground">{product.origin === "COMPANY" ? "Made by HomeCreator" : ""}</span>
+            <span className="text-sm text-muted-foreground">{product.origin === "COMPANY" ? t("designs.madeByUs") : ""}</span>
           )}
           <ButtonLink href={`#/checkout?design=${product.id}`} size="sm">
-            Order →
+            {t("designs.order")}
           </ButtonLink>
         </div>
       </div>
@@ -83,27 +86,28 @@ function DesignCard({ product, category }: { product: Product; category: Categor
 }
 
 export default function DesignsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const categories = useStudioCategories();
   const { data, loading, error, retry } = useApi(user ? `my-designs:${user.id}` : null, (signal) => userProducts(user!.id, signal));
   const [filter, setFilter] = useState("all");
   const designs = [...(data ?? [])].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
-  const used = [...new Map(designs.map((d) => [d.categoryId, d.category?.name ?? "Other"])).entries()];
+  const used = [...new Map(designs.map((d) => [d.categoryId, d.category?.name ?? t("designs.other")])).entries()];
   const shown = filter === "all" ? designs : designs.filter((d) => d.categoryId === filter);
 
   return (
     <Page>
       <PageHeader
-        eyebrow="My designs"
+        eyebrow={t("designs.eyebrow")}
         title={
           <>
-            Saved and <em className="font-normal text-primary">ready to order.</em>
+            {t("designs.title")} <em className="font-normal text-primary">{t("designs.titleAccent")}</em>
           </>
         }
-        intro={data ? `${designs.length} saved design${designs.length === 1 ? "" : "s"}` : "Your saved designs"}
+        intro={data ? t("designs.count", { count: designs.length }) : t("designs.intro")}
         aside={
           <ButtonLink href="#/create">
-            <Icon name="plus" size={18} /> New design
+            <Icon name="plus" size={18} /> {t("designs.new")}
           </ButtonLink>
         }
       />
@@ -112,15 +116,15 @@ export default function DesignsPage() {
       {error && <LoadError className="mt-12" message={error} onRetry={retry} />}
       {data && designs.length === 0 && (
         <div className="mt-12">
-          <EmptyState icon="sparkle" title="No saved designs yet" text="Create your first piece in the studio. Saved designs appear here, ready to order." action={{ href: "#/create", label: "Start designing" }} />
+          <EmptyState icon="sparkle" title={t("designs.emptyTitle")} text={t("designs.emptyText")} action={{ href: "#/create", label: t("orders.emptyAction") }} />
         </div>
       )}
       {data && designs.length > 0 && (
         <>
           {used.length > 1 && (
-            <div className="mt-12 flex flex-wrap gap-2" role="group" aria-label="Filter by studio">
+            <div className="mt-12 flex flex-wrap gap-2" role="group" aria-label={t("designs.filter")}>
               <Chip selected={filter === "all"} onClick={() => setFilter("all")}>
-                All
+                {t("create.groups.all")}
               </Chip>
               {used.map(([id, name]) => (
                 <Chip key={id} selected={filter === id} onClick={() => setFilter(id)}>

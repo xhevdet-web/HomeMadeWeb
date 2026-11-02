@@ -1,20 +1,22 @@
+import { useTranslation } from "react-i18next";
 import { ButtonLink } from "../components/Button";
 import { Page, PageHeader } from "../components/Page";
 
 export default function NotFoundPage() {
+  const { t } = useTranslation();
   return (
     <Page>
       <PageHeader
-        eyebrow="Page not found"
+        eyebrow={t("notFound.eyebrow")}
         title={
           <>
-            Nothing here. <em className="font-normal text-primary">Yet.</em>
+            {t("notFound.title")} <em className="font-normal text-primary">{t("notFound.titleAccent")}</em>
           </>
         }
-        intro="This page doesn't exist, but your next idea could."
+        intro={t("notFound.intro")}
       />
       <ButtonLink href="#/" className="mt-10">
-        Back to home
+        {t("common.backHome")}
       </ButtonLink>
     </Page>
   );

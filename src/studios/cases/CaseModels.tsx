@@ -1,4 +1,8 @@
 import { useState } from "react";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
 import { useStudio } from "../../studio/StudioContext";
@@ -23,26 +27,26 @@ export function CaseModels({ category, data }: StudioProps) {
       others
       title={
         <>
-          Choose your <em className="font-normal text-primary">phone.</em>
+          {t("cases.chooseTitle")} <em className="font-normal text-primary">{t("cases.chooseTitleAccent")}</em>
         </>
       }
-      intro="Pick your phone model. Each case is made for its exact shape and camera."
+      intro={t("cases.chooseIntro")}
     >
       {d.elements.length > 0 && (
         <div className="mt-8">
-          <Notice>Your image stays when you switch to another model.</Notice>
+          <Notice>{t("cases.imageStays")}</Notice>
         </div>
       )}
       {groups.length === 0 ? (
-        <p className="mt-10 rounded-[2rem] border border-border bg-card px-6 py-12 text-center text-muted-foreground">No phone models yet. Please check back soon.</p>
+        <p className="mt-10 rounded-[2rem] border border-border bg-card px-6 py-12 text-center text-muted-foreground">{t("cases.noModels")}</p>
       ) : (
         <>
           {groups.length > 1 && (
             <div className="mt-10 max-w-xl">
-              <Tabs label="Brand" value={group.brand} onChange={setBrand} tabs={groups.map((g) => ({ id: g.brand, label: g.label }))} />
+              <Tabs label={t("cases.brand")} value={group.brand} onChange={setBrand} tabs={groups.map((g) => ({ id: g.brand, label: g.label }))} />
             </div>
           )}
-          <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4" role="radiogroup" aria-label="Phone model">
+          <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4" role="radiogroup" aria-label={t("cases.phoneModel")}>
             {group.models.map((m) => (
               <li key={m.id}>
                 <button
@@ -57,7 +61,7 @@ export function CaseModels({ category, data }: StudioProps) {
                 >
                   {m.imageUrl ? <img {...corsImage} src={m.imageUrl} alt="" loading="lazy" className="h-36 w-auto object-contain" /> : <span className="h-36 w-16 rounded-xl bg-secondary" />}
                   <span className="mt-4 font-display text-lg leading-tight font-semibold">{m.name}</span>
-                  <span className={`mt-1 text-sm ${isSoldOut(m) ? "text-muted-foreground" : "text-primary"}`}>{isSoldOut(m) ? "Sold out" : money(m.price)}</span>
+                  <span className={`mt-1 text-sm ${isSoldOut(m) ? "text-muted-foreground" : "text-primary"}`}>{isSoldOut(m) ? t("studio.soldOut") : money(m.price)}</span>
                 </button>
               </li>
             ))}
@@ -68,8 +72,8 @@ export function CaseModels({ category, data }: StudioProps) {
         <ContinueButton
           ready={!!current && !isSoldOut(current)}
           href={studioHref(category, "design")}
-          label="Continue to the studio"
-          blockedLabel={current && isSoldOut(current) ? "This model is sold out" : "Choose a phone model"}
+          label={t("cases.continue")}
+          blockedLabel={current && isSoldOut(current) ? t("cases.modelSoldOut") : t("cases.chooseModel")}
         />
       </div>
     </StudioShell>

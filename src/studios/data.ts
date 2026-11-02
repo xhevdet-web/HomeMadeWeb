@@ -1,6 +1,7 @@
 import * as catalog from "../api/catalog";
 import { CUSTOM_UPLOAD, type Category, type Component, type GiftPackaging, type Product, type TextLayerInput } from "../api/models";
 import { CATALOG_TTL, useApi } from "../hooks/useApi";
+import i18n from "../i18n";
 import { TEXT_COLORS, colorFromHex, newId, type PlacedElement } from "../studio/elements";
 import { uploadBlob } from "../studio/StudioContext";
 
@@ -50,15 +51,20 @@ export const componentById = (data: StudioData) => new Map(data.components.map((
 /** "N left", "Sold out", "All N in use". Untracked stock (printed designs) is unlimited. */
 export function stockState(c: Pick<Component, "stock" | "trackStock">, used: number): { label: string | null; disabled: boolean } {
   if (!c.trackStock) return { label: null, disabled: false };
-  if (c.stock <= 0) return { label: "Sold out", disabled: true };
-  if (used >= c.stock) return { label: `All ${c.stock} in use`, disabled: true };
-  if (c.stock - used <= 5) return { label: `${c.stock - used} left`, disabled: false };
+  if (c.stock <= 0) return { label: i18n.t("studio.soldOut"), disabled: true };
+  if (used >= c.stock) return { label: i18n.t("studio.stock.allInUse", { count: c.stock }), disabled: true };
+  if (c.stock - used <= 5) return { label: i18n.t("studio.stock.left", { count: c.stock - used }), disabled: false };
   return { label: null, disabled: false };
 }
 
-export const typeLabel = (type: string) => type.replaceAll("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+/** A design type in the current language (ICON, LOGO…); unknown types are shown readably. */
+export const typeLabel = (type: string) => {
+  const key = `studio.types.${type.trim().toUpperCase()}`;
+  return i18n.exists(key) ? i18n.t(key as "studio.types.ICON") : type.replaceAll("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+};
 
-export const designName = (category: Category) => `My ${category.name.toLowerCase()}`;
+/** The saved design's name, in the language it was made in: "My bracelet" / "Byzylyku im". */
+export const designName = (category: Category) => i18n.t("studio.designName", { name: category.name.toLowerCase() });
 
 /* ---------------- Saving helpers shared by the free-placement studios ---------------- */
 
@@ -115,7 +121,7 @@ export const texts = (els: PlacedElement[]) => els.filter((e) => e.kind === "tex
 /** Uploaded files, in the order their items reference them with `customDesignIndex`. */
 export async function uploadsOf(els: PlacedElement[]) {
   const ups = els.filter((e) => e.uploaded);
-  if (ups.some((e) => e.missing || !e.src)) throw new Error("Re-upload your image before saving.");
+  if (ups.some((e) => e.missing || !e.src)) throw new Error(i18n.t("studio.reuploadBeforeSaving"));
   return Promise.all(ups.map((e) => uploadBlob(e.src!)));
 }
 
@@ -129,8 +135,8 @@ export function stockProblem(refs: (string | undefined)[], byId: Map<string, Com
   for (const [id, n] of counts) {
     const c = byId.get(id);
     if (!c || !c.trackStock) continue;
-    if (c.stock <= 0) return `${c.name} is sold out. Remove or replace it to continue.`;
-    if (n > c.stock) return `Only ${c.stock} of ${c.name} are in stock. Remove ${n - c.stock} to continue.`;
+    if (c.stock <= 0) return i18n.t("studio.stock.soldOutRemove", { name: c.name });
+    if (n > c.stock) return i18n.t("studio.stock.onlyInStock", { stock: c.stock, name: c.name, remove: n - c.stock });
   }
   return null;
 }

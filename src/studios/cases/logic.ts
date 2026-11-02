@@ -1,3 +1,4 @@
+import i18n from "../../i18n";
 import { parseArea, type Category, type Component, type PrintArea, type Product, type ProductInput } from "../../api/models";
 import { imageSize, loadImage, renderPng, drawElements } from "../../studio/capture";
 import type { CaseDraft } from "../../studio/drafts";
@@ -37,7 +38,7 @@ export function brandGroups(models: Product[]) {
     .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
     .map(([brand, list]) => ({
       brand,
-      label: brand === "OTHER" ? "Other phones" : (BRAND_NAMES[brand] ?? brand.charAt(0) + brand.slice(1).toLowerCase().replaceAll("_", " ")),
+      label: brand === "OTHER" ? i18n.t("cases.otherPhones") : (BRAND_NAMES[brand] ?? brand.charAt(0) + brand.slice(1).toLowerCase().replaceAll("_", " ")),
       models: list.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)),
     }));
 }
@@ -54,7 +55,7 @@ export const coverImage = (aspect: number, ofArea: number, props: Partial<Placed
 /** Exactly one item; API scale 1 means "just covers the printable area". */
 export async function caseInput(category: Category, d: CaseDraft, model: Product, ofArea: number): Promise<{ input: ProductInput; uploads: Blob[] }> {
   const el = caseImage(d);
-  if (!el) throw new Error("Add a photo or one of our designs.");
+  if (!el) throw new Error(i18n.t("cases.addPhotoOrOurDesign"));
   return {
     input: {
       categoryId: category.id,
@@ -82,7 +83,7 @@ export async function captureCase(d: CaseDraft, model: Product) {
   const size = model.imageUrl ? await imageSize(model.imageUrl) : { width: 49, height: 100 };
   const W = 600;
   const H = (W * size.height) / size.width;
-  const { area } = caseAreas(model);
+  const { area, camera } = caseAreas(model);
   return renderPng(W, H, async (ctx) => {
     if (model.imageUrl) ctx.drawImage(await loadImage(model.imageUrl), 0, 0, W, H);
     else {
@@ -95,7 +96,9 @@ export async function captureCase(d: CaseDraft, model: Product) {
     ctx.save();
     ctx.beginPath();
     ctx.roundRect(area.x * W, area.y * H, area.width * W, area.height * H, (area.radius ?? 0) * area.width * W);
-    ctx.clip();
+    // The camera opening is cut out, as in the studio and the app: the template's camera stays visible.
+    if (camera) ctx.roundRect(camera.x * W, camera.y * H, camera.width * W, camera.height * H, (camera.radius ?? 0) * camera.width * W);
+    ctx.clip("evenodd");
     await drawElements(ctx, d.elements, area.width * W, area.height * H, area.x * W, area.y * H);
     ctx.restore();
     if (model.overlayImageUrl) ctx.drawImage(await loadImage(model.overlayImageUrl), 0, 0, W, H);

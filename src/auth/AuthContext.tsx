@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import * as authApi from "../api/auth";
 import { ApiError, onUnauthorized } from "../api/client";
 import type { User } from "../api/models";
+import i18n from "../i18n";
 import { LoginModal } from "./LoginModal";
 
 export type AuthStatus = "loading" | "signedIn" | "signedOut";
@@ -38,7 +39,8 @@ export function useAuth() {
   return ctx;
 }
 
-export const SESSION_ENDED = "Your session has ended. Please sign in again.";
+/** In the current language when the session ends. */
+export const sessionEnded = () => i18n.t("auth.sessionEnded");
 
 /**
  * The session lives in an httpOnly cookie; this context only keeps the user in memory.
@@ -79,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.clearTimeout(expiryTimer.current);
     setUserState(null);
     setStatus("signedOut");
-    openLogin({ message: SESSION_ENDED });
+    openLogin({ message: sessionEnded() });
   }, [openLogin]);
 
   // On start: 200 → signed in; 401 or network error → signed out, silently.

@@ -7,6 +7,10 @@ import { studioHref } from "../../data/homeCategories";
 import { ReadyMade } from "../ReadyMade";
 import type { StudioProps } from "../data";
 import { STEP_MM, nounOf, sizeOf } from "./logic";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 /** Step 1: choose a size card, then fine-tune the length in 0.5 cm steps. */
 export function JewelryBase({ category, data }: StudioProps) {
@@ -28,17 +32,17 @@ export function JewelryBase({ category, data }: StudioProps) {
       others
       title={
         <>
-          Choose your <em className="font-normal text-primary">size.</em>
+          {t("jewelry.chooseSize")} <em className="font-normal text-primary">{t("jewelry.chooseSizeAccent")}</em>
         </>
       }
-      intro={`Pick a size, then fine-tune the length of your ${noun} in half-centimetre steps.`}
+      intro={t(`jewelry.nouns.${noun}.lengthIntro`)}
     >
       {sizes.length === 0 ? (
         <p className="mt-10 rounded-[2rem] border border-border bg-card px-6 py-12 text-center text-muted-foreground">
-          This studio has no sizes yet. Please check back soon.
+          {t("jewelry.noSizes")}
         </p>
       ) : (
-        <div className="mt-10 grid gap-4 sm:grid-cols-3" role="radiogroup" aria-label="Size">
+        <div className="mt-10 grid gap-4 sm:grid-cols-3" role="radiogroup" aria-label={t("checkout.size")}>
           {sizes.map((s) => {
             const active = s.id === draft.sizeId;
             return (
@@ -56,7 +60,7 @@ export function JewelryBase({ category, data }: StudioProps) {
                 <span className="mt-2 block text-lg">
                   {cm(s.minMeasurementMm).replace(" cm", "")}–{cm(s.maxMeasurementMm)}
                 </span>
-                <span className="mt-1 block text-sm text-muted-foreground">Usually {cm(s.defaultMeasurementMm)}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">{t("jewelry.usually", { length: cm(s.defaultMeasurementMm) })}</span>
               </button>
             );
           })}
@@ -64,15 +68,15 @@ export function JewelryBase({ category, data }: StudioProps) {
       )}
 
       {size && (
-        <section className="mt-6 rounded-[2rem] border border-border bg-card p-6 sm:p-8" aria-label="Length">
+        <section className="mt-6 rounded-[2rem] border border-border bg-card p-6 sm:p-8" aria-label={t("jewelry.length")}>
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <p className="text-muted-foreground">Your {noun} length</p>
+            <p className="text-muted-foreground">{t(`jewelry.nouns.${noun}.yourLength`)}</p>
             <p className="font-display text-4xl font-semibold text-primary">{cm(draft.lengthMm)}</p>
           </div>
           <div className="mt-6 flex items-center gap-4">
             <button
               type="button"
-              aria-label="Shorter by 0.5 cm"
+              aria-label={t("jewelry.shorter")}
               onClick={() => setLength(draft.lengthMm - STEP_MM)}
               disabled={draft.lengthMm <= size.minMeasurementMm}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border transition-colors hover:bg-secondary disabled:opacity-40"
@@ -80,7 +84,7 @@ export function JewelryBase({ category, data }: StudioProps) {
               <Icon name="minus" size={18} />
             </button>
             <label htmlFor="length-slider" className="sr-only">
-              Length in millimetres
+              {t("jewelry.lengthMm")}
             </label>
             <input
               id="length-slider"
@@ -95,7 +99,7 @@ export function JewelryBase({ category, data }: StudioProps) {
             />
             <button
               type="button"
-              aria-label="Longer by 0.5 cm"
+              aria-label={t("jewelry.longer")}
               onClick={() => setLength(draft.lengthMm + STEP_MM)}
               disabled={draft.lengthMm >= size.maxMeasurementMm}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border transition-colors hover:bg-secondary disabled:opacity-40"
@@ -111,7 +115,7 @@ export function JewelryBase({ category, data }: StudioProps) {
       )}
 
       <div className="mt-8">
-        <ContinueButton ready={!!size} href={studioHref(category, "design")} label="Continue to the studio" blockedLabel="Choose a size to continue" />
+        <ContinueButton ready={!!size} href={studioHref(category, "design")} label={t("cases.continue")} blockedLabel={t("apparel.chooseSize")} />
       </div>
       <ReadyMade products={data.products} />
     </StudioShell>

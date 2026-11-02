@@ -1,4 +1,8 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 import { Button, ButtonLink } from "../../components/Button";
 import { Icon } from "../../components/Icon";
 import type { StickerSize } from "../../api/models";
@@ -69,17 +73,17 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
 
   const onUpload = (img: UploadedImage) =>
     upload &&
-    place({ src: img.url, ref: upload.id, name: "Your image", aspect: img.height / img.width, pxWidth: img.width, uploaded: true }, `Image added to design ${active + 1}.`);
+    place({ src: img.url, ref: upload.id, name: t("checkout.yourImage"), aspect: img.height / img.width, pxWidth: img.width, uploaded: true }, t("stickers.imageAdded", { number: active + 1 }));
 
   const pick = async (id: string) => {
     const c = designs.find((x) => x.id === id);
     if (!c?.imageUrl) return;
     const dims = await imageSize(c.imageUrl);
-    place({ src: c.imageUrl, ref: c.id, name: c.name, aspect: dims.height / dims.width }, `${c.name} added to design ${active + 1}.`);
+    place({ src: c.imageUrl, ref: c.id, name: c.name, aspect: dims.height / dims.width }, t("stickers.designAdded", { name: c.name, number: active + 1 }));
   };
 
   // One image per design: dropping a design onto the sticker replaces its image.
-  const chip = useCanvasDrop(stageRef, canvasRef, image ? "Release to replace the image" : "Release to add", (_fx, _fy, payload) => {
+  const chip = useCanvasDrop(stageRef, canvasRef, image ? t("mugs.releaseToReplace") : t("mugs.releaseToAdd"), (_fx, _fy, payload) => {
     void pick(payload.id);
     return true;
   });
@@ -90,7 +94,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
     if (d.designs.length >= MAX_DESIGNS) return;
     update((x) => ({ ...x, designs: [...x.designs, newDesign()] }));
     show(d.designs.length);
-    notify(`Design ${d.designs.length + 1} added. Give it an image.`);
+    notify(t("stickers.newDesign", { number: d.designs.length + 1 }));
   };
 
   const deleteDesign = () => {
@@ -100,7 +104,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
       setActive(Math.max(0, active - 1));
     }
     setSelectedId(null);
-    notify(`Design ${active + 1} deleted. Tap Undo to bring it back.`);
+    notify(t("stickers.designDeleted", { number: active + 1 }));
   };
 
   const command = (cmd: LayerCommand) => {
@@ -114,7 +118,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
   const clear = () => {
     update((x) => ({ ...x, designs: [newDesign()] }));
     show(0);
-    notify("Canvas cleared. Tap Undo to bring it back.");
+    notify(t("studio.cleared"));
   };
 
   /** Swiping across the stage (outside the sticker itself) moves between designs, like the app's pager. */
@@ -134,14 +138,14 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
   };
 
   const withImages = d.designs.filter((s) => s.image && !s.image.missing).length;
-  const blocked = allHaveImages(d) ? null : "Add an image to every design before previewing your set.";
+  const blocked = allHaveImages(d) ? null : t("stickers.imageEveryDesign");
 
   const stage = (
     // The stage never scrolls, so it takes horizontal swipes itself instead of the browser cancelling them as a pan.
     <div className="h-full touch-none" onPointerDown={swipeStart} onPointerUp={swipeEnd} onPointerCancel={() => (swipe.current = null)}>
       <StageFrame
         ref={stageRef}
-        label={`Sticker design ${active + 1} of ${d.designs.length}, ${setLabel(size)}${image ? "" : ", empty"}`}
+        label={t(image ? "stickers.stageLabel" : "stickers.stageLabelEmpty", { number: active + 1, total: d.designs.length, size: setLabel(size) })}
         chip={chip}
         overlay={
           <>
@@ -164,7 +168,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
           <StickerCanvas size={size}>
             <PlacementLayer
               elements={image ? [image] : []}
-              label={`Sticker design ${active + 1}`}
+              label={t("stickers.designLabel", { number: active + 1 })}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onChange={(el, merge) => setImage(el, merge)}
@@ -173,7 +177,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
               wheelZoom
             />
           </StickerCanvas>
-          {!image && <p className="mt-3 text-center text-sm text-muted-foreground">Upload an image or pick one of our designs.</p>}
+          {!image && <p className="mt-3 text-center text-sm text-muted-foreground">{t("stickers.emptyHint")}</p>}
         </div>
       </StageFrame>
     </div>
@@ -187,7 +191,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
       selection={
         image && selectedId === image.id
           ? {
-              title: image.name ?? `Design ${active + 1}`,
+              title: image.name ?? t("stickers.design", { number: active + 1 }),
               image: image.src ?? null,
               onDone: () => setSelectedId(null),
               actions: elementActions(image, (el) => setImage(el), command, { layers: false, reset: true }),
@@ -198,7 +202,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
   );
 
   const tabs = (
-    <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label={`Designs, ${d.designs.length} of ${MAX_DESIGNS}`}>
+    <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label={t("stickers.tabsLabel", { count: d.designs.length, max: MAX_DESIGNS })}>
       {d.designs.map((s, i) => (
         <button
           key={s.id}
@@ -210,7 +214,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
             i === active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"
           }`}
         >
-          Design {i + 1}
+          {t("stickers.design", { number: i + 1 })}
           {s.image && !s.image.missing && <Icon name="check" size={14} className="text-success" />}
         </button>
       ))}
@@ -220,7 +224,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
           onClick={addDesign}
           className="min-h-11 shrink-0 rounded-full border border-dashed border-border px-4 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
         >
-          + Add
+          {t("stickers.add")}
         </button>
       )}
     </div>
@@ -230,13 +234,13 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
     <div className="flex flex-col gap-5">
       <QualityWarning show={lowQuality(image, size)} />
       {upload && (
-        <ToolSection title={`Image for design ${active + 1}`} aside="One image per design">
-          <UploadButton onImage={onUpload} label={image?.missing ? "Re-upload your image" : image ? "Replace image" : "Upload image"} hint="JPEG, PNG or WebP, up to 5 MB" />
+        <ToolSection title={t("stickers.imageFor", { number: active + 1 })} aside={t("stickers.oneImage")}>
+          <UploadButton onImage={onUpload} label={image?.missing ? t("studio.reuploadImage") : image ? t("mugs.replaceImage") : t("upload.label")} hint={t("upload.hint")} />
         </ToolSection>
       )}
       {designs.length > 0 && (
-        <ToolSection title="Our designs">
-          <p className="mb-3 text-xs text-muted-foreground">Tap a design, or drag it onto the sticker.</p>
+        <ToolSection title={t("mugs.ourDesigns")}>
+          <p className="mb-3 text-xs text-muted-foreground">{t("stickers.ourDesignsHint")}</p>
           <TileRow cols="grid-cols-4">
             {designs.map((c) => (
               <TileItem key={c.id}>
@@ -248,15 +252,15 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
       )}
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" size="sm" onClick={deleteDesign}>
-          <Icon name="trash" size={15} /> Delete design {active + 1}
+          <Icon name="trash" size={15} /> {t("stickers.deleteDesign", { number: active + 1 })}
         </Button>
       </div>
-      <BottomSheet title="Change shape or size" open={shapeOpen} onClose={() => setShapeOpen(false)}>
-        <p className="text-sm">Your designs stay, but each image is re-centred to fit the new shape and size.</p>
+      <BottomSheet title={t("stickers.changeShapeOrSize")} open={shapeOpen} onClose={() => setShapeOpen(false)}>
+        <p className="text-sm">{t("stickers.changeShapeNote")}</p>
         <div className="mt-4 flex gap-2">
-          <ButtonLink href={studioHref(category)}>Change shape or size</ButtonLink>
+          <ButtonLink href={studioHref(category)}>{t("stickers.changeShapeOrSize")}</ButtonLink>
           <Button variant="secondary" onClick={() => setShapeOpen(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
         </div>
       </BottomSheet>
@@ -266,7 +270,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
   return (
     <StudioFrame
       category={category}
-      subtitle={`${setLabel(size)} · ${money(size.price)} each`}
+      subtitle={t("stickers.subtitle", { size: setLabel(size), price: money(size.price) })}
       onSave={saver.save}
       saving={saver.saving}
       saveBlocked={blocked}
@@ -278,7 +282,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
         >
           <Icon name="square" size={16} className="text-primary" />
           <span className="min-w-0 flex-1 truncate font-semibold">{setLabel(size)}</span>
-          <span className="font-semibold text-primary">Change shape</span>
+          <span className="font-semibold text-primary">{t("stickers.changeShape")}</span>
         </button>
       }
       stage={stage}
@@ -287,7 +291,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
       picker={picker}
       pickerFooter={tabs}
       footer={{
-        summary: `${d.designs.length} design${d.designs.length > 1 ? "s" : ""} · ${setLabel(size)}`,
+        summary: `${t("stickers.designsCount", { count: d.designs.length })} · ${setLabel(size)}`,
         price: stickerPrice(d, size),
         onPrimary: () => navigate(studioHref(category, "preview")),
         primaryBlocked: blocked,

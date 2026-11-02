@@ -1,4 +1,8 @@
 import { useRef, useState } from "react";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 import { Icon } from "../../components/Icon";
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
@@ -31,7 +35,7 @@ export function MugStudio({ category, data }: StudioProps) {
     return (
       <StudioShell category={category} step={1}>
         <div className="mt-8">
-          <InfoNotice>The mug studio is not set up yet. Please check back soon.</InfoNotice>
+          <InfoNotice>{t("mugs.notReady")}</InfoNotice>
         </div>
         <ReadyMade products={readyMugs(data)} />
       </StudioShell>
@@ -83,24 +87,24 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
   };
 
   const onUpload = (img: UploadedImage) =>
-    upload && placeImage({ src: img.url, ref: upload.id, name: "Your image", aspect: img.height / img.width, pxWidth: img.width, uploaded: true }, image ? "Image replaced." : "Image added to your mug.");
+    upload && placeImage({ src: img.url, ref: upload.id, name: t("checkout.yourImage"), aspect: img.height / img.width, pxWidth: img.width, uploaded: true }, image ? t("mugs.imageReplaced") : t("mugs.imageAdded"));
 
   const pickDesign = async (id: string, at?: { x: number; y: number }) => {
     const c = designs.find((x) => x.id === id);
     if (!c?.imageUrl) return;
     const size = await imageSize(c.imageUrl);
-    placeImage({ src: c.imageUrl, ref: c.id, name: c.name, aspect: size.height / size.width }, `${c.name} is on your mug.`, at);
+    placeImage({ src: c.imageUrl, ref: c.id, name: c.name, aspect: size.height / size.width }, t("mugs.designOnMug", { name: c.name }), at);
   };
 
   // Fractions of the whole print; a drop on the mug but off the print isn't placed.
-  const chip = useCanvasDrop(stageRef, areaRef, image ? "Release to replace the image" : "Release to add", (fx, fy, payload) => {
+  const chip = useCanvasDrop(stageRef, areaRef, image ? t("mugs.releaseToReplace") : t("mugs.releaseToAdd"), (fx, fy, payload) => {
     if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return false;
     void pickDesign(payload.id, { x: fx, y: fy });
     return true;
   });
 
   const command = (cmd: LayerCommand, id: string) => {
-    if (cmd === "duplicate") return notify("Each image is placed once; order more mugs at checkout", "warn");
+    if (cmd === "duplicate") return notify(t("mugs.noDuplicate"), "warn");
     if (cmd === "reset") {
       const el = d.elements.find((e) => e.id === id);
       if (el) apply({ type: "update", el: { ...el, x: 0.5, y: 0.5, rotation: 0, scale: fittedImage(area, { aspect: el.aspect }).scale } });
@@ -113,11 +117,11 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
   const clear = () => {
     apply({ type: "clear" });
     setSelectedId(null);
-    notify("Canvas cleared. Tap Undo to bring it back.");
+    notify(t("studio.cleared"));
   };
 
   const empty = d.elements.length === 0;
-  const blocked = empty ? "Add an image or text to your mug first." : image?.missing ? "Re-upload your image to continue." : null;
+  const blocked = empty ? t("mugs.addFirst") : image?.missing ? t("mugs.reuploadToContinue") : null;
   const textTool = (
     <TextTool
       texts={texts}
@@ -138,11 +142,11 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
   const stage = (
     <StageFrame
       ref={stageRef}
-      label={`Your mug design with ${mugSummary(d)}`}
+      label={t("mugs.stageLabel", { summary: mugSummary(d) })}
       chip={chip}
       overlay={
         <span className="pointer-events-none absolute top-3 left-4 text-[10px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">
-          Printable area: {area.widthMm / 10} × {area.heightMm / 10} cm
+          {t("mugs.printArea", { width: area.widthMm / 10, height: area.heightMm / 10 })}
         </span>
       }
     >
@@ -150,7 +154,7 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
         <MugEditor area={area} view={view} printRef={areaRef} onBackground={() => setSelectedId(null)}>
           <PlacementLayer
             elements={d.elements}
-            label="Mug print"
+            label={t("preview.mugPrint")}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onChange={(el, merge) => apply({ type: "update", el }, merge)}
@@ -174,7 +178,7 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
               image: selected.kind === "text" ? null : (selected.src ?? null),
               onDone: () => setSelectedId(null),
               actions: [
-                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => setTextOpen(true) }] : []),
+                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: t("textTool.editText"), onClick: () => setTextOpen(true) }] : []),
                 ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { reset: selected.kind === "image" }),
               ],
             }
@@ -188,16 +192,16 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
       <QualityWarning show={lowQuality(image, area)} />
       <p className="flex items-center gap-2 text-xs text-muted-foreground">
         <Icon name="square" size={13} className="text-primary" />
-        Keep important parts of your design inside the dashed area.
+        {t("mugs.safeArea")}
       </p>
       {upload && (
-        <ToolSection title="Your image" aside={upload.price ? `+${money(upload.price)}` : "One image per mug"}>
-          <UploadButton onImage={onUpload} label={image?.missing ? "Re-upload your image" : image ? "Replace image" : "Upload image"} hint="JPEG, PNG or WebP, up to 5 MB" />
+        <ToolSection title={t("checkout.yourImage")} aside={upload.price ? `+${money(upload.price)}` : t("mugs.oneImage")}>
+          <UploadButton onImage={onUpload} label={image?.missing ? t("studio.reuploadImage") : image ? t("mugs.replaceImage") : t("upload.label")} hint={t("upload.hint")} />
         </ToolSection>
       )}
       {designs.length > 0 && (
-        <ToolSection title="Our designs">
-          <p className="mb-3 text-xs text-muted-foreground">Tap a design, or drag it onto the mug. It replaces the current image.</p>
+        <ToolSection title={t("mugs.ourDesigns")}>
+          <p className="mb-3 text-xs text-muted-foreground">{t("mugs.ourDesignsHint")}</p>
           <TileRow cols="grid-cols-3">
             {designs.map((c) => (
               <TileItem key={c.id}>
@@ -207,8 +211,8 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
           </TileRow>
         </ToolSection>
       )}
-      <ToolSection title="Text">{phone ? <AddTextButton count={texts.length} onClick={() => setTextOpen(true)} /> : textTool}</ToolSection>
-      <BottomSheet title={selected?.kind === "text" ? "Edit text" : "Add text"} open={phone && textOpen} onClose={() => setTextOpen(false)}>
+      <ToolSection title={t("mugs.text")}>{phone ? <AddTextButton count={texts.length} onClick={() => setTextOpen(true)} /> : textTool}</ToolSection>
+      <BottomSheet title={selected?.kind === "text" ? t("textTool.editText") : t("mugs.addText")} open={phone && textOpen} onClose={() => setTextOpen(false)}>
         {textTool}
       </BottomSheet>
     </div>
@@ -218,7 +222,7 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
     <>
       <StudioFrame
         category={category}
-        subtitle={`Price per mug ${money(blankPrice)}`}
+        subtitle={t("mugs.pricePerMugValue", { price: money(blankPrice) })}
         onSave={saver.save}
         saving={saver.saving}
         saveBlocked={blocked}
@@ -230,10 +234,10 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
         footer={{
           summary: mugSummary(d),
           price: blankPrice,
-          priceLabel: "Per mug",
-          primaryLabel: "Preview on mug",
+          priceLabel: t("mugs.perMug"),
+          primaryLabel: t("mugs.previewOnMug"),
           onPrimary: () => navigate(studioHref(category, "preview")),
-          primaryBlocked: empty ? "Add an image or text to your mug first." : null,
+          primaryBlocked: empty ? t("mugs.addFirst") : null,
         }}
       />
       {!phone && <ReadyMadeBelow products={readyMugs(data)} />}
@@ -253,7 +257,7 @@ function ReadyMadeBelow({ products }: { products: Parameters<typeof ReadyMade>[0
 export function AddTextButton({ count, onClick }: { count: number; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border font-semibold transition-colors hover:border-primary hover:text-primary">
-      <Icon name="type" size={18} /> Add text {count > 0 && <span className="text-xs text-muted-foreground">({count} of 6)</span>}
+      <Icon name="type" size={18} /> {t("mugs.addText")} {count > 0 && <span className="text-xs text-muted-foreground">{t("mugs.textCount", { count })}</span>}
     </button>
   );
 }

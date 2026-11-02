@@ -4,6 +4,10 @@ import { DetailRows, NothingToPreview, PreviewActions, PreviewLayout, PriceLines
 import { componentById, stockProblem, type StudioProps } from "../data";
 import { GiftThumb } from "./GiftBox";
 import { colorOf, giftGroups, captureGift, giftInput, giftPrice, imageEls, packagingOf } from "./logic";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 export function GiftPreview({ category, data }: StudioProps) {
   const d = useStudio().getDraft(category.id, "GIFT");
@@ -15,20 +19,20 @@ export function GiftPreview({ category, data }: StudioProps) {
   const textEls = d.elements.filter((e) => e.kind === "text");
   const title = (
     <>
-      Your <em className="font-normal text-primary">gift.</em>
+      {t("gifts.previewTitle")} <em className="font-normal text-primary">{t("gifts.previewTitleAccent")}</em>
     </>
   );
 
   if (!items.length) {
     return (
       <StudioShell category={category} step={2} title={title}>
-        <NothingToPreview category={category} message="Add at least one item to your design." />
+        <NothingToPreview category={category} message={t("gifts.addItem")} />
       </StudioShell>
     );
   }
 
   return (
-    <StudioShell category={category} step={2} title={title} intro="This is how your box will look when it's packed by hand.">
+    <StudioShell category={category} step={2} title={title} intro={t("gifts.previewIntro")}>
       <PreviewLayout
         visual={
           <div className={`w-full ${packaging?.shape === "RECTANGULAR" ? "max-w-[620px]" : "max-w-[460px]"}`}>
@@ -38,34 +42,34 @@ export function GiftPreview({ category, data }: StudioProps) {
       >
         <DetailRows
           rows={[
-            ["Packaging", packaging?.name ?? "Not chosen"],
-            ["Shape", packaging?.shape === "RECTANGULAR" ? "Rectangular" : "Square"],
-            ...(color ? [["Box colour", color.name] as [string, string]] : []),
+            [t("gifts.packaging"), packaging?.name ?? t("gifts.notChosen")],
+            [t("stickers.shape"), packaging?.shape === "RECTANGULAR" ? t("gifts.rectangular") : t("gifts.square")],
+            ...(color ? [[t("gifts.boxColour"), color.name] as [string, string]] : []),
           ]}
         />
         {textEls.length > 0 && (
           <section>
-            <h2 className="font-display text-xl font-semibold">Your message</h2>
+            <h2 className="font-display text-xl font-semibold">{t("gifts.yourMessage")}</h2>
             <ul className="mt-3 space-y-1 text-muted-foreground">
-              {textEls.map((t) => (
-                <li key={t.id}>“{t.text}”</li>
+              {textEls.map((el) => (
+                <li key={el.id}>“{el.text}”</li>
               ))}
             </ul>
           </section>
         )}
         <section>
-          <h2 className="mb-4 font-display text-xl font-semibold">Price details</h2>
+          <h2 className="mb-4 font-display text-xl font-semibold">{t("order.priceDetails")}</h2>
           <PriceLines
             lines={[
-              [packaging?.name ?? "Packaging", packaging?.price ?? 0],
-              ...(color?.priceAdjustment ? [[`${color.name} colour`, color.priceAdjustment] as [string, number]] : []),
+              [packaging?.name ?? t("gifts.packaging"), packaging?.price ?? 0],
+              ...(color?.priceAdjustment ? [[t("gifts.colourLine", { name: color.name }), color.priceAdjustment] as [string, number]] : []),
               ...giftGroups(items, byId).map((g) => [`${g.label} × ${g.count}`, g.price * g.count] as [string, number]),
             ]}
             total={giftPrice(d, data, byId)}
           />
-          <p className="mt-2 text-xs text-muted-foreground">Personal text is free. The final price is confirmed when you save.</p>
+          <p className="mt-2 text-xs text-muted-foreground">{t("gifts.priceNote")}</p>
         </section>
-        <PreviewActions category={category} onSave={saver.save} onOrder={saver.order} saving={saver.saving} orderBlocked={!packaging ? "Choose how your gift should arrive first." : stockProblem(items.map((e) => e.ref), byId)} />
+        <PreviewActions category={category} onSave={saver.save} onOrder={saver.order} saving={saver.saving} orderBlocked={!packaging ? t("gifts.chooseArrivalFirst") : stockProblem(items.map((e) => e.ref), byId)} />
       </PreviewLayout>
     </StudioShell>
   );

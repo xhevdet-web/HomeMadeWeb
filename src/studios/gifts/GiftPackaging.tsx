@@ -8,6 +8,10 @@ import { ReadyMade } from "../ReadyMade";
 import type { StudioProps } from "../data";
 import { GiftBox } from "./GiftBox";
 import { corsImage } from "../../studio/capture";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
@@ -27,8 +31,8 @@ const optionClass = (active: boolean) =>
   }`;
 
 const TYPES = [
-  { type: "TRANSPARENT", title: "Transparent", text: "See what's inside" },
-  { type: "OPAQUE", title: "Closed", text: "Keep it a surprise" },
+  { type: "TRANSPARENT", title: "gifts.transparent", text: "gifts.transparentText" },
+  { type: "OPAQUE", title: "gifts.closed", text: "gifts.closedText" },
 ] as const;
 
 const fromPrice = (p: GiftPackaging) => p.price + Math.min(0, ...p.colors.filter(colorAvailable).map((c) => c.priceAdjustment));
@@ -52,41 +56,41 @@ export function GiftPackagingStep({ category, data }: StudioProps) {
       others
       title={
         <>
-          How should your gift <em className="font-normal text-primary">arrive?</em>
+          {t("gifts.arriveTitle")} <em className="font-normal text-primary">{t("gifts.arriveTitleAccent")}</em>
         </>
       }
-      intro={d.elements.length ? "Change the box as you like. Everything you put inside stays." : "Three quick choices, then fill it with things they'll love."}
+      intro={d.elements.length ? t("gifts.changeBoxIntro") : t("gifts.arriveIntro")}
     >
       {offered.length === 0 ? (
-        <p className="mt-10 rounded-[2rem] border border-border bg-card px-6 py-12 text-center text-muted-foreground">Gift packaging isn't available right now. Please check back soon.</p>
+        <p className="mt-10 rounded-[2rem] border border-border bg-card px-6 py-12 text-center text-muted-foreground">{t("gifts.noPackaging")}</p>
       ) : (
         <div className="mt-10 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex flex-col gap-6">
-            <Step n={1} title="How should it arrive?">
-              <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Packaging type">
-                {TYPES.map((t) => (
+            <Step n={1} title={t("gifts.step1")}>
+              <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={t("gifts.packagingType")}>
+                {TYPES.map((o) => (
                   <button
-                    key={t.type}
+                    key={o.type}
                     type="button"
                     role="radio"
-                    aria-checked={type === t.type}
-                    disabled={!offered.some((p) => p.type === t.type && packagingAvailable(p))}
+                    aria-checked={type === o.type}
+                    disabled={!offered.some((p) => p.type === o.type && packagingAvailable(p))}
                     onClick={() => {
-                      setType(t.type);
-                      if (chosen?.type !== t.type) setDraft(category.id, { ...d, packagingId: null, colorId: null });
+                      setType(o.type);
+                      if (chosen?.type !== o.type) setDraft(category.id, { ...d, packagingId: null, colorId: null });
                     }}
-                    className={optionClass(type === t.type)}
+                    className={optionClass(type === o.type)}
                   >
-                    <span className="block font-display text-xl font-semibold">{t.title}</span>
-                    <span className="mt-1 block text-sm text-muted-foreground">{t.text}</span>
+                    <span className="block font-display text-xl font-semibold">{t(o.title)}</span>
+                    <span className="mt-1 block text-sm text-muted-foreground">{t(o.text)}</span>
                   </button>
                 ))}
               </div>
             </Step>
 
             {type && (
-              <Step n={2} title="Shape & style">
-                <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Packaging">
+              <Step n={2} title={t("gifts.step2")}>
+                <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label={t("gifts.packaging")}>
                   {ofType.map((p) => (
                     <button
                       key={p.id}
@@ -106,9 +110,9 @@ export function GiftPackagingStep({ category, data }: StudioProps) {
                       </span>
                       <span className="block font-display text-xl font-semibold">{p.name}</span>
                       <span className="mt-1 block text-sm text-muted-foreground">
-                        {p.shape === "RECTANGULAR" ? "Rectangular" : "Square"} · from {money(fromPrice(p))}
+                        {p.shape === "RECTANGULAR" ? t("gifts.rectangular") : t("gifts.square")} · {t("gifts.from", { price: money(fromPrice(p)) })}
                       </span>
-                      {!packagingAvailable(p) && <span className="mt-1 block text-xs text-muted-foreground">Sold out</span>}
+                      {!packagingAvailable(p) && <span className="mt-1 block text-xs text-muted-foreground">{t("studio.soldOut")}</span>}
                     </button>
                   ))}
                 </div>
@@ -116,8 +120,8 @@ export function GiftPackagingStep({ category, data }: StudioProps) {
             )}
 
             {chosen && needsColor(chosen) && (
-              <Step n={3} title="Box color">
-                <div className="grid grid-cols-3 gap-4 sm:grid-cols-6" role="radiogroup" aria-label="Box colour">
+              <Step n={3} title={t("gifts.step3")}>
+                <div className="grid grid-cols-3 gap-4 sm:grid-cols-6" role="radiogroup" aria-label={t("gifts.boxColour")}>
                   {chosen.colors.filter((c) => c.isActive).map((c) => (
                     <button
                       key={c.id}
@@ -133,7 +137,7 @@ export function GiftPackagingStep({ category, data }: StudioProps) {
                         style={{ background: c.hex }}
                       />
                       <span className="text-xs leading-tight">{c.name}</span>
-                      <span className="text-[11px] text-primary">{!colorAvailable(c) ? "Sold out" : c.priceAdjustment ? `+${money(c.priceAdjustment)}` : "Included"}</span>
+                      <span className="text-[11px] text-primary">{!colorAvailable(c) ? t("studio.soldOut") : c.priceAdjustment ? `+${money(c.priceAdjustment)}` : t("gifts.included")}</span>
                     </button>
                   ))}
                 </div>
@@ -141,7 +145,7 @@ export function GiftPackagingStep({ category, data }: StudioProps) {
             )}
 
             <div>
-              <ContinueButton ready={ready} href={studioHref(category, "design")} label="Start designing" blockedLabel="Choose a box color to continue" />
+              <ContinueButton ready={ready} href={studioHref(category, "design")} label={t("orders.emptyAction")} blockedLabel={t("gifts.chooseColour")} />
             </div>
           </div>
 
@@ -149,7 +153,7 @@ export function GiftPackagingStep({ category, data }: StudioProps) {
             <div className="bg-glow pointer-events-none absolute inset-0" />
             <div className="relative w-full max-w-[340px]">
               <GiftBox shape={chosen?.shape} transparent={(chosen?.type ?? type) === "TRANSPARENT"} hex={color?.hex ?? ((chosen?.type ?? type) === "TRANSPARENT" ? "#D9CFC1" : "#2B2F45")} />
-              <p className="mt-4 text-center text-sm text-muted-foreground">{chosen ? `${chosen.name}${color ? ` · ${color.name}` : ""}` : "Your box preview"}</p>
+              <p className="mt-4 text-center text-sm text-muted-foreground">{chosen ? `${chosen.name}${color ? ` · ${color.name}` : ""}` : t("gifts.boxPreview")}</p>
             </div>
           </div>
         </div>

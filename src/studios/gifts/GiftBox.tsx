@@ -3,6 +3,7 @@ import type { GiftDraft } from "../../studio/drafts";
 import { PlacementLayer } from "../../studio/PlacementLayer";
 import type { StudioData } from "../data";
 import { boxGeometry, boxHex, packagingOf } from "./logic";
+import i18n from "../../i18n";
 
 /** The chosen box in its colour. Transparent ones get a glassy front over the items; closed ones show the open lid. */
 export function GiftBox({ shape, transparent, hex, children }: { shape?: "SQUARE" | "RECTANGULAR"; transparent: boolean; hex: string; children?: ReactNode }) {
@@ -33,7 +34,7 @@ export function GiftBox({ shape, transparent, hex, children }: { shape?: "SQUARE
           className="pointer-events-none absolute rounded-full bg-background/75 px-2 py-0.5 text-[10px] font-semibold tracking-[0.2em] text-foreground uppercase"
           style={{ left: `${(14 / g.w) * 100}%`, top: `${(26 / g.h) * 100}%` }}
         >
-          Inside
+          {i18n.t("gifts.inside")}
         </span>
       )}
     </div>
@@ -53,7 +54,7 @@ export function DraftBox({ draft, data, children }: { draft: GiftDraft; data: St
 export function GiftThumb({ draft, data }: { draft: GiftDraft; data: StudioData }) {
   return (
     <DraftBox draft={draft} data={data}>
-      <PlacementLayer elements={draft.elements} label="Your gift box" readOnly />
+      <PlacementLayer elements={draft.elements} label={i18n.t("gifts.yourBox")} readOnly />
     </DraftBox>
   );
 }

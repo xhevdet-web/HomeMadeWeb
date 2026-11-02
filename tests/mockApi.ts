@@ -100,6 +100,8 @@ export interface MockOptions {
   imageCors?: boolean;
   onOrder?: Handler;
   onProduct?: Handler;
+  /** "sq" leaves the site in its default language, Shqip. */
+  language?: "en" | "sq";
 }
 
 /** Routes every API and image request of the page to fixtures, and records the calls. */
@@ -108,6 +110,9 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   const products = { ...(options.products ?? {}) };
   const user = options.user === undefined ? USER : options.user;
   const cors = { "Access-Control-Allow-Origin": SITE, "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE" };
+
+  // The site opens in Shqip by default; these tests read the English text unless they ask otherwise.
+  if (options.language !== "sq") await page.addInitScript(() => localStorage.setItem("homecreator-language", "en"));
 
   await page.route(`${IMG}/**`, (route) =>
     options.imageCors === false && new URL(route.request().url()).searchParams.get("cors") === "1"

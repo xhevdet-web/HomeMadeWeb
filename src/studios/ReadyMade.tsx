@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Product } from "../api/models";
 import { ButtonLink } from "../components/Button";
 import { money } from "../lib/format";
@@ -5,12 +6,13 @@ import { corsImage } from "../studio/capture";
 
 /** The category's ready-made pieces (COMPANY products), orderable as they are. */
 export function ReadyMade({ products }: { products: Product[] }) {
+  const { t } = useTranslation();
   if (!products.length) return null;
   return (
     <section className="mt-20" aria-labelledby="ready-title">
-      <p className="eyebrow">Ready-made</p>
+      <p className="eyebrow">{t("designs.readyMade")}</p>
       <h2 id="ready-title" className="mt-4 font-display text-4xl font-semibold tracking-tight">
-        Or pick one <em className="font-normal text-primary">we made.</em>
+        {t("studio.readyTitle")} <em className="font-normal text-primary">{t("studio.readyTitleAccent")}</em>
       </h2>
       <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {products.map((p) => {
@@ -27,10 +29,10 @@ export function ReadyMade({ products }: { products: Product[] }) {
                 <p className="mt-1 text-primary">{money(p.price)}</p>
                 <div className="mt-auto pt-4">
                   {soldOut ? (
-                    <span className="text-sm text-muted-foreground">Sold out</span>
+                    <span className="text-sm text-muted-foreground">{t("studio.soldOut")}</span>
                   ) : (
                     <ButtonLink href={`#/checkout?product=${p.id}`} size="sm">
-                      Order →
+                      {t("designs.order")}
                     </ButtonLink>
                   )}
                 </div>

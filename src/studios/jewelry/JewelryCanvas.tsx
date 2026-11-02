@@ -3,6 +3,7 @@ import { loadImage, renderPng, corsImage } from "../../studio/capture";
 import { useDragSource } from "../../studio/dnd/hooks";
 import { layoutPieces, makeCord, nearestS, type Cord, type PlacedPiece } from "./cord";
 import type { Piece } from "./logic";
+import i18n from "../../i18n";
 
 const COPPER = "oklch(0.66 0.11 50)";
 const GOLD = "oklch(0.8 0.13 85)";
@@ -184,7 +185,7 @@ function Bead({ placed: p, position, count, interactive, hidden, selected, repla
       style={{ transform: `translate(${p.x}px, ${p.y}px)`, transition: "transform 180ms cubic-bezier(.2,.7,.2,1)", opacity: hidden ? 0 : 1 }}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
-      aria-label={interactive ? `Select position ${position + 1} of ${count}, ${p.piece.name}` : undefined}
+      aria-label={interactive ? i18n.t("jewelry.selectPositionOf", { number: position + 1, count, name: p.piece.name }) : undefined}
       aria-pressed={interactive ? selected : undefined}
       onKeyDown={interactive ? onKey : undefined}
       className={`group outline-none ${interactive ? "cursor-grab" : ""}`}

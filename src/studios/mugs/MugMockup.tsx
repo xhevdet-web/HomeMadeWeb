@@ -1,4 +1,5 @@
 import { useId, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref } from "react";
+import i18n from "../../i18n";
 import { corsImage } from "../../studio/capture";
 import { OLD_PRINT_CREAM, type MugArea } from "./logic";
 
@@ -224,7 +225,7 @@ export function MugEditor({ area, view, printRef, onBackground, guides = true, l
 /** Left / Front / Right: turns the editor's mug, like the app's view tabs. */
 export function MugViewTabs({ view, onChange }: { view: MugView; onChange: (view: MugView) => void }) {
   return (
-    <div role="radiogroup" aria-label="Side of the mug" className="grid grid-cols-3 gap-1 rounded-full border border-border bg-card p-1">
+    <div role="radiogroup" aria-label={i18n.t("mugs.sideOfMug")} className="grid grid-cols-3 gap-1 rounded-full border border-border bg-card p-1">
       {MUG_VIEWS.map((v) => (
         <button
           key={v}
@@ -232,9 +233,9 @@ export function MugViewTabs({ view, onChange }: { view: MugView; onChange: (view
           role="radio"
           aria-checked={view === v}
           onClick={() => onChange(v)}
-          className={`min-h-10 rounded-full text-sm font-semibold capitalize transition-colors ${view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          className={`min-h-10 rounded-full text-sm font-semibold transition-colors ${view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
-          {v}
+          {i18n.t(`mugs.views.${v}`)}
         </button>
       ))}
     </div>

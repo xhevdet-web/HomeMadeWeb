@@ -1,4 +1,5 @@
 import { useRef, type ReactNode, type RefObject } from "react";
+import i18n from "../i18n";
 import { Icon } from "../components/Icon";
 import { useDragSource, useStageDrop, type DragPayload } from "./dnd/hooks";
 import type { PlacedElement } from "./elements";
@@ -53,7 +54,7 @@ export function DragTile({
         {image ? (
           <img {...corsImage} src={image} alt="" loading="lazy" decoding="async" draggable={false} className="img-fade h-full w-full object-contain" />
         ) : (
-          <span className="text-xs text-muted-foreground">No picture</span>
+          <span className="text-xs text-muted-foreground">{i18n.t("studio.noPicture")}</span>
         )}
         {badge && <span className="absolute top-1.5 right-1.5 rounded-full bg-background/85 px-2 py-0.5 text-[10px] font-semibold text-foreground">{badge}</span>}
       </span>
@@ -98,23 +99,24 @@ export function elementActions(
   command: (cmd: LayerCommand) => void,
   opts: { layers?: boolean; duplicate?: boolean; reset?: boolean; centre?: { x: number; y: number } } = {},
 ): ToolbarAction[] {
+  const t = i18n.t.bind(i18n);
   const actions: ToolbarAction[] = [
-    { icon: "zoomOut", label: "Smaller", onClick: () => change({ ...el, scale: el.scale / 1.15 }) },
-    { icon: "zoomIn", label: "Larger", onClick: () => change({ ...el, scale: el.scale * 1.15 }) },
-    { icon: "rotateLeft", label: "Rotate left", onClick: () => change({ ...el, rotation: el.rotation - 15 }) },
-    { icon: "rotateRight", label: "Rotate right", onClick: () => change({ ...el, rotation: el.rotation + 15 }) },
+    { icon: "zoomOut", label: t("studio.actions.smaller"), onClick: () => change({ ...el, scale: el.scale / 1.15 }) },
+    { icon: "zoomIn", label: t("studio.actions.larger"), onClick: () => change({ ...el, scale: el.scale * 1.15 }) },
+    { icon: "rotateLeft", label: t("studio.actions.rotateLeft"), onClick: () => change({ ...el, rotation: el.rotation - 15 }) },
+    { icon: "rotateRight", label: t("studio.actions.rotateRight"), onClick: () => change({ ...el, rotation: el.rotation + 15 }) },
   ];
   if (opts.layers !== false) {
-    actions.push({ icon: "arrowUp", label: "Forward", onClick: () => command("forward") });
-    actions.push({ icon: "arrowDown", label: "Backward", onClick: () => command("backward") });
+    actions.push({ icon: "arrowUp", label: t("studio.actions.forward"), onClick: () => command("forward") });
+    actions.push({ icon: "arrowDown", label: t("studio.actions.backward"), onClick: () => command("backward") });
   }
-  if (opts.duplicate) actions.push({ icon: "copy", label: "Duplicate", onClick: () => command("duplicate") });
+  if (opts.duplicate) actions.push({ icon: "copy", label: t("studio.actions.duplicate"), onClick: () => command("duplicate") });
   if (opts.centre) {
     const c = opts.centre;
-    actions.push({ icon: "reset", label: "Centre", onClick: () => change({ ...el, x: c.x, y: c.y }) });
+    actions.push({ icon: "reset", label: t("studio.actions.centre"), onClick: () => change({ ...el, x: c.x, y: c.y }) });
   }
-  if (opts.reset) actions.push({ icon: "reset", label: "Reset", onClick: () => command("reset") });
-  actions.push({ icon: "trash", label: "Delete", onClick: () => command("delete"), danger: true });
+  if (opts.reset) actions.push({ icon: "reset", label: t("studio.actions.reset"), onClick: () => command("reset") });
+  actions.push({ icon: "trash", label: t("studio.actions.delete"), onClick: () => command("delete"), danger: true });
   return actions;
 }
 

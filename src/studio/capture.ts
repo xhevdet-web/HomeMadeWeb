@@ -1,4 +1,5 @@
 import type { SyntheticEvent } from "react";
+import i18n from "../i18n";
 import { FONTS, TEXT_BASE, TEXT_COLORS, type PlacedElement } from "./elements";
 
 /**
@@ -7,11 +8,10 @@ import { FONTS, TEXT_BASE, TEXT_COLORS, type PlacedElement } from "./elements";
  * never saved without its preview: a failed capture throws a CaptureError and nothing is sent.
  */
 
-export const CAPTURE_FAILED = "Could not capture your design preview. Your design is safe; please retry.";
-
+/** What the customer reads; the technical reason only goes to the console in development. */
 export class CaptureError extends Error {
   constructor(reason: string) {
-    super(CAPTURE_FAILED);
+    super(i18n.t("studio.captureFailed"));
     this.name = "CaptureError";
     if (import.meta.env.DEV) console.warn(`[design preview] ${reason}`);
   }

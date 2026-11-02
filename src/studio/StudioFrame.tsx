@@ -7,6 +7,10 @@ import { StudioShell } from "./StudioShell";
 import { AnimatedPrice, StudioSummaryBar } from "./StudioSummaryBar";
 import { useIsPhone, useVisibleHeight } from "./ui";
 import { corsImage } from "./capture";
+import i18n from "../i18n";
+
+// Components here re-render with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 export interface FrameFooter {
   summary: string;
@@ -71,7 +75,7 @@ function DesktopFrame({ category, top, stage, side, notice, toolbar, picker, pic
           {side}
           <Notice notice={notice} />
         </div>
-        <aside aria-label="Design tools" className="flex min-w-0 flex-col gap-6 rounded-[2rem] border border-border bg-card p-5 sm:p-7 md:max-h-[calc(100vh-8rem)] md:overflow-y-auto md:overscroll-contain">
+        <aside aria-label={t("studio.tools")} className="flex min-w-0 flex-col gap-6 rounded-[2rem] border border-border bg-card p-5 sm:p-7 md:max-h-[calc(100vh-8rem)] md:overflow-y-auto md:overscroll-contain">
           {toolbar}
           {picker}
           {pickerFooter}
@@ -121,19 +125,19 @@ function PhoneShell({ category, subtitle, onSave, saveBlocked, saving, top, stag
       style={{ height, paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}
     >
       <header className="flex items-center gap-1 px-2 pt-1">
-        <a href={studioHref(category)} aria-label="Back to the first step" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary">
+        <a href={studioHref(category)} aria-label={t("studio.backToFirstStep")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary">
           <Icon name="arrowLeft" size={20} />
         </a>
         <div className="min-w-0 flex-1 text-center">
-          <h1 className="truncate font-display text-lg leading-tight font-semibold">{category.name} studio</h1>
+          <h1 className="truncate font-display text-lg leading-tight font-semibold">{t("studio.phoneTitle", { name: category.name })}</h1>
           <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>
         <button
           type="button"
           onClick={onSave}
           disabled={!!saveBlocked || saving}
-          aria-label={saving ? "Saving your design" : "Save design"}
-          title={saveBlocked ?? "Save design"}
+          aria-label={saving ? t("studio.savingDesign") : t("studio.saveDesign")}
+          title={saveBlocked ?? t("studio.saveDesign")}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary disabled:opacity-35"
         >
           <Icon name="bookmark" size={20} />
@@ -165,7 +169,7 @@ function PhoneShell({ category, subtitle, onSave, saveBlocked, saving, top, stag
           <p className="truncate text-xs text-muted-foreground">{footer.primaryBlocked ?? footer.note ?? footer.summary}</p>
         </div>
         <Button size="sm" glow onClick={footer.onPrimary} disabled={!!footer.primaryBlocked} className={`min-h-11 ${footer.pulse ? "pulse-once" : ""}`}>
-          {footer.primaryLabel ?? "Preview"} <Icon name="arrowRight" size={16} />
+          {footer.primaryLabel ?? t("studio.preview")} <Icon name="arrowRight" size={16} />
         </Button>
       </footer>
     </div>
@@ -271,16 +275,16 @@ export function StudioToolbar({ undo, redo, canUndo, canRedo, onClear, canClear,
 }) {
   const phone = useIsPhone();
   const actions: (ToolbarAction & { title?: string })[] = [
-    { icon: "undo", label: "Undo", title: "Undo (Ctrl+Z)", onClick: undo, disabled: !canUndo },
-    { icon: "redo", label: "Redo", title: "Redo (Ctrl+Shift+Z)", onClick: redo, disabled: !canRedo },
+    { icon: "undo", label: t("studio.toolbar.undo"), title: t("studio.toolbar.undoHint"), onClick: undo, disabled: !canUndo },
+    { icon: "redo", label: t("studio.toolbar.redo"), title: t("studio.toolbar.redoHint"), onClick: redo, disabled: !canRedo },
     ...(selection?.actions ?? []),
     // An eraser, so it never looks like the selected item's Delete.
-    { icon: "eraser", label: "Clear all", onClick: onClear, disabled: !canClear, danger: true },
+    { icon: "eraser", label: t("studio.toolbar.clearAll"), onClick: onClear, disabled: !canClear, danger: true },
   ];
   return (
     <div
       role="toolbar"
-      aria-label={selection ? `${selection.title} actions` : "Design actions"}
+      aria-label={selection ? t("studio.toolbar.itemActions", { name: selection.title }) : t("studio.toolbar.designActions")}
       className={`flex flex-col gap-1.5 rounded-2xl border p-2 transition-colors ${selection ? "border-primary/40 bg-primary/10" : "border-border bg-background/40"}`}
     >
       {selection && (
@@ -292,7 +296,7 @@ export function StudioToolbar({ undo, redo, canUndo, canRedo, onClear, canClear,
           )}
           <p className="min-w-0 flex-1 truncate text-sm font-semibold">{selection.title}</p>
           <button type="button" onClick={selection.onDone} className="h-10 shrink-0 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground">
-            Done
+            {t("common.done")}
           </button>
         </div>
       )}

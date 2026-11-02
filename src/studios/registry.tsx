@@ -25,6 +25,7 @@ import { StickerPreview } from "./stickers/StickerPreview";
 import { StickerSetup } from "./stickers/StickerSetup";
 import { StickerStudio } from "./stickers/StickerStudio";
 import { stickerFromProduct } from "./stickers/logic";
+import i18n from "../i18n";
 
 export interface StudioModule<K extends DraftKind = DraftKind> {
   kind: K;
@@ -46,7 +47,9 @@ const MODULES: { [B in Exclude<BuilderType, "BOUQUET">]: StudioModule } = {
     Design: JewelryStudio,
     Preview: JewelryPreview,
     baseDone: (d, c) => d.kind === "JEWELRY" && measuredSizes(c).some((s) => s.id === d.sizeId),
-    baseNotice: "Choose a size first.",
+    get baseNotice() {
+      return i18n.t("baseNotice.jewelry");
+    },
     fromProduct: async (p, c) => jewelryFromProduct(p, c),
   },
   GIFT: {
@@ -59,7 +62,9 @@ const MODULES: { [B in Exclude<BuilderType, "BOUQUET">]: StudioModule } = {
       const p = packagingOf(d, data);
       return !!p && (!needsColor(p) || !!d.colorId);
     },
-    baseNotice: "Choose how your gift should arrive first.",
+    get baseNotice() {
+      return i18n.t("baseNotice.gift");
+    },
     fromProduct: (p, _c, data) => giftFromProduct(p, data),
   },
   MUG: {
@@ -80,7 +85,9 @@ const MODULES: { [B in Exclude<BuilderType, "BOUQUET">]: StudioModule } = {
       const base = baseOf(d, data);
       return !!base && (sizesOf(base).length === 0 || !!d.size);
     },
-    baseNotice: "Choose the piece to design on",
+    get baseNotice() {
+      return i18n.t("baseNotice.apparel");
+    },
     fromProduct: (p, c, data, display) => apparelFromProduct(p, c, data, display),
   },
   CASE: {
@@ -89,7 +96,9 @@ const MODULES: { [B in Exclude<BuilderType, "BOUQUET">]: StudioModule } = {
     Design: CaseStudio,
     Preview: CasePreview,
     baseDone: (d, _c, data) => d.kind === "CASE" && !!modelOf(d, data),
-    baseNotice: "Choose your phone model first.",
+    get baseNotice() {
+      return i18n.t("baseNotice.case");
+    },
     fromProduct: (p, _c, data, display) => caseFromProduct(p, data, display),
   },
   STICKER: {
@@ -98,7 +107,9 @@ const MODULES: { [B in Exclude<BuilderType, "BOUQUET">]: StudioModule } = {
     Design: StickerStudio,
     Preview: StickerPreview,
     baseDone: (d, c) => d.kind === "STICKER" && stickerSizes(c).some((s) => s.id === d.sizeId),
-    baseNotice: "Choose the shape and size of your stickers first.",
+    get baseNotice() {
+      return i18n.t("baseNotice.sticker");
+    },
     fromProduct: (p, c, _data, display) => stickerFromProduct(p, c, display),
   },
 };

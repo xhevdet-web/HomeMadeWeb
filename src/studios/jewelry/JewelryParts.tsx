@@ -7,13 +7,17 @@ import { useDragSource } from "../../studio/dnd/hooks";
 import { playOnce, useIsPhone } from "../../studio/ui";
 import { stockState, typeLabel } from "../data";
 import { PieceSwatch } from "./JewelryCanvas";
-import { STEP_MM, TOLERANCE_MM, toPiece, type Piece } from "./logic";
+import { STEP_MM, TOLERANCE_MM, toPiece, type Noun, type Piece } from "./logic";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 const cmText = (mm: number) => String(Math.round(mm) / 10);
 
 /** "14.2 / 17.5 cm used" with a thin progress bar; green "Complete" within ±2 mm. */
 export function MeasurementBar({ noun, usedMm, lengthMm, size, onLength }: {
-  noun: string;
+  noun: Noun;
   usedMm: number;
   lengthMm: number;
   size: MeasuredSize | null;
@@ -23,13 +27,13 @@ export function MeasurementBar({ noun, usedMm, lengthMm, size, onLength }: {
   const complete = Math.abs(usedMm - lengthMm) <= TOLERANCE_MM;
   const pct = Math.min(100, (usedMm / Math.max(1, lengthMm)) * 100);
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-2.5" aria-label={`${cmText(usedMm)} of ${cmText(lengthMm)} cm used`}>
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-2.5" aria-label={t("jewelry.usedLabel", { used: cmText(usedMm), length: cmText(lengthMm) })}>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2 text-sm">
           <span className={`font-display font-semibold ${complete ? "text-success" : ""}`}>
-            {complete ? `${noun[0].toUpperCase()}${noun.slice(1)} complete` : `${cmText(usedMm)} / ${cmText(lengthMm)} cm`}
+            {complete ? t(`jewelry.nouns.${noun}.complete`) : `${cmText(usedMm)} / ${cmText(lengthMm)} cm`}
           </span>
-          {!complete && <span className="text-xs text-muted-foreground">used</span>}
+          {!complete && <span className="text-xs text-muted-foreground">{t("jewelry.used")}</span>}
         </div>
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-secondary">
           <div className={`h-full rounded-full transition-[width] duration-300 ${complete ? "bg-success" : "bg-primary"}`} style={{ width: `${pct}%` }} />
@@ -37,7 +41,7 @@ export function MeasurementBar({ noun, usedMm, lengthMm, size, onLength }: {
       </div>
       {size && (
         <button type="button" onClick={() => setOpen(true)} className="min-h-11 shrink-0 rounded-full px-3 text-sm font-semibold text-primary hover:bg-secondary">
-          Change length
+          {t("jewelry.changeLength")}
         </button>
       )}
       {size && <LengthSheet open={open} onClose={() => setOpen(false)} noun={noun} size={size} lengthMm={lengthMm} usedMm={usedMm} onLength={onLength} />}
@@ -48,7 +52,7 @@ export function MeasurementBar({ noun, usedMm, lengthMm, size, onLength }: {
 function LengthSheet({ open, onClose, noun, size, lengthMm, usedMm, onLength }: {
   open: boolean;
   onClose: () => void;
-  noun: string;
+  noun: Noun;
   size: MeasuredSize;
   lengthMm: number;
   usedMm: number;
@@ -58,7 +62,7 @@ function LengthSheet({ open, onClose, noun, size, lengthMm, usedMm, onLength }: 
   const set = (mm: number) => {
     const next = Math.min(size.maxMeasurementMm, Math.max(size.minMeasurementMm, Math.round(mm)));
     if (next + TOLERANCE_MM < usedMm) {
-      setWarning(`Your current design uses ${cmText(usedMm)} cm of components. Remove some components before reducing the ${noun} to ${cmText(next)} cm.`);
+      setWarning(t(`jewelry.nouns.${noun}.reduceWarning`, { used: cmText(usedMm), next: cmText(next) }));
       return;
     }
     setWarning(null);
@@ -66,17 +70,17 @@ function LengthSheet({ open, onClose, noun, size, lengthMm, usedMm, onLength }: 
   };
   const btn = "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border transition-colors hover:bg-secondary disabled:opacity-40";
   return (
-    <BottomSheet title="Change length" open={open} onClose={onClose}>
+    <BottomSheet title={t("jewelry.changeLength")} open={open} onClose={onClose}>
       <p className="text-sm text-muted-foreground">
         {size.name} · {cmText(size.minMeasurementMm)}–{cmText(size.maxMeasurementMm)} cm
       </p>
       <p className="mt-3 text-center font-display text-4xl font-semibold text-primary">{cmText(lengthMm)} cm</p>
       <div className="mt-5 flex items-center gap-3">
-        <button type="button" className={btn} aria-label="Shorter by 0.5 cm" onClick={() => set(lengthMm - STEP_MM)} disabled={lengthMm <= size.minMeasurementMm}>
+        <button type="button" className={btn} aria-label={t("jewelry.shorter")} onClick={() => set(lengthMm - STEP_MM)} disabled={lengthMm <= size.minMeasurementMm}>
           <Icon name="minus" size={18} />
         </button>
         <label htmlFor="sheet-length" className="sr-only">
-          Length
+          {t("jewelry.length")}
         </label>
         <input
           id="sheet-length"
@@ -89,7 +93,7 @@ function LengthSheet({ open, onClose, noun, size, lengthMm, usedMm, onLength }: 
           aria-valuetext={`${cmText(lengthMm)} cm`}
           className="w-full accent-[var(--primary)]"
         />
-        <button type="button" className={btn} aria-label="Longer by 0.5 cm" onClick={() => set(lengthMm + STEP_MM)} disabled={lengthMm >= size.maxMeasurementMm}>
+        <button type="button" className={btn} aria-label={t("jewelry.longer")} onClick={() => set(lengthMm + STEP_MM)} disabled={lengthMm >= size.maxMeasurementMm}>
           <Icon name="plus" size={18} />
         </button>
       </div>
@@ -99,7 +103,7 @@ function LengthSheet({ open, onClose, noun, size, lengthMm, usedMm, onLength }: 
         </p>
       )}
       <button type="button" onClick={onClose} className="mt-6 min-h-12 w-full rounded-full bg-primary font-semibold text-primary-foreground">
-        Done
+        {t("common.done")}
       </button>
     </BottomSheet>
   );
@@ -118,7 +122,7 @@ export function BeadSequence({ pieces, selected, onSelect }: { pieces: Piece[]; 
   return (
     <ol
       ref={list}
-      aria-label="Bead sequence"
+      aria-label={t("jewelry.sequence")}
       className={`flex items-center gap-1 overscroll-contain rounded-2xl border border-border bg-card [scrollbar-width:none] ${
         row ? "w-full overflow-x-auto px-2 py-1.5" : "h-full w-[46px] flex-col overflow-y-auto py-2"
       }`}
@@ -128,7 +132,7 @@ export function BeadSequence({ pieces, selected, onSelect }: { pieces: Piece[]; 
           <button
             type="button"
             onClick={() => onSelect(selected === i ? null : i)}
-            aria-label={`Select position ${i + 1}, ${p.name}`}
+            aria-label={t("jewelry.selectPosition", { number: i + 1, name: p.name })}
             aria-pressed={selected === i}
             className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${selected === i ? "bg-primary/25 ring-2 ring-primary" : "hover:bg-secondary"}`}
           >
@@ -159,24 +163,24 @@ export function JewelryPicker({ components, pieces, problem, replacing, full, on
   const [material, setMaterial] = useState("");
   const sidebar = materials.length > 1;
   const shown = components.filter((c) => !material || c.type?.trim() === material);
-  const hint = full ? "Your piece is full. Drag a bead onto your piece to swap one." : replacing ? "Tap to replace, or hold and drag onto your piece" : "Tap to add, or hold and drag onto your piece";
+  const hint = full ? t("jewelry.hintFull") : replacing ? t("jewelry.hintReplace") : t("jewelry.hintAdd");
 
   return (
     <div className="relative flex gap-3">
       {sidebar && (
-        <div role="group" aria-label="Filter by material" className="sticky top-0 flex w-[68px] shrink-0 flex-col gap-1.5 self-start">
+        <div role="group" aria-label={t("jewelry.filterMaterial")} className="sticky top-0 flex w-[68px] shrink-0 flex-col gap-1.5 self-start">
           {["", ...materials].map((m) => (
             <button
               key={m || "all"}
               type="button"
               onClick={() => setMaterial(m)}
               aria-pressed={material === m}
-              aria-label={m ? `Show ${m}` : "Show all materials"}
+              aria-label={m ? t("jewelry.showMaterial", { name: typeLabel(m) }) : t("jewelry.showAll")}
               className={`min-h-11 rounded-xl border px-1 text-[11px] leading-tight font-semibold break-words transition-colors ${
                 material === m ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:bg-secondary"
               }`}
             >
-              {m ? typeLabel(m) : "All"}
+              {m ? typeLabel(m) : t("create.groups.all")}
             </button>
           ))}
         </div>
@@ -186,9 +190,9 @@ export function JewelryPicker({ components, pieces, problem, replacing, full, on
         <p className="mb-2 text-xs text-muted-foreground">{hint}</p>
         {shown.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center">
-            <p className="text-sm text-muted-foreground">No little treasures match these filters.</p>
+            <p className="text-sm text-muted-foreground">{t("jewelry.noMatch")}</p>
             <button type="button" onClick={() => setMaterial("")} className="mt-3 min-h-11 rounded-full border border-border px-4 text-sm font-semibold hover:bg-secondary">
-              Reset filters
+              {t("jewelry.resetFilters")}
             </button>
           </div>
         ) : (
@@ -217,7 +221,7 @@ function Tile({ component: c, count, problem, replacing, onPick }: { component: 
       if (problem) playOnce(ref.current, "shake");
     },
   );
-  const status = !c.effectiveLengthMm ? "Not available yet" : stock.disabled ? stock.label : problem;
+  const status = !c.effectiveLengthMm ? t("jewelry.notAvailable") : stock.disabled ? stock.label : problem;
 
   return (
     <button
@@ -225,7 +229,7 @@ function Tile({ component: c, count, problem, replacing, onPick }: { component: 
       type="button"
       {...drag}
       aria-disabled={unusable}
-      aria-label={`${replacing ? "Replace with" : "Add"} ${c.name}, ${money(c.price)}${c.effectiveLengthMm ? `, ${c.effectiveLengthMm} mm` : ""}${status ? `, ${status}` : ""}`}
+      aria-label={[t(replacing ? "jewelry.replaceWith" : "jewelry.addItem", { name: c.name }), money(c.price), ...(c.effectiveLengthMm ? [`${c.effectiveLengthMm} mm`] : []), ...(status ? [status] : [])].join(", ")}
       className={`no-callout relative flex w-full flex-col items-center gap-0.5 rounded-2xl border px-1 pt-2 pb-2 text-center transition-colors [touch-action:pan-x_pan-y] ${
         count ? "border-primary/50 bg-primary/5" : "border-transparent"
       } hover:border-border hover:bg-secondary/50 ${unusable || problem ? "opacity-45" : ""}`}
@@ -247,12 +251,12 @@ function Tile({ component: c, count, problem, replacing, onPick }: { component: 
 }
 
 /** First-visit hint over the picker; gone after the first add and remembered (hc.hint.dnd). */
-export function CoachMark({ onDismiss, text = "Tap to add · Hold and drag onto your piece" }: { onDismiss: () => void; text?: string }) {
+export function CoachMark({ onDismiss, text = t("jewelry.coach") }: { onDismiss: () => void; text?: string }) {
   return (
     <div role="note" className="img-fade mb-3 flex items-center gap-3 rounded-2xl border border-primary bg-primary/10 py-1 pr-1 pl-3">
       <Icon name="hand" size={18} className="shrink-0 text-primary" />
       <p className="flex-1 text-sm font-semibold">{text}</p>
-      <button type="button" onClick={onDismiss} aria-label="Got it" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-secondary">
+      <button type="button" onClick={onDismiss} aria-label={t("jewelry.gotIt")} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-secondary">
         <Icon name="close" size={16} />
       </button>
     </div>

@@ -13,6 +13,10 @@ import { JewelryCanvas, captureJewelry, cordHit, type DropPreview } from "./Jewe
 import { BeadSequence, JewelryPicker, MeasurementBar } from "./JewelryParts";
 import { MIN_JEWELRY_PRICE_CENTS, cordOf, isComplete, jewelryInput, nounOf, piecesOf, priceOf, roomMm, sizeOf, toPiece, missingForMinimum, usedCount, usedMm } from "./logic";
 import { corsImage } from "../../studio/capture";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 const move = (list: string[], from: number, to: number) => {
   const next = [...list];
@@ -57,11 +61,11 @@ export function JewelryStudio({ category, data }: StudioProps) {
 
   /** Why a component can't be added (or swapped into the selection) right now. */
   const problem = (c: Component, replace: number | null = selected) => {
-    if (!c.effectiveLengthMm) return "Not available yet";
+    if (!c.effectiveLengthMm) return t("jewelry.notAvailable");
     const stock = stockState(c, usedCount(draft.pieces, c.id) - (replace !== null && draft.pieces[replace] === c.id ? 1 : 0));
     if (stock.disabled) return stock.label;
     const left = roomMm(draft, byId, replace);
-    return c.effectiveLengthMm > left ? `Doesn’t fit · ${Math.max(0, left)} mm left` : null;
+    return c.effectiveLengthMm > left ? t("jewelry.doesntFit", { left: Math.max(0, left) }) : null;
   };
 
   const added = () => coach && dismissCoach();
@@ -72,10 +76,10 @@ export function JewelryStudio({ category, data }: StudioProps) {
     if (why) return notify(why, "warn");
     if (selected !== null) {
       update((d) => ({ ...d, pieces: d.pieces.map((p, i) => (i === selected ? c.id : p)) }));
-      notify(`${c.name} replaced the selected detail.`);
+      notify(t("jewelry.replacedSelected", { name: c.name }));
     } else {
       update((d) => ({ ...d, pieces: [...d.pieces, c.id] }));
-      notify(`${c.name} added to your ${noun}.`);
+      notify(t(`jewelry.nouns.${noun}.added`, { name: c.name }));
     }
     added();
   };
@@ -97,17 +101,17 @@ export function JewelryStudio({ category, data }: StudioProps) {
       if (payload.kind === "bead") {
         setLifted(payload.index ?? null);
         if (at) setPreview({ mode: "insert", index: at.index, piece: toPiece(byId.get(payload.id)!) });
-        return "Release to move";
+        return t("jewelry.releaseToMove");
       }
       const c = byId.get(payload.id);
-      if (!c || !at) return "Release to add";
+      if (!c || !at) return t("mugs.releaseToAdd");
       const why = problem(c, at.mode === "replace" ? at.index : null);
       if (why) {
         setPreview(null);
         return why;
       }
       setPreview(at.mode === "replace" ? { mode: "replace", index: at.index } : { mode: "insert", index: at.index, piece: toPiece(c) });
-      return at.mode === "replace" ? `Release to replace ${byId.get(draft.pieces[at.index])?.name ?? "this detail"}` : "Release to add";
+      return at.mode === "replace" ? t("jewelry.releaseToReplace", { name: byId.get(draft.pieces[at.index])?.name ?? t("jewelry.thisDetail") }) : t("mugs.releaseToAdd");
     },
     (p, payload) => {
       setPreview(null);
@@ -118,7 +122,7 @@ export function JewelryStudio({ category, data }: StudioProps) {
         const to = Math.min(at.index, draft.pieces.length - 1);
         if (to !== payload.index) update((d) => ({ ...d, pieces: move(d.pieces, payload.index!, to) }));
         setSelected(to);
-        notify("Detail moved. Hold and drag it again to adjust its position.");
+        notify(t("jewelry.movedHint"));
         return true;
       }
       const c = byId.get(payload.id);
@@ -130,10 +134,10 @@ export function JewelryStudio({ category, data }: StudioProps) {
       }
       if (at.mode === "replace") {
         update((d) => ({ ...d, pieces: d.pieces.map((x, i) => (i === at.index ? c.id : x)) }));
-        notify(`${c.name} replaced a detail on your ${noun}.`);
+        notify(t(`jewelry.nouns.${noun}.replaced`, { name: c.name }));
       } else {
         update((d) => ({ ...d, pieces: [...d.pieces.slice(0, at.index), c.id, ...d.pieces.slice(at.index)] }));
-        notify(`${c.name} added to your ${noun}.`);
+        notify(t(`jewelry.nouns.${noun}.added`, { name: c.name }));
       }
       added();
       return true;
@@ -150,36 +154,36 @@ export function JewelryStudio({ category, data }: StudioProps) {
     if (to < 0 || to >= draft.pieces.length) return;
     update((d) => ({ ...d, pieces: move(d.pieces, selected, to) }));
     setSelected(to);
-    notify("Detail moved.");
+    notify(t("jewelry.moved"));
   };
 
   const remove = (index: number) => {
-    const name = byId.get(draft.pieces[index])?.name ?? "Detail";
+    const name = byId.get(draft.pieces[index])?.name ?? t("jewelry.detail");
     update((d) => ({ ...d, pieces: d.pieces.filter((_, i) => i !== index) }));
     setSelected(null);
-    notify(`${name} removed.`);
+    notify(t("jewelry.removed", { name }));
   };
 
   const clear = () => {
     update((d) => ({ ...d, pieces: [] }));
     setSelected(null);
-    notify("Canvas cleared. Tap Undo to bring it back.");
+    notify(t("studio.cleared"));
   };
 
   const empty = draft.pieces.length === 0;
   const quick = data.components.filter((c) => c.imageUrl && !problem(c, null)).slice(0, 2);
-  const counter = `${draft.pieces.length} component${draft.pieces.length === 1 ? "" : "s"}`;
+  const counter = t("jewelry.components", { count: draft.pieces.length });
 
   const stage = (
     <StageFrame
       ref={stageRef}
-      label={`${noun[0].toUpperCase()}${noun.slice(1)} with ${counter}`}
+      label={t(`jewelry.nouns.${noun}.stageLabel`, { counter })}
       chip={chip}
       variant="tray"
       overlay={
         <>
           <span className="pointer-events-none absolute top-3 left-4 text-[10px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">
-            {noun} · {size?.name ?? ""}
+            {t(`jewelry.nouns.${noun}.name`)} · {size?.name ?? ""}
           </span>
           <span className="pointer-events-none absolute top-3 right-4 text-[11px] font-semibold text-muted-foreground">{counter}</span>
         </>
@@ -191,7 +195,7 @@ export function JewelryStudio({ category, data }: StudioProps) {
           kind={kind}
           pieces={pieces}
           lengthMm={draft.lengthMm}
-          label={`${noun} design`}
+          label={t(`jewelry.nouns.${noun}.design`)}
           selected={selected}
           onSelect={setSelected}
           onMove={(from, to) => update((d) => ({ ...d, pieces: move(d.pieces, from, to) }))}
@@ -201,7 +205,7 @@ export function JewelryStudio({ category, data }: StudioProps) {
         />
         {empty && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <p className="breathe font-display text-lg text-muted-foreground">Add your first bead</p>
+            <p className="breathe font-display text-lg text-muted-foreground">{t("jewelry.firstBead")}</p>
           </div>
         )}
         {empty &&
@@ -210,7 +214,7 @@ export function JewelryStudio({ category, data }: StudioProps) {
               key={c.id}
               type="button"
               onClick={() => tapPick(c)}
-              aria-label={`Add suggested bead ${c.name}`}
+              aria-label={t("jewelry.suggested", { name: c.name })}
               className={`absolute top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-dashed border-primary bg-background/70 ${i === 0 ? "left-[12%]" : "right-[12%]"}`}
             >
               <img {...corsImage} src={c.imageUrl!} alt="" draggable={false} className="h-8 w-8 object-contain" />
@@ -232,9 +236,9 @@ export function JewelryStudio({ category, data }: StudioProps) {
               image: selectedComp.imageUrl,
               onDone: () => setSelected(null),
               actions: [
-                { icon: "chevronLeft", label: "Move left", onClick: () => moveSelected(-1), disabled: selected === 0 },
-                { icon: "chevronRight", label: "Move right", onClick: () => moveSelected(1), disabled: selected === draft.pieces.length - 1 },
-                { icon: "trash", label: "Remove", onClick: () => remove(selected), danger: true },
+                { icon: "chevronLeft", label: t("jewelry.moveLeft"), onClick: () => moveSelected(-1), disabled: selected === 0 },
+                { icon: "chevronRight", label: t("jewelry.moveRight"), onClick: () => moveSelected(1), disabled: selected === draft.pieces.length - 1 },
+                { icon: "trash", label: t("common.remove"), onClick: () => remove(selected), danger: true },
               ],
             }
           : null
@@ -245,10 +249,10 @@ export function JewelryStudio({ category, data }: StudioProps) {
   return (
     <StudioFrame
       category={category}
-      subtitle={`${noun[0].toUpperCase()}${noun.slice(1)} • ${size?.name ?? "No size"} · ${cm(draft.lengthMm)}`}
+      subtitle={`${t(`jewelry.nouns.${noun}.title`)} • ${size?.name ?? t("jewelry.noSize")} · ${cm(draft.lengthMm)}`}
       onSave={saver.save}
       saving={saver.saving}
-      saveBlocked={empty ? "Add at least one item to your design." : null}
+      saveBlocked={empty ? t("gifts.addItem") : null}
       top={<MeasurementBar noun={noun} usedMm={used} lengthMm={draft.lengthMm} size={size} onLength={(lengthMm) => update((d) => ({ ...d, lengthMm }), "length")} />}
       stage={stage}
       side={<BeadSequence pieces={pieces} selected={selected} onSelect={setSelected} />}
@@ -267,11 +271,11 @@ export function JewelryStudio({ category, data }: StudioProps) {
         />
       }
       footer={{
-        summary: `${draft.pieces.length} bead${draft.pieces.length === 1 ? "" : "s"} · ${cm(used)}`,
+        summary: `${t("jewelry.beads", { count: draft.pieces.length })} · ${cm(used)}`,
         price,
         onPrimary: () => navigate(studioHref(category, "preview")),
-        primaryBlocked: empty ? "Add at least one item to your design." : null,
-        note: empty ? null : (missingForMinimum(price) ?? (complete ? `Your ${nounOf(category)} fits perfectly` : `${cm(Math.max(0, draft.lengthMm - used))} to go · ready to order`)),
+        primaryBlocked: empty ? t("gifts.addItem") : null,
+        note: empty ? null : (missingForMinimum(price) ?? (complete ? t(`jewelry.nouns.${noun}.fits`) : t("jewelry.toGo", { length: cm(Math.max(0, draft.lengthMm - used)) }))),
         pulse,
       }}
     />

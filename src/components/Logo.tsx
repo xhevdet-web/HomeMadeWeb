@@ -1,6 +1,7 @@
+import i18n from "../i18n";
 export function Logo() {
   return (
-    <a href="#/" className="flex items-center gap-2.5" aria-label="HomeCreator home">
+    <a href="#/" className="flex items-center gap-2.5" aria-label={i18n.t("controls.logo")}>
       <svg
         width="28"
         height="28"

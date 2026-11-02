@@ -1,5 +1,6 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import i18n from "../i18n";
 import { Icon } from "../components/Icon";
 
 /**
@@ -86,7 +87,7 @@ export function BottomSheet({ title, open, onClose, children }: { title: string;
               type="button"
               data-sheet-close
               onClick={onClose}
-              aria-label="Close"
+              aria-label={i18n.t("common.close")}
               className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-secondary"
             >
               <Icon name="close" size={18} />

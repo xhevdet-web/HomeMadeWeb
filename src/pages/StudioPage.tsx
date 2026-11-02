@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import i18n from "../i18n";
 import { product as fetchProduct } from "../api/catalog";
 import { errorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -55,12 +56,12 @@ export default function StudioPage({ slug, step, query }: { slug: string; step?:
       try {
         const saved = await fetchProduct(loadId);
         setDraft(category.id, await mod.fromProduct(saved, category, studioData));
-        toast("Your design is open. Saving it creates a new copy.");
+        toast(i18n.t("studio.designOpened"));
       } catch (e) {
         toast(errorMessage(e));
       }
       redirect(studioHref(category, "design"));
-    }, "Sign in to open your saved design.");
+    }, i18n.t("auth.prompts.openDesign"));
   }, [loadId, category, mod, data.data, requireAuth, setDraft, toast]);
 
   if (categories.loading || (mod && data.loading)) return <StudioSkeleton />;
@@ -74,7 +75,7 @@ export default function StudioPage({ slug, step, query }: { slug: string; step?:
   if (data.error || !data.data)
     return (
       <Page>
-        <LoadError message={data.error ?? "We couldn't load this studio."} onRetry={data.retry} />
+        <LoadError message={data.error ?? i18n.t("studio.loadFailed")} onRetry={data.retry} />
       </Page>
     );
   if (target || loadId) return <StudioSkeleton />;

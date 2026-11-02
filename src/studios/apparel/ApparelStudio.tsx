@@ -20,6 +20,10 @@ import { AddTextButton } from "../mugs/MugStudio";
 import { componentById, customUpload, libraryDesigns, typeLabel, type StudioProps } from "../data";
 import { allElements, apparelInput, apparelPrice, apparelSummary, baseOf, boundsOf, apparelPreviews, hasUpload, printArea, useImageRatio, garmentImage, type Side } from "./logic";
 import { GarmentCanvas } from "./silhouettes";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 /** About 150 dpi across the print width. */
 const lowQuality = (els: PlacedElement[], printWidthCm: number) => els.some((e) => e.uploaded && e.pxWidth && e.pxWidth / (e.scale * printWidthCm) < 60);
@@ -73,7 +77,7 @@ export function ApparelStudio({ category, data }: StudioProps) {
     notify(`${c.name} added to the ${side}.`);
   };
 
-  const chip = useCanvasDrop(stageRef, garmentRef, "Release to add", (fx, fy, payload) => {
+  const chip = useCanvasDrop(stageRef, garmentRef, t("mugs.releaseToAdd"), (fx, fy, payload) => {
     const c = byId.get(payload.id);
     if (!c) return false;
     void addDesign(c, { x: fx, y: fy });
@@ -83,13 +87,13 @@ export function ApparelStudio({ category, data }: StudioProps) {
   const onUpload = (img: UploadedImage) => {
     if (!upload) return;
     const first = !hasUpload(d);
-    place({ src: img.url, ref: upload.id, name: "Your artwork", aspect: img.height / img.width, pxWidth: img.width, uploaded: true });
-    notify(first && upload.price ? `Your artwork is on the ${side}. ${money(upload.price)} once.` : `Your artwork is on the ${side}.`);
+    place({ src: img.url, ref: upload.id, name: t("apparel.yourArtwork"), aspect: img.height / img.width, pxWidth: img.width, uploaded: true });
+    notify(first && upload.price ? t("apparel.artworkOnSidePaid", { side: t(`apparel.sides.${side}`), price: money(upload.price) }) : t("apparel.artworkOnSide", { side: t(`apparel.sides.${side}`) }));
   };
 
   const command = (cmd: LayerCommand, id: string) => {
     if (cmd === "reset") return;
-    if (cmd === "duplicate" && elements.find((e) => e.id === id)?.uploaded) return notify("Each uploaded design can be placed only once", "warn");
+    if (cmd === "duplicate" && elements.find((e) => e.id === id)?.uploaded) return notify(t("apparel.uploadOnce"), "warn");
     apply({ type: cmd, id });
     if (cmd === "delete") setSelectedId(null);
   };
@@ -97,7 +101,7 @@ export function ApparelStudio({ category, data }: StudioProps) {
   const clear = () => {
     update((x) => ({ ...x, front: [], back: [] }));
     setSelectedId(null);
-    notify("Canvas cleared. Tap Undo to bring it back.");
+    notify(t("studio.cleared"));
   };
 
   const empty = allElements(d).length === 0;
@@ -124,7 +128,7 @@ export function ApparelStudio({ category, data }: StudioProps) {
   const stage = (
     <StageFrame
       ref={stageRef}
-      label={`${side === "front" ? "Front" : "Back"} with ${elements.length} design${elements.length === 1 ? "" : "s"}`}
+      label={t("apparel.stageLabel", { side: t(`apparel.sideNames.${side}`), count: elements.length })}
       chip={chip}
     >
       {/* Switching sides flips the garment (no motion with reduced motion). */}
@@ -132,7 +136,7 @@ export function ApparelStudio({ category, data }: StudioProps) {
         <GarmentCanvas base={base} side={side} category={category} showArea={!!selected || !!dragging || elements.length === 0}>
           <PlacementLayer
             elements={elements}
-            label={`Designs on the ${side}`}
+            label={t("apparel.designsOn", { side: t(`apparel.sides.${side}`) })}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onChange={(el, merge) => apply({ type: "update", el }, merge)}
@@ -156,7 +160,7 @@ export function ApparelStudio({ category, data }: StudioProps) {
               image: selected.kind === "text" ? null : (selected.src ?? null),
               onDone: () => setSelectedId(null),
               actions: [
-                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
+                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: t("textTool.editText"), onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
                 ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { centre, duplicate: !selected.uploaded }),
               ],
             }
@@ -168,19 +172,19 @@ export function ApparelStudio({ category, data }: StudioProps) {
   const picker = (
     <div className="flex flex-col gap-5">
       <QualityWarning show={lowQuality(elements, printCm)} />
-      <ToolSection title="Designs" aside={`Adding to the ${side}`}>
-        <p className="mb-3 text-xs text-muted-foreground">Tap a design to add it to the {side}. It stays inside the print area.</p>
+      <ToolSection title={t("apparel.designs")} aside={t("apparel.addingTo", { side: t(`apparel.sides.${side}`) })}>
+        <p className="mb-3 text-xs text-muted-foreground">{t("apparel.designsHint", { side: t(`apparel.sides.${side}`) })}</p>
         <Tabs
-          label="Design type"
+          label={t("apparel.designType")}
           value={tab}
-          onChange={(t) => (t === "TEXT" && phone ? setTextOpen(true) : setTab(t))}
-          tabs={[{ id: "ALL", label: "All" }, ...types.map((t) => ({ id: t, label: typeLabel(t) })), { id: "TEXT", label: "Text" }]}
+          onChange={(id) => (id === "TEXT" && phone ? setTextOpen(true) : setTab(id))}
+          tabs={[{ id: "ALL", label: t("create.groups.all") }, ...types.map((type) => ({ id: type, label: typeLabel(type) })), { id: "TEXT", label: t("mugs.text") }]}
         />
         <div className="mt-3">
           {tab === "TEXT" && !phone ? (
             textTool
           ) : shown.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Nothing in this group yet.</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t("gifts.emptyGroup")}</p>
           ) : (
             <TileRow>
               {shown.map((c) => (
@@ -189,8 +193,8 @@ export function ApparelStudio({ category, data }: StudioProps) {
                     id={c.id}
                     name={c.name}
                     image={c.imageUrl}
-                    price={c.price ? money(c.price) : "Free"}
-                    badge={elements.some((e) => e.ref === c.id) ? "Added" : null}
+                    price={c.price ? money(c.price) : t("common.free")}
+                    badge={elements.some((e) => e.ref === c.id) ? t("apparel.added") : null}
                     onTap={() => void addDesign(c)}
                   />
                 </TileItem>
@@ -201,17 +205,17 @@ export function ApparelStudio({ category, data }: StudioProps) {
       </ToolSection>
       {phone && <AddTextButton count={allElements(d).filter((e) => e.kind === "text").length} onClick={() => setTextOpen(true)} />}
       {upload && (
-        <ToolSection title="Upload your own design" aside={hasUpload(d) ? "Charged once" : upload.price ? `${money(upload.price)} once` : "Free"}>
+        <ToolSection title={t("apparel.uploadTitle")} aside={hasUpload(d) ? t("apparel.chargedOnce") : upload.price ? t("apparel.once", { price: money(upload.price) }) : t("common.free")}>
           <UploadButton
             onImage={onUpload}
             accept={["image/png"]}
-            typeError="Only PNG images can be uploaded. Save your design as a .png file and try again."
-            label={missing ? "Re-upload your artwork" : "Upload your own design"}
-            hint={`PNG only, up to 5 MB${upload.price ? ` · ${money(upload.price)} once, however many times you place it` : ""}`}
+            typeError={t("apparel.pngOnly")}
+            label={missing ? t("apparel.reuploadArtwork") : t("apparel.uploadTitle")}
+            hint={upload.price ? t("apparel.uploadHintPaid", { price: money(upload.price) }) : t("apparel.uploadHint")}
           />
         </ToolSection>
       )}
-      <BottomSheet title={selected?.kind === "text" ? "Edit text" : "Add text"} open={phone && textOpen} onClose={() => setTextOpen(false)}>
+      <BottomSheet title={selected?.kind === "text" ? t("textTool.editText") : t("mugs.addText")} open={phone && textOpen} onClose={() => setTextOpen(false)}>
         {textTool}
       </BottomSheet>
     </div>
@@ -220,12 +224,12 @@ export function ApparelStudio({ category, data }: StudioProps) {
   return (
     <StudioFrame
       category={category}
-      subtitle={[base?.name, d.size].filter(Boolean).join(" · ") || "Choose your piece"}
+      subtitle={[base?.name, d.size].filter(Boolean).join(" · ") || t("apparel.choosePieceShort")}
       onSave={saver.save}
       saving={saver.saving}
-      saveBlocked={empty ? "Add a logo, graphic, text or your own artwork." : missing ? "Re-upload your artwork to continue." : null}
+      saveBlocked={empty ? t("apparel.addFirst") : missing ? t("apparel.reuploadToContinue") : null}
       top={
-        <div role="radiogroup" aria-label="Side" className="grid grid-cols-2 gap-1 rounded-full border border-border bg-card p-1">
+        <div role="radiogroup" aria-label={t("apparel.side")} className="grid grid-cols-2 gap-1 rounded-full border border-border bg-card p-1">
           {(["front", "back"] as Side[]).map((s) => (
             <button
               key={s}
@@ -233,9 +237,9 @@ export function ApparelStudio({ category, data }: StudioProps) {
               role="radio"
               aria-checked={side === s}
               onClick={() => switchSide(s)}
-              className={`min-h-10 rounded-full text-sm font-semibold capitalize transition-colors ${side === s ? "bg-secondary text-foreground" : "text-muted-foreground"}`}
+              className={`min-h-10 rounded-full text-sm font-semibold transition-colors ${side === s ? "bg-secondary text-foreground" : "text-muted-foreground"}`}
             >
-              {s}
+              {t(`apparel.sideNames.${s}`)}
               {d[s].length ? ` · ${d[s].length}` : ""}
             </button>
           ))}
@@ -249,7 +253,7 @@ export function ApparelStudio({ category, data }: StudioProps) {
         summary: apparelSummary(d, data),
         price: apparelPrice(d, data, byId),
         onPrimary: () => navigate(studioHref(category, "preview")),
-        primaryBlocked: empty ? "Add a logo, graphic, text or your own artwork." : null,
+        primaryBlocked: empty ? t("apparel.addFirst") : null,
       }}
     />
   );

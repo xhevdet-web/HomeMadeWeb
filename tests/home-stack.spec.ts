@@ -25,7 +25,8 @@ test("category buttons are never covered by an invisible layer", async ({ page }
         const cy = box.top + box.height / 2;
         if (cy < 0 || cy > innerHeight) continue;
         const hit = document.elementFromPoint(x, cy);
-        if (hit && (link.contains(hit) || (!phone && hit.closest("article")))) continue;
+        // The fixed nav is visible: a button scrolling under it is covered on purpose.
+        if (hit && (link.contains(hit) || hit.closest("header") || (!phone && hit.closest("article")))) continue;
         found.push(`${link.textContent} at scroll ${y}: tap hit ${hit?.tagName ?? "nothing"}`);
       }
     }

@@ -5,6 +5,10 @@ import { DetailRows, NothingToPreview, PreviewActions, PreviewLayout, PriceLines
 import { componentById, customUpload, stockProblem, type StudioProps } from "../data";
 import { allElements, apparelInput, apparelPrice, baseOf, apparelPreviews, hasUpload, type Side } from "./logic";
 import { ApparelThumb } from "./silhouettes";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 const SIDES: Side[] = ["front", "back"];
 
@@ -19,30 +23,30 @@ export function ApparelPreview({ category, data }: StudioProps) {
   });
   const title = (
     <>
-      Your <em className="font-normal text-primary">{base?.name.toLowerCase() ?? "piece"}.</em>
+      {t("cases.previewTitle")} <em className="font-normal text-primary">{base?.name.toLowerCase() ?? t("apparel.pieceLower")}.</em>
     </>
   );
 
   if (allElements(d).length === 0) {
     return (
       <StudioShell category={category} step={2} title={title}>
-        <NothingToPreview category={category} message="Add a logo, graphic, text or your own artwork." />
+        <NothingToPreview category={category} message={t("apparel.addFirst")} />
       </StudioShell>
     );
   }
 
   const priced = allElements(d).filter((e) => e.kind === "image" && !e.uploaded && (byId.get(e.ref ?? "")?.price ?? 0) > 0);
-  const missing = allElements(d).some((e) => e.missing) ? "Re-upload your artwork to continue." : null;
+  const missing = allElements(d).some((e) => e.missing) ? t("apparel.reuploadToContinue") : null;
 
   return (
-    <StudioShell category={category} step={2} title={title} intro="Front and back, exactly as we'll print them.">
+    <StudioShell category={category} step={2} title={title} intro={t("apparel.previewIntro")}>
       <PreviewLayout
         visual={
           <div className="grid w-full grid-cols-2 gap-4">
             {SIDES.map((s) => (
               <figure key={s}>
                 <ApparelThumb draft={d} data={data} category={category} side={s} />
-                <figcaption className="mt-2 text-center text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">{s}</figcaption>
+                <figcaption className="mt-2 text-center text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">{t(`apparel.sideNames.${s}`)}</figcaption>
               </figure>
             ))}
           </div>
@@ -50,16 +54,16 @@ export function ApparelPreview({ category, data }: StudioProps) {
       >
         <DetailRows
           rows={[
-            ["Piece", base?.name ?? "Not chosen"],
-            ...(base?.color ? [["Colour", base.color] as [string, string]] : []),
-            ...(d.size ? [["Size", d.size] as [string, string]] : []),
+            [t("apparel.piece"), base?.name ?? t("gifts.notChosen")],
+            ...(base?.color ? [[t("textTool.colour"), base.color] as [string, string]] : []),
+            ...(d.size ? [[t("checkout.size"), d.size] as [string, string]] : []),
           ]}
         />
         {SIDES.map((s) => (
           <section key={s}>
-            <h2 className="font-display text-xl font-semibold capitalize">{s}</h2>
+            <h2 className="font-display text-xl font-semibold">{t(`apparel.sideNames.${s}`)}</h2>
             {d[s].length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">Nothing on the {s}.</p>
+              <p className="mt-2 text-sm text-muted-foreground">{t("apparel.nothingOn", { side: t(`apparel.sides.${s}`) })}</p>
             ) : (
               <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                 {d[s].map((e) => (
@@ -71,9 +75,9 @@ export function ApparelPreview({ category, data }: StudioProps) {
         ))}
         <PriceLines
           lines={[
-            [base?.name ?? "Piece", base?.price ?? 0],
+            [base?.name ?? t("apparel.piece"), base?.price ?? 0],
             ...priced.map((e) => [describeElement(e), byId.get(e.ref!)!.price] as [string, number]),
-            ...(hasUpload(d) && upload?.price ? [["Own artwork (once)", upload.price] as [string, number]] : []),
+            ...(hasUpload(d) && upload?.price ? [[t("apparel.ownArtworkOnce"), upload.price] as [string, number]] : []),
           ]}
           total={apparelPrice(d, data, byId)}
         />

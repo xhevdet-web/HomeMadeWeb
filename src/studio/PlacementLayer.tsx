@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Icon, type IconName } from "../components/Icon";
+import i18n from "../i18n";
 import {
   FONTS,
   FULL_BOUNDS,
@@ -27,17 +28,18 @@ export type LayerAction = "smaller" | "larger" | "rotateLeft" | "rotateRight" | 
 
 export const ALL_ACTIONS: LayerAction[] = ["smaller", "larger", "rotateLeft", "rotateRight", "forward", "backward", "duplicate", "delete"];
 
-const ACTION_META: Record<LayerAction, [IconName, string]> = {
-  smaller: ["zoomOut", "Smaller"],
-  larger: ["zoomIn", "Larger"],
-  rotateLeft: ["rotateLeft", "Rotate left"],
-  rotateRight: ["rotateRight", "Rotate right"],
-  forward: ["arrowUp", "Bring forward"],
-  backward: ["arrowDown", "Send backward"],
-  duplicate: ["copy", "Duplicate"],
-  delete: ["trash", "Delete"],
-  reset: ["reset", "Reset"],
-  front: ["arrowUp", "Bring to front"],
+/** Icon and label key of each action; the label is translated when the bar renders. */
+const ACTION_META: Record<LayerAction, [IconName, "smaller" | "larger" | "rotateLeft" | "rotateRight" | "bringForward" | "sendBackward" | "duplicate" | "delete" | "reset" | "bringToFront"]> = {
+  smaller: ["zoomOut", "smaller"],
+  larger: ["zoomIn", "larger"],
+  rotateLeft: ["rotateLeft", "rotateLeft"],
+  rotateRight: ["rotateRight", "rotateRight"],
+  forward: ["arrowUp", "bringForward"],
+  backward: ["arrowDown", "sendBackward"],
+  duplicate: ["copy", "duplicate"],
+  delete: ["trash", "delete"],
+  reset: ["reset", "reset"],
+  front: ["arrowUp", "bringToFront"],
 };
 
 interface Gesture {
@@ -85,7 +87,7 @@ export function ElementContent({ el, W }: { el: PlacedElement; W: number }) {
     return (
       <div style={style} className="flex items-center justify-center rounded-lg border-4 border-dashed border-primary bg-background/80 p-[6%] text-center">
         <span className="font-sans font-semibold text-foreground" style={{ fontSize: W * 0.08 }}>
-          Re-upload your image
+          {i18n.t("studio.reuploadImage")}
         </span>
       </div>
     );
@@ -455,8 +457,8 @@ function Selection({ el, size, W, H, actions, onHandleDown, onAction }: {
       >
         <button
           type="button"
-          aria-label="Drag to resize and rotate"
-          title="Drag to resize and rotate"
+          aria-label={i18n.t("studio.resizeHandle")}
+          title={i18n.t("studio.resizeHandle")}
           className="pointer-events-auto absolute -right-5 -bottom-5 flex h-10 w-10 cursor-nwse-resize touch-none items-center justify-center rounded-full"
           onPointerDown={onHandleDown}
         >
@@ -468,13 +470,14 @@ function Selection({ el, size, W, H, actions, onHandleDown, onAction }: {
 
       {actions.length > 0 && <div
         role="toolbar"
-        aria-label="Element actions"
+        aria-label={i18n.t("studio.elementActions")}
         className="absolute z-[1001] flex flex-wrap justify-center gap-0.5 rounded-full border border-border bg-background/90 p-1 shadow-glow backdrop-blur-md"
         style={{ left, top, width: barW }}
         onPointerDown={(e) => e.stopPropagation()}
       >
         {actions.map((a) => {
-          const [icon, label] = ACTION_META[a];
+          const [icon, key] = ACTION_META[a];
+          const label = i18n.t(`studio.actions.${key}`);
           return (
             <button
               key={a}

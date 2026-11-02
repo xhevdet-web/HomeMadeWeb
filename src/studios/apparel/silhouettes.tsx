@@ -5,6 +5,7 @@ import { PlacementLayer } from "../../studio/PlacementLayer";
 import type { StudioData } from "../data";
 import { baseOf, garmentImage, printArea, silhouetteOf, useImageRatio, type Side, type Silhouette } from "./logic";
 import { corsImage } from "../../studio/capture";
+import i18n from "../../i18n";
 
 const BODY: Record<Silhouette, string> = {
   HOODIE: "M62 40 30 54q-10 6-12 22L8 150l24 6 14-60 2 108q52 8 104 0l2-108 14 60 24-6-10-74q-2-16-12-22l-32-14q-38 24-76 0Z",
@@ -32,7 +33,7 @@ export function GarmentCanvas({ base, side, category, children, showArea = true 
   return (
     <div className="relative w-full overflow-hidden rounded-2xl" style={{ aspectRatio: String(ratio) }}>
       {src ? (
-        <img {...corsImage} src={src} alt={`${base?.name ?? "Garment"}, ${side}`} className="absolute inset-0 h-full w-full object-fill" draggable={false} />
+        <img {...corsImage} src={src} alt={`${base?.name ?? i18n.t("apparel.garment")}, ${i18n.t(`apparel.sides.${side}`)}`} className="absolute inset-0 h-full w-full object-fill" draggable={false} />
       ) : (
         <GarmentShape silhouette={silhouetteOf(category)} hex={base?.colorHex ?? "#EFEBE4"} side={side} />
       )}
@@ -40,7 +41,7 @@ export function GarmentCanvas({ base, side, category, children, showArea = true 
         className={`pointer-events-none absolute rounded-md border border-dashed border-primary/80 transition-opacity duration-200 ${showArea ? "opacity-100" : "opacity-0"}`}
         style={{ left: `${area.x * 100}%`, top: `${area.y * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` }}
       >
-        <span className="absolute -top-4 left-0 rounded bg-background/70 px-1 text-[9px] font-semibold tracking-[0.2em] text-foreground uppercase">Print area</span>
+        <span className="absolute -top-4 left-0 rounded bg-background/70 px-1 text-[9px] font-semibold tracking-[0.2em] text-foreground uppercase">{i18n.t("apparel.printArea")}</span>
       </div>
       {children}
     </div>

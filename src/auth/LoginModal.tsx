@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState, type FormEvent, type InputHTMLAttributes, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { PASSWORD_MAX, PASSWORD_MIN, passwordRules } from "../api/auth";
 import { ApiError, errorMessage } from "../api/client";
 import { Button } from "../components/Button";
 import { inputClass } from "../components/Controls";
 import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
+import i18n from "../i18n";
 import { navigate } from "../router";
 import { useAuth, type LoginRequest } from "./AuthContext";
 import { GoogleButton, googleSignInEnabled } from "./GoogleButton";
+
+// Validators and error mappers run on submit, so messages use the current language.
+const t = i18n.t.bind(i18n);
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) {
   return (
@@ -33,6 +38,7 @@ function IconInput({ icon, trailing, ...props }: { icon: IconName; trailing?: Re
 
 /** Password field with show / hide, like the app's PasswordInput. */
 function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const { t } = useTranslation();
   const [shown, setShown] = useState(false);
   return (
     <IconInput
@@ -43,7 +49,7 @@ function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
         <button
           type="button"
           onClick={() => setShown((v) => !v)}
-          aria-label={shown ? "Hide password" : "Show password"}
+          aria-label={shown ? t("auth.hidePassword") : t("auth.showPassword")}
           aria-pressed={shown}
           className="absolute top-1/2 right-1 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
         >
@@ -74,40 +80,49 @@ function FormSection({ title, hint, icon, children }: { title: string; hint?: st
 
 /** The app's validateRegistration: the first problem, or null when the form can be sent. */
 function registrationProblem(f: { firstName: string; lastName: string; email: string; password: string; confirm: string }) {
-  if (!f.firstName.trim() || !f.lastName.trim()) return "Please complete your first and last name.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return "Please enter a valid email address.";
-  if (!f.password) return "Please enter your password.";
-  if (!passwordRules(f.password).every((r) => r.met)) return `Please use a password between ${PASSWORD_MIN} and ${PASSWORD_MAX} characters.`;
-  if (f.password !== f.confirm) return "Your passwords do not match.";
+  if (!f.firstName.trim() || !f.lastName.trim()) return t("auth.validation.nameRequired");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return t("auth.validation.invalidEmail");
+  if (!f.password) return t("auth.validation.passwordRequired");
+  if (!passwordRules(f.password).every((r) => r.met)) return t("auth.validation.passwordLength", { min: PASSWORD_MIN, max: PASSWORD_MAX });
+  if (f.password !== f.confirm) return t("auth.validation.passwordsDoNotMatch");
   return null;
+}
+
+/** Wrong email or password reads in the page's language; other problems as they are. */
+function signInError(e: unknown) {
+  if (e instanceof ApiError && e.status === 401) return t("auth.invalidCredentials");
+  return errorMessage(e);
 }
 
 /** Google sign-in failures in plain words; the API's own reasons stay generic on purpose. */
 function googleError(e: unknown) {
   if (!(e instanceof ApiError) || e.kind !== "http") return errorMessage(e);
-  if (e.message === "Incorrect password") return "That password is incorrect. Try again.";
-  if (e.status === 503) return "Google sign-in is unavailable right now. Please use your email and password.";
-  return "Unable to sign in with Google. Please try again.";
+  if (e.message === "Incorrect password") return t("auth.google.incorrectPassword");
+  if (e.status === 503) return t("auth.google.unavailable");
+  return t("auth.google.failed");
 }
 
 /** The app's registrationErrorMessage. */
 function registrationError(e: unknown) {
-  if (e instanceof ApiError && e.status === 409) return "This email already has an account. Log in instead.";
+  if (e instanceof ApiError && e.status === 409) return t("auth.emailTaken");
   return errorMessage(e);
 }
 
 export function PasswordMatch({ password, confirm }: { password: string; confirm: string }) {
+  const { t } = useTranslation();
   if (!confirm) return null;
   const ok = password === confirm;
   return (
     <p className={`mt-2 flex items-center gap-2 text-xs ${ok ? "text-success" : "text-muted-foreground"}`} aria-live="polite">
       <Icon name={ok ? "check" : "minus"} size={13} />
-      {ok ? "Passwords match" : "Passwords don’t match yet"}
+      {ok ? t("auth.passwordsMatch") : t("auth.passwordsNoMatchYet")}
     </p>
   );
 }
 
 export function PasswordChecks({ password }: { password: string }) {
+  // Re-renders the rule labels when the language changes.
+  useTranslation();
   return (
     <ul className="mt-2 space-y-1 text-xs" aria-live="polite">
       {passwordRules(password).map((rule) => (
@@ -120,14 +135,21 @@ export function PasswordChecks({ password }: { password: string }) {
   );
 }
 
+const BENEFITS = [
+  ["sparkle", "auth.benefits.design"],
+  ["hand", "auth.benefits.handmade"],
+  ["cash", "auth.benefits.payOnDelivery"],
+] as const;
+
 /** Sign in / Create account, over the current page so nothing in progress is lost. */
 export function LoginModal({ request, onDone, onDismiss }: { request: LoginRequest; onDone: () => void; onDismiss: () => void }) {
+  const { t } = useTranslation();
   const { signIn, signInWithGoogle, registerAndSignIn } = useAuth();
   const [tab, setTab] = useState(request.tab ?? "signin");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Google account whose email already has a password account: its password links them once.
-  const [link, setLink] = useState<{ idToken: string; message: string } | null>(null);
+  const [link, setLink] = useState<{ idToken: string } | null>(null);
   const [linkPassword, setLinkPassword] = useState("");
   const [form, setForm] = useState({
     loginEmail: "",
@@ -168,8 +190,13 @@ export function LoginModal({ request, onDone, onDismiss }: { request: LoginReque
     setBusy(true);
     setError(null);
     try {
-      if (tab === "signin") await signIn(form.loginEmail, form.password);
-      else {
+      if (tab === "signin") {
+        try {
+          await signIn(form.loginEmail, form.password);
+        } catch (err) {
+          throw new Error(signInError(err));
+        }
+      } else {
         const problem = registrationProblem(form);
         if (problem) throw new Error(problem);
         try {
@@ -204,7 +231,7 @@ export function LoginModal({ request, onDone, onDismiss }: { request: LoginReque
       if (!profileComplete && !request.onSuccess) navigate("#/profile");
     } catch (err) {
       if (err instanceof ApiError && err.status === 409 && !password) {
-        setLink({ idToken, message: err.message });
+        setLink({ idToken });
         setLinkPassword("");
       } else setError(googleError(err));
     } finally {
@@ -223,18 +250,18 @@ export function LoginModal({ request, onDone, onDismiss }: { request: LoginReque
       >
         <div className="flex items-center justify-between">
           <Logo />
-          <button type="button" onClick={onDismiss} disabled={busy} aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-secondary">
+          <button type="button" onClick={onDismiss} disabled={busy} aria-label={t("common.close")} className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-secondary">
             <Icon name="close" size={18} />
           </button>
         </div>
         <h2 id="login-title" className="mt-6 font-display text-3xl font-semibold">
           {tab === "signin" ? (
             <>
-              Welcome <em className="font-normal text-primary">back.</em>
+              {t("auth.welcome")} <em className="font-normal text-primary">{t("auth.welcomeAccent")}</em>
             </>
           ) : (
             <>
-              Create your <em className="font-normal text-primary">account.</em>
+              {t("auth.createTitle")} <em className="font-normal text-primary">{t("auth.createTitleAccent")}</em>
             </>
           )}
         </h2>
@@ -248,8 +275,8 @@ export function LoginModal({ request, onDone, onDismiss }: { request: LoginReque
             }}
             className="mt-6 flex flex-col gap-4"
           >
-            <p className="rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm">{link.message}</p>
-            <Field id="link-password" label="Your HomeCreator password">
+            <p className="rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm">{t("auth.google.linkExplanation")}</p>
+            <Field id="link-password" label={t("auth.google.linkPassword")}>
               <PasswordInput
                 id="link-password"
                 required
@@ -267,7 +294,7 @@ export function LoginModal({ request, onDone, onDismiss }: { request: LoginReque
               </p>
             )}
             <Button type="submit" size="lg" glow disabled={busy} className="mt-2 w-full">
-              {busy ? "Connecting…" : "Connect Google and sign in"}
+              {busy ? t("auth.google.connecting") : t("auth.google.linkSubmit")}
             </Button>
             <button
               type="button"
@@ -278,103 +305,97 @@ export function LoginModal({ request, onDone, onDismiss }: { request: LoginReque
               }}
               className="text-center text-sm font-semibold text-primary hover:underline"
             >
-              Use email and password instead
+              {t("auth.google.linkCancel")}
             </button>
           </form>
         ) : (
           <>
-        <div role="tablist" aria-label="Sign in or register" className="mt-6 grid grid-cols-2 gap-1 rounded-full border border-border p-1">
-          {(["signin", "register"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === t ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              {t === "signin" ? "Sign in" : "Create an account"}
-            </button>
-          ))}
-        </div>
+            <div role="tablist" aria-label={t("auth.tabsLabel")} className="mt-6 grid grid-cols-2 gap-1 rounded-full border border-border p-1">
+              {(["signin", "register"] as const).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === id}
+                  onClick={() => setTab(id)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === id ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {id === "signin" ? t("auth.signIn") : t("auth.createAccount")}
+                </button>
+              ))}
+            </div>
 
-        {googleSignInEnabled && (
-          <div className="mt-6">
-            <GoogleButton disabled={busy} onCredential={(idToken) => void continueWithGoogle(idToken)} />
-            <p className="mt-5 flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
-              <span className="h-px flex-1 bg-border" /> or with your email <span className="h-px flex-1 bg-border" />
-            </p>
-          </div>
-        )}
+            {googleSignInEnabled && (
+              <div className="mt-6">
+                <GoogleButton disabled={busy} onCredential={(idToken) => void continueWithGoogle(idToken)} />
+                <p className="mt-5 flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
+                  <span className="h-px flex-1 bg-border" /> {t("auth.orWithEmail")} <span className="h-px flex-1 bg-border" />
+                </p>
+              </div>
+            )}
 
-        <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
-          {tab === "signin" ? (
-            <>
-              <Field id="login-email" label="Email address">
-                <IconInput icon="mail" id="login-email" type="email" required autoComplete="email" inputMode="email" autoCapitalize="none" value={form.loginEmail} onChange={set("loginEmail")} />
-              </Field>
-              <Field id="login-password" label="Password">
-                <PasswordInput id="login-password" required autoComplete="current-password" value={form.password} onChange={set("password")} />
-              </Field>
-            </>
-          ) : (
-            <>
-              <ul className="flex flex-wrap gap-2 text-xs font-semibold" aria-label="Why join">
-                {(
-                  [
-                    ["sparkle", "Design your own"],
-                    ["hand", "Handmade for you"],
-                    ["cash", "Pay on delivery"],
-                  ] as const
-                ).map(([icon, label]) => (
-                  <li key={label} className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1.5">
-                    <Icon name={icon} size={13} className="text-primary" /> {label}
-                  </li>
-                ))}
-              </ul>
+            <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
+              {tab === "signin" ? (
+                <>
+                  <Field id="login-email" label={t("auth.email")}>
+                    <IconInput icon="mail" id="login-email" type="email" required autoComplete="email" inputMode="email" autoCapitalize="none" value={form.loginEmail} onChange={set("loginEmail")} />
+                  </Field>
+                  <Field id="login-password" label={t("auth.password")}>
+                    <PasswordInput id="login-password" required autoComplete="current-password" value={form.password} onChange={set("password")} />
+                  </Field>
+                </>
+              ) : (
+                <>
+                  <ul className="flex flex-wrap gap-2 text-xs font-semibold" aria-label={t("auth.benefits.label")}>
+                    {BENEFITS.map(([icon, label]) => (
+                      <li key={label} className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1.5">
+                        <Icon name={icon} size={13} className="text-primary" /> {t(label)}
+                      </li>
+                    ))}
+                  </ul>
 
-              <FormSection title="About you" icon="user">
-                <Field id="reg-first" label="First name">
-                  <IconInput icon="user" id="reg-first" required autoComplete="given-name" maxLength={100} value={form.firstName} onChange={set("firstName")} />
-                </Field>
-                <Field id="reg-last" label="Last name">
-                  <IconInput icon="user" id="reg-last" required autoComplete="family-name" maxLength={100} value={form.lastName} onChange={set("lastName")} />
-                </Field>
-              </FormSection>
+                  <FormSection title={t("auth.aboutYou")} icon="user">
+                    <Field id="reg-first" label={t("auth.firstName")}>
+                      <IconInput icon="user" id="reg-first" required autoComplete="given-name" maxLength={100} value={form.firstName} onChange={set("firstName")} />
+                    </Field>
+                    <Field id="reg-last" label={t("auth.lastName")}>
+                      <IconInput icon="user" id="reg-last" required autoComplete="family-name" maxLength={100} value={form.lastName} onChange={set("lastName")} />
+                    </Field>
+                  </FormSection>
 
-              <FormSection title="Your account" hint="You’ll sign in with your email. We ask for your delivery address when you place your first order." icon="lock">
-                <Field id="reg-email" label="Email address">
-                  <IconInput icon="mail" id="reg-email" type="email" required autoComplete="email" inputMode="email" value={form.email} onChange={set("email")} />
-                </Field>
-                <Field id="reg-password" label="Password">
-                  <PasswordInput id="reg-password" required autoComplete="new-password" placeholder={`At least ${PASSWORD_MIN} characters`} maxLength={PASSWORD_MAX} value={form.password} onChange={set("password")} />
-                  <PasswordChecks password={form.password} />
-                </Field>
-                <Field id="reg-confirm" label="Confirm password">
-                  <PasswordInput id="reg-confirm" required autoComplete="new-password" maxLength={PASSWORD_MAX} value={form.confirm} onChange={set("confirm")} />
-                  <PasswordMatch password={form.password} confirm={form.confirm} />
-                </Field>
-              </FormSection>
-            </>
-          )}
+                  <FormSection title={t("auth.yourAccount")} hint={t("auth.accountHint")} icon="lock">
+                    <Field id="reg-email" label={t("auth.email")}>
+                      <IconInput icon="mail" id="reg-email" type="email" required autoComplete="email" inputMode="email" value={form.email} onChange={set("email")} />
+                    </Field>
+                    <Field id="reg-password" label={t("auth.password")}>
+                      <PasswordInput id="reg-password" required autoComplete="new-password" placeholder={t("auth.passwordPlaceholder", { count: PASSWORD_MIN })} maxLength={PASSWORD_MAX} value={form.password} onChange={set("password")} />
+                      <PasswordChecks password={form.password} />
+                    </Field>
+                    <Field id="reg-confirm" label={t("auth.confirmPassword")}>
+                      <PasswordInput id="reg-confirm" required autoComplete="new-password" maxLength={PASSWORD_MAX} value={form.confirm} onChange={set("confirm")} />
+                      <PasswordMatch password={form.password} confirm={form.confirm} />
+                    </Field>
+                  </FormSection>
+                </>
+              )}
 
-          {error && (
-            <p role="alert" className="flex items-start gap-2 text-sm text-destructive">
-              <Icon name="alert" size={16} className="mt-0.5" /> {error}
-            </p>
-          )}
+              {error && (
+                <p role="alert" className="flex items-start gap-2 text-sm text-destructive">
+                  <Icon name="alert" size={16} className="mt-0.5" /> {error}
+                </p>
+              )}
 
-          <Button type="submit" size="lg" glow disabled={busy} className="mt-2 w-full">
-            {busy ? (tab === "signin" ? "Signing in…" : "Creating your account…") : tab === "signin" ? "Sign in" : "Create Account"}
-            {!busy && <Icon name="arrowRight" size={18} />}
-          </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            {tab === "signin" ? "New here? " : "Already have an account? "}
-            <button type="button" onClick={() => setTab(tab === "signin" ? "register" : "signin")} className="font-semibold text-primary hover:underline">
-              {tab === "signin" ? "Create an account" : "Log In"}
-            </button>
-          </p>
-        </form>
+              <Button type="submit" size="lg" glow disabled={busy} className="mt-2 w-full">
+                {busy ? (tab === "signin" ? t("auth.signingIn") : t("auth.creating")) : tab === "signin" ? t("auth.signIn") : t("auth.createSubmit")}
+                {!busy && <Icon name="arrowRight" size={18} />}
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                {tab === "signin" ? t("auth.newHere") : t("auth.haveAccount")}{" "}
+                <button type="button" onClick={() => setTab(tab === "signin" ? "register" : "signin")} className="font-semibold text-primary hover:underline">
+                  {tab === "signin" ? t("auth.createAccount") : t("auth.logIn")}
+                </button>
+              </p>
+            </form>
           </>
         )}
       </div>

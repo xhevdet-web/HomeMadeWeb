@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+
 /** A rectangle as fractions (0–1) of the canvas. */
 export interface Bounds {
   x0: number;
@@ -81,10 +83,11 @@ export function imageElement(props: Partial<PlacedElement> & { aspect: number; s
   return { id: newId(), kind: "image", x: 0.5, y: 0.5, rotation: 0, z: 1, ...props };
 }
 
+/** In the current language; product and design names stay as written. */
 export function describeElement(el: PlacedElement) {
-  if (el.kind === "text") return `Text “${el.text ?? ""}”`;
-  if (el.missing) return "Image to re-upload";
-  return el.name ?? (el.uploaded ? "Your image" : "Design");
+  if (el.kind === "text") return i18n.t("studio.element.text", { text: el.text ?? "" });
+  if (el.missing) return i18n.t("studio.element.reupload");
+  return el.name ?? (el.uploaded ? i18n.t("checkout.yourImage") : i18n.t("studio.element.design"));
 }
 
 /** True when an uploaded image has too few pixels per printed centimetre. */

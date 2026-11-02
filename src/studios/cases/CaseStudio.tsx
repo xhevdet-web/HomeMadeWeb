@@ -1,4 +1,8 @@
 import { useMemo, useRef, useState } from "react";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 import { Icon } from "../../components/Icon";
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
@@ -48,10 +52,10 @@ export function CaseStudio({ category, data }: StudioProps) {
 
   const onUpload = (img: UploadedImage) => {
     if (!upload) return;
-    const el = coverImage(img.height / img.width, ofArea, { src: img.url, ref: upload.id, name: "Your photo", pxWidth: img.width, uploaded: true });
+    const el = coverImage(img.height / img.width, ofArea, { src: img.url, ref: upload.id, name: t("cases.yourPhoto"), pxWidth: img.width, uploaded: true });
     setImage(el);
     setSelectedId(el.id);
-    notify(image ? "Image replaced." : "Your photo is on the case.");
+    notify(image ? t("mugs.imageReplaced") : t("cases.photoOnCase"));
   };
 
   const pick = async (id: string) => {
@@ -65,7 +69,7 @@ export function CaseStudio({ category, data }: StudioProps) {
   };
 
   // One design at a time: dropping one onto the case replaces the current image.
-  const chip = useCanvasDrop(stageRef, caseRef, image ? "Release to replace the image" : "Release to add", (_fx, _fy, payload) => {
+  const chip = useCanvasDrop(stageRef, caseRef, image ? t("mugs.releaseToReplace") : t("mugs.releaseToAdd"), (_fx, _fy, payload) => {
     void pick(payload.id);
     return true;
   });
@@ -74,7 +78,7 @@ export function CaseStudio({ category, data }: StudioProps) {
   const remove = () => {
     setImage(null);
     setSelectedId(null);
-    notify("Image removed.");
+    notify(t("cases.imageRemoved"));
   };
   const command = (cmd: LayerCommand) => {
     if (cmd === "reset") reset();
@@ -83,23 +87,23 @@ export function CaseStudio({ category, data }: StudioProps) {
   const clear = () => {
     setImage(null);
     setSelectedId(null);
-    notify("Canvas cleared. Tap Undo to bring it back.");
+    notify(t("studio.cleared"));
   };
 
-  const unavailable = !model ? "Choose your phone model first." : isSoldOut(model) ? "This phone model is no longer available. Choose another one; your image stays." : null;
-  const blocked = unavailable ?? (!image ? "Add a design or your own photo first." : image.missing ? "Re-upload your photo to continue." : null);
+  const unavailable = !model ? t("cases.chooseModelFirst") : isSoldOut(model) ? t("cases.modelGone") : null;
+  const blocked = unavailable ?? (!image ? t("cases.addFirst") : image.missing ? t("cases.reuploadToContinue") : null);
 
   const stage = (
     <StageFrame
       ref={stageRef}
-      label={`Phone case with your design${image ? "" : ", no design yet"}`}
+      label={image ? t("cases.stageLabel") : t("cases.stageLabelEmpty")}
       chip={chip}
     >
       <div ref={caseRef} style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${shownRatio}))` }}>
         <CaseCanvas model={model}>
           <PlacementLayer
             elements={d.elements}
-            label="Case design"
+            label={t("cases.caseDesign")}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onChange={(el, merge) => setImage(el, merge)}
@@ -120,7 +124,7 @@ export function CaseStudio({ category, data }: StudioProps) {
       selection={
         image && selectedId === image.id
           ? {
-              title: image.name ?? "Your photo",
+              title: image.name ?? t("cases.yourPhoto"),
               image: image.src ?? null,
               onDone: () => setSelectedId(null),
               actions: elementActions(image, (el) => setImage(el), command, { layers: false, reset: true }),
@@ -132,42 +136,42 @@ export function CaseStudio({ category, data }: StudioProps) {
 
   const picker = (
     <div className="flex flex-col gap-5">
-      {model && isSoldOut(model) && <InfoNotice>This phone model is no longer available. Choose another one; your image stays.</InfoNotice>}
+      {model && isSoldOut(model) && <InfoNotice>{t("cases.modelGone")}</InfoNotice>}
       <QualityWarning show={lowQuality(image, ofArea)} />
-      <p className="text-xs text-muted-foreground">Your design is printed inside the dashed line, around the camera. Keep important parts away from the edges.</p>
+      <p className="text-xs text-muted-foreground">{t("cases.safeArea")}</p>
       {upload && (
-        <ToolSection title="Your photo" aside={upload.price ? `+${money(upload.price)}` : "Free"}>
-          <UploadButton onImage={onUpload} label={image?.missing ? "Re-upload your photo" : image ? "Change image" : "Upload your photo"} hint="JPEG, PNG or WebP, up to 5 MB" />
+        <ToolSection title={t("cases.yourPhoto")} aside={upload.price ? `+${money(upload.price)}` : t("common.free")}>
+          <UploadButton onImage={onUpload} label={image?.missing ? t("cases.reuploadPhoto") : image ? t("cases.changeImage") : t("cases.uploadPhoto")} hint={t("upload.hint")} />
         </ToolSection>
       )}
       {designs.length > 0 && (
-        <ToolSection title="Choose one of our designs">
-          <p className="mb-3 text-xs text-muted-foreground">Tap a design, or drag it onto the case.</p>
+        <ToolSection title={t("cases.ourDesigns")}>
+          <p className="mb-3 text-xs text-muted-foreground">{t("cases.ourDesignsHint")}</p>
           <TileRow cols="grid-cols-3">
             {designs.map((c) => (
               <TileItem key={c.id}>
-                <DragTile id={c.id} name={c.name} image={c.imageUrl} price={c.price ? `+${money(c.price)} extra` : "Free"} selected={image?.ref === c.id} onTap={() => void pick(c.id)} />
+                <DragTile id={c.id} name={c.name} image={c.imageUrl} price={c.price ? t("cases.extra", { price: money(c.price) }) : t("common.free")} selected={image?.ref === c.id} onTap={() => void pick(c.id)} />
               </TileItem>
             ))}
           </TileRow>
         </ToolSection>
       )}
-      {!upload && designs.length === 0 && <p className="text-sm text-muted-foreground">No designs are available yet.</p>}
+      {!upload && designs.length === 0 && <p className="text-sm text-muted-foreground">{t("cases.noDesigns")}</p>}
     </div>
   );
 
   return (
     <StudioFrame
       category={category}
-      subtitle={model ? `${model.name} · ${money(model.price)}` : "Choose your phone"}
+      subtitle={model ? `${model.name} · ${money(model.price)}` : t("cases.choosePhone")}
       onSave={saver.save}
       saving={saver.saving}
       saveBlocked={blocked}
       top={
         <a href={studioHref(category)} className="flex min-h-11 items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm transition-colors hover:bg-secondary">
           <Icon name="square" size={16} className="text-primary" />
-          <span className="min-w-0 flex-1 truncate font-semibold">{model?.name ?? "No phone chosen"}</span>
-          <span className="font-semibold text-primary">Change model</span>
+          <span className="min-w-0 flex-1 truncate font-semibold">{model?.name ?? t("cases.noPhone")}</span>
+          <span className="font-semibold text-primary">{t("cases.changeModel")}</span>
         </a>
       }
       stage={stage}
@@ -175,10 +179,10 @@ export function CaseStudio({ category, data }: StudioProps) {
       toolbar={toolbar}
       picker={picker}
       footer={{
-        summary: `${model?.name ?? "No phone"} · ${image ? (image.name ?? "Your photo") : "Add a photo or design"}`,
+        summary: `${model?.name ?? t("cases.noPhoneShort")} · ${image ? (image.name ?? t("cases.yourPhoto")) : t("cases.addPhotoOrDesign")}`,
         price: casePrice(d, model, byId),
         onPrimary: () => navigate(studioHref(category, "preview")),
-        primaryBlocked: unavailable ?? (!image ? "Add a design or your own photo first." : null),
+        primaryBlocked: unavailable ?? (!image ? t("cases.addFirst") : null),
       }}
     />
   );

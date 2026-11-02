@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent } from "react";
+import i18n from "../i18n";
 import { Button } from "../components/Button";
 import { Icon } from "../components/Icon";
 
@@ -16,9 +17,9 @@ export function UploadButton({
   onImage,
   accept = IMAGE_TYPES,
   maxBytes = MAX_UPLOAD_BYTES,
-  typeError = "Choose a JPEG, PNG or WebP image.",
-  label = "Upload image",
-  hint = "JPEG, PNG or WebP, up to 5 MB",
+  typeError = i18n.t("upload.typeError"),
+  label = i18n.t("upload.label"),
+  hint = i18n.t("upload.hint"),
   variant = "zone",
 }: {
   onImage: (img: UploadedImage) => void;
@@ -36,7 +37,7 @@ export function UploadButton({
   const handle = (file?: File) => {
     if (!file) return;
     if (!accept.includes(file.type)) return setError(typeError);
-    if (file.size > maxBytes) return setError("This image is larger than 5 MB. Choose a smaller one.");
+    if (file.size > maxBytes) return setError(i18n.t("upload.tooLarge"));
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
@@ -45,7 +46,7 @@ export function UploadButton({
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      setError("We couldn't read this image. Try another one.");
+      setError(i18n.t("upload.unreadable"));
     };
     img.src = url;
   };
@@ -112,7 +113,7 @@ export function QualityWarning({ show }: { show: boolean }) {
   return (
     <p role="alert" className="flex items-center gap-2 rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
       <Icon name="alert" size={16} className="text-primary" />
-      This image may appear blurry when printed.
+      {i18n.t("upload.lowQuality")}
     </p>
   );
 }

@@ -1,3 +1,4 @@
+import i18n from "../../i18n";
 import type { ReactNode } from "react";
 import type { StickerSize } from "../../api/models";
 import type { StickerDraft } from "../../studio/drafts";
@@ -37,7 +38,7 @@ export function Sticker({ draft, size, index }: { draft: StickerDraft; size: Sti
   if (!design) return null;
   return (
     <StickerCanvas size={size} safeArea={false}>
-      <PlacementLayer elements={design.image ? [design.image] : []} label={`Sticker design ${index + 1}`} readOnly />
+      <PlacementLayer elements={design.image ? [design.image] : []} label={i18n.t("stickers.designLabel", { number: index + 1 })} readOnly />
     </StickerCanvas>
   );
 }

@@ -19,6 +19,10 @@ import { CoachMark } from "../jewelry/JewelryParts";
 import { componentById, stockState, type StudioProps } from "../data";
 import { DraftBox } from "./GiftBox";
 import { GIFT_GROUPS, boxGeometry, colorOf, giftGroups, captureGift, giftInput, giftPrice, groupOf, imageEls, packagingOf } from "./logic";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 export function GiftStudio({ category, data }: StudioProps) {
   const history = useStudioHistory(category.id, "GIFT");
@@ -57,8 +61,8 @@ export function GiftStudio({ category, data }: StudioProps) {
 
   const add = async (c: Component, at?: { x: number; y: number }) => {
     const stock = stockState(c, used(c.id));
-    if (stock.disabled) return notify(stock.label === "Sold out" ? `${c.name} is sold out.` : `All available ${c.name} are already on your design.`, "warn");
-    if (!c.imageUrl) return notify(`${c.name} has no picture yet.`, "warn");
+    if (stock.disabled) return notify(c.stock <= 0 ? t("gifts.soldOut", { name: c.name }) : t("gifts.allUsed", { name: c.name }), "warn");
+    if (!c.imageUrl) return notify(t("gifts.noPicture", { name: c.name }), "warn");
     const size = await imageSize(c.imageUrl);
     const el = imageElement({
       src: c.imageUrl,
@@ -75,7 +79,7 @@ export function GiftStudio({ category, data }: StudioProps) {
     if (coach) dismissCoach();
   };
 
-  const chip = useCanvasDrop(stageRef, boxRef, "Release to add", (fx, fy, payload) => {
+  const chip = useCanvasDrop(stageRef, boxRef, t("mugs.releaseToAdd"), (fx, fy, payload) => {
     const c = byId.get(payload.id);
     if (!c) return false;
     // Dropped exactly where the finger is; the layer then keeps it inside the box.
@@ -86,7 +90,7 @@ export function GiftStudio({ category, data }: StudioProps) {
   const command = (cmd: LayerCommand, id: string) => {
     if (cmd === "duplicate") {
       const c = byId.get(d.elements.find((e) => e.id === id)?.ref ?? "");
-      if (c && stockState(c, used(c.id)).disabled) return notify(`All available ${c.name} are already on your design.`, "warn");
+      if (c && stockState(c, used(c.id)).disabled) return notify(t("gifts.allUsed", { name: c.name }), "warn");
     }
     if (cmd === "reset") return;
     apply({ type: cmd, id });
@@ -96,11 +100,11 @@ export function GiftStudio({ category, data }: StudioProps) {
   const clear = () => {
     apply({ type: "clear" });
     setSelectedId(null);
-    notify("Canvas cleared. Tap Undo to bring it back.");
+    notify(t("studio.cleared"));
   };
 
   const empty = items.length === 0;
-  const unavailable = !packaging ? "Choose how your gift should arrive first." : null;
+  const unavailable = !packaging ? t("gifts.chooseArrivalFirst") : null;
   const textTool = (
     <TextTool
       texts={textEls}
@@ -108,7 +112,7 @@ export function GiftStudio({ category, data }: StudioProps) {
       onAdd={(el) => {
         apply({ type: "add", el: { ...el, y: (g.inner.y0 + g.inner.y1) / 2 - 0.1 } });
         setSelectedId(el.id);
-        notify("Message added to your gift.");
+        notify(t("gifts.messageAdded"));
       }}
       onUpdate={(el, merge) => apply({ type: "update", el }, merge)}
       onDone={() => {
@@ -121,14 +125,14 @@ export function GiftStudio({ category, data }: StudioProps) {
   const stage = (
     <StageFrame
       ref={stageRef}
-      label={`${category.name} with ${items.length} pieces${textEls.length ? ` and ${textEls.length} text` : ""}`}
+      label={t("gifts.stageLabel", { name: category.name, count: items.length, texts: textEls.length })}
       chip={chip}
     >
       <div ref={boxRef} className="relative" style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${g.w / g.h}))` }}>
         <DraftBox draft={d} data={data}>
           <PlacementLayer
             elements={d.elements}
-            label="Gift box contents"
+            label={t("gifts.contents")}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onChange={(el: PlacedElement, merge) => apply({ type: "update", el }, merge)}
@@ -148,11 +152,11 @@ export function GiftStudio({ category, data }: StudioProps) {
       selection={
         selected
           ? {
-              title: selected.kind === "text" ? "Text" : (selected.name ?? "Item"),
+              title: selected.kind === "text" ? t("mugs.text") : (selected.name ?? t("order.item")),
               image: selected.kind === "text" ? null : selected.src,
               onDone: () => setSelectedId(null),
               actions: [
-                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: "Edit text", onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
+                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: t("textTool.editText"), onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
                 ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { duplicate: selected.kind === "image" }),
               ],
             }
@@ -163,17 +167,17 @@ export function GiftStudio({ category, data }: StudioProps) {
 
   const picker = (
     <div className="flex flex-col gap-4">
-      {coach && <CoachMark onDismiss={dismissCoach} text="Tap to add · Hold and drag into the box" />}
+      {coach && <CoachMark onDismiss={dismissCoach} text={t("gifts.coach")} />}
       <Tabs
-        label="Item groups"
+        label={t("gifts.itemGroups")}
         value={tab}
-        onChange={(t) => (t === "TEXT" && phone ? setTextOpen(true) : setTab(t))}
-        tabs={[{ id: "ALL", label: "All" }, ...groups.map((grp) => ({ id: grp.key as string, label: grp.label })), { id: "TEXT", label: "Text" }]}
+        onChange={(id) => (id === "TEXT" && phone ? setTextOpen(true) : setTab(id))}
+        tabs={[{ id: "ALL", label: t("create.groups.all") }, ...groups.map((grp) => ({ id: grp.key as string, label: t(`gifts.groups.${grp.key}`) })), { id: "TEXT", label: t("mugs.text") }]}
       />
       {tab === "TEXT" && !phone ? (
         textTool
       ) : shown.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">Nothing in this group yet.</p>
+        <p className="py-6 text-center text-sm text-muted-foreground">{t("gifts.emptyGroup")}</p>
       ) : (
         <TileRow>
           {shown.map((c) => {
@@ -188,8 +192,8 @@ export function GiftStudio({ category, data }: StudioProps) {
       )}
 
       {d.elements.length > 0 && (
-        <section aria-label="In your gift">
-          <p className="mb-2 text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">In your gift</p>
+        <section aria-label={t("gifts.inYourGift")}>
+          <p className="mb-2 text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">{t("gifts.inYourGift")}</p>
           <ul className="flex flex-wrap gap-2">
             {giftGroups(d.elements, byId).map((grp) => {
               const el = d.elements.find((e) => e.id === grp.ids[0]);
@@ -215,7 +219,7 @@ export function GiftStudio({ category, data }: StudioProps) {
         </section>
       )}
 
-      <BottomSheet title={selected?.kind === "text" ? "Edit text" : "Add text"} open={phone && textOpen} onClose={() => setTextOpen(false)}>
+      <BottomSheet title={selected?.kind === "text" ? t("textTool.editText") : t("mugs.addText")} open={phone && textOpen} onClose={() => setTextOpen(false)}>
         {textTool}
       </BottomSheet>
     </div>
@@ -224,18 +228,18 @@ export function GiftStudio({ category, data }: StudioProps) {
   return (
     <StudioFrame
       category={category}
-      subtitle={packaging ? `Arrives in ${packaging.name}${color ? `, ${color.name}` : ""}` : "Choose your packaging"}
+      subtitle={packaging ? t("gifts.arrivesIn", { name: `${packaging.name}${color ? `, ${color.name}` : ""}` }) : t("gifts.choosePackaging")}
       onSave={saver.save}
       saving={saver.saving}
-      saveBlocked={unavailable ?? (empty ? "Add at least one item to your design." : null)}
+      saveBlocked={unavailable ?? (empty ? t("gifts.addItem") : null)}
       top={
         <a href={studioHref(category)} className="flex min-h-11 items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm transition-colors hover:bg-secondary">
           {packaging?.imageUrl ? <img {...corsImage} src={packaging.imageUrl} alt="" className="h-8 w-8 object-contain" /> : <Icon name="package" size={18} className="text-primary" />}
           <span className="min-w-0 flex-1 truncate">
-            Arrives in <span className="font-semibold">{packaging?.name ?? "—"}</span>
+            {t("gifts.arrivesInLabel")} <span className="font-semibold">{packaging?.name ?? "—"}</span>
             {color ? `, ${color.name}` : ""}
           </span>
-          <span className="font-semibold text-primary">Change</span>
+          <span className="font-semibold text-primary">{t("studio.change")}</span>
         </a>
       }
       stage={stage}
@@ -243,10 +247,10 @@ export function GiftStudio({ category, data }: StudioProps) {
       toolbar={toolbar}
       picker={picker}
       footer={{
-        summary: `${items.length} item${items.length === 1 ? "" : "s"}${textEls.length ? ` · ${textEls.length} message${textEls.length > 1 ? "s" : ""}` : ""} · packaging ${money((packaging?.price ?? 0) + (color?.priceAdjustment ?? 0))}`,
+        summary: [t("gifts.items", { count: items.length }), ...(textEls.length ? [t("gifts.messages", { count: textEls.length })] : []), t("gifts.packagingPrice", { price: money((packaging?.price ?? 0) + (color?.priceAdjustment ?? 0)) })].join(" · "),
         price: giftPrice(d, data, byId),
         onPrimary: () => navigate(studioHref(category, "preview")),
-        primaryBlocked: unavailable ?? (empty ? "Add at least one item to your design." : null),
+        primaryBlocked: unavailable ?? (empty ? t("gifts.addItem") : null),
       }}
     />
   );

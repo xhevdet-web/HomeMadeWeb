@@ -4,6 +4,8 @@
  * `X-HomeMade-Client: web` header, so every request sends it.
  */
 
+import i18n from "../i18n";
+
 const BASE = (import.meta.env.VITE_API_URL ?? "").trim().replace(/\/+$/, "");
 
 export type ApiErrorKind = "http" | "network" | "timeout" | "config" | "aborted";
@@ -18,8 +20,17 @@ export class ApiError extends Error {
   }
 }
 
-export const NETWORK_MESSAGE = "We can't reach the server. Check your connection and try again.";
-export const TIMEOUT_MESSAGE = "The request took too long. Please try again.";
+// Messages are made when the error happens, so they are in the current language. Messages the
+// API sends (validation, conflicts) are shown as sent: the API answers in English.
+const message = {
+  network: () => i18n.t("errors.network"),
+  timeout: () => i18n.t("errors.timeout"),
+  config: () => i18n.t("errors.notConfigured"),
+  cancelled: () => i18n.t("errors.cancelled"),
+  unreadable: () => i18n.t("errors.unreadable"),
+  status: (status: number) => i18n.t("errors.status", { status }),
+  generic: () => i18n.t("common.somethingWrong"),
+};
 
 let unauthorizedHandler: (() => void) | null = null;
 
@@ -38,7 +49,7 @@ export interface RequestOptions {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  if (!BASE) throw new ApiError("The website is not connected to the server (VITE_API_URL is missing).", 0, "config");
+  if (!BASE) throw new ApiError(message.config(), 0, "config");
   const { method = "GET", body, params, auth = false, signal } = options;
   const form = body instanceof FormData;
 
@@ -72,8 +83,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       body: body === undefined ? undefined : form ? body : JSON.stringify(body),
     });
   } catch {
-    if (signal?.aborted && !timedOut) throw new ApiError("Request cancelled.", 0, "aborted");
-    throw timedOut ? new ApiError(TIMEOUT_MESSAGE, 0, "timeout") : new ApiError(NETWORK_MESSAGE, 0, "network");
+    if (signal?.aborted && !timedOut) throw new ApiError(message.cancelled(), 0, "aborted");
+    throw timedOut ? new ApiError(message.timeout(), 0, "timeout") : new ApiError(message.network(), 0, "network");
   } finally {
     window.clearTimeout(timer);
     signal?.removeEventListener("abort", forward);
@@ -84,17 +95,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
-    if (response.ok) throw new ApiError("The server sent a response we couldn't read.", response.status);
+    if (response.ok) throw new ApiError(message.unreadable(), response.status);
   }
 
   if (!response.ok) {
-    const message = (data as { message?: unknown } | null)?.message;
-    const text = Array.isArray(message) ? message.map(String).join(" ") : typeof message === "string" ? message : "";
+    const sent = (data as { message?: unknown } | null)?.message;
+    const text = Array.isArray(sent) ? sent.map(String).join(" ") : typeof sent === "string" ? sent : "";
     if (response.status === 401 && auth) unauthorizedHandler?.();
-    throw new ApiError(text || `Something went wrong (error ${response.status}). Please try again.`, response.status);
+    throw new ApiError(text || message.status(response.status), response.status);
   }
   return data as T;
 }
 
-export const errorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : "Something went wrong. Please try again.";
+export const errorMessage = (error: unknown) => (error instanceof Error ? error.message : message.generic());

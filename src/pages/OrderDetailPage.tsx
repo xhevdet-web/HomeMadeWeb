@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ORDER_STATUSES, parseTextLayers, paymentLabel, statusIndex, type Order } from "../api/models";
 import { order as fetchOrder } from "../api/orders";
 import { useAuth } from "../auth/AuthContext";
@@ -11,6 +12,7 @@ import { LoadError } from "../studio/StudioShell";
 import { DesignPreview } from "../studios/DesignPreview";
 
 export default function OrderDetailPage({ id, query }: { id: string; query: URLSearchParams }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { data: order, loading, error, retry } = useApi(`order:${id}`, (signal) => fetchOrder(id, signal));
   const justPlaced = query.get("placed") === "1";
@@ -18,13 +20,13 @@ export default function OrderDetailPage({ id, query }: { id: string; query: URLS
   if (loading)
     return (
       <Page>
-        <div className="h-[520px] animate-pulse rounded-[2rem] bg-card" role="status" aria-label="Loading your order" />
+        <div className="h-[520px] animate-pulse rounded-[2rem] bg-card" role="status" aria-label={t("order.loading")} />
       </Page>
     );
   if (error || !order)
     return (
       <Page>
-        <LoadError message={error ?? "We couldn't load this order."} onRetry={retry} />
+        <LoadError message={error ?? t("order.loadFailed")} onRetry={retry} />
       </Page>
     );
 
@@ -40,20 +42,18 @@ export default function OrderDetailPage({ id, query }: { id: string; query: URLS
           </span>
           <div>
             <p className="font-display text-2xl font-semibold">
-              Thank you, {user?.firstName ?? order.firstName}. <em className="font-normal text-success">Your order has been placed.</em>
+              {t("order.thankYou", { name: user?.firstName || order.firstName })} <em className="font-normal text-success">{t("order.placed")}</em>
             </p>
-            <p className="mt-1 text-muted-foreground">
-              Order {order.orderNumber} · {money(order.totalPrice)} due on delivery
-            </p>
+            <p className="mt-1 text-muted-foreground">{t("order.placedLine", { number: order.orderNumber, total: money(order.totalPrice) })}</p>
           </div>
         </div>
       )}
 
       <PageHeader
-        back={{ href: "#/orders", label: "Back to my orders" }}
-        eyebrow="Order tracking"
-        title={order.product?.name ?? "Your order"}
-        intro={`Order ${order.orderNumber} · Placed ${formatDate(order.createdAt)}`}
+        back={{ href: "#/orders", label: t("order.back") }}
+        eyebrow={t("order.eyebrow")}
+        title={order.product?.name ?? t("order.yourOrder")}
+        intro={t("order.intro", { number: order.orderNumber, date: formatDate(order.createdAt) })}
         aside={<StatusPill status={order.status} />}
       />
 
@@ -68,7 +68,7 @@ export default function OrderDetailPage({ id, query }: { id: string; query: URLS
 
           <section className="rounded-[2rem] border border-border bg-card p-6 sm:p-10">
             <h2 className="font-display text-3xl font-semibold">
-              Your order's <em className="font-normal text-primary">journey.</em>
+              {t("order.journey")} <em className="font-normal text-primary">{t("order.journeyAccent")}</em>
             </h2>
             <Timeline order={order} />
           </section>
@@ -76,7 +76,7 @@ export default function OrderDetailPage({ id, query }: { id: string; query: URLS
 
         <div className="flex flex-col gap-6 lg:sticky lg:top-28">
           <section className="rounded-[2rem] border border-border bg-card p-6 sm:p-8">
-            <CardTitle icon="mapPin">Delivery</CardTitle>
+            <CardTitle icon="mapPin">{t("order.delivery")}</CardTitle>
             <address className="space-y-1 not-italic">
               <p className="font-semibold">
                 {order.firstName} {order.lastName}
@@ -88,43 +88,43 @@ export default function OrderDetailPage({ id, query }: { id: string; query: URLS
           </section>
 
           <section className="rounded-[2rem] border border-border bg-card p-6 sm:p-8">
-            <CardTitle icon="cash">Payment</CardTitle>
+            <CardTitle icon="cash">{t("checkout.payment")}</CardTitle>
             <p className="font-semibold">
-              {paymentLabel(order.paymentType)} · {order.paymentStatus === "PAID" ? "Paid" : "Due on delivery"}
+              {paymentLabel(order.paymentType)} · {order.paymentStatus === "PAID" ? t("order.paid") : t("order.dueOnDelivery")}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">Pay when your order arrives.</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t("order.payWhenArrives")}</p>
           </section>
 
           <section className="rounded-[2rem] border border-border bg-card p-6 sm:p-8">
-            <CardTitle icon="message">Your note</CardTitle>
-            <p className={order.customerNotes ? "" : "text-muted-foreground"}>{order.customerNotes || "No note added."}</p>
+            <CardTitle icon="message">{t("order.yourNote")}</CardTitle>
+            <p className={order.customerNotes ? "" : "text-muted-foreground"}>{order.customerNotes || t("order.noNote")}</p>
           </section>
 
           <section className="rounded-[2rem] border border-border bg-card p-6 sm:p-8">
-            <CardTitle icon="file">Price details</CardTitle>
+            <CardTitle icon="file">{t("order.priceDetails")}</CardTitle>
             <dl className="space-y-3 text-sm">
               {items.map((item) => (
                 <div key={item.id} className="flex justify-between gap-4">
                   <dt className="text-muted-foreground">
-                    {item.subCategory?.name ?? "Item"} × {item.quantity}
+                    {item.subCategory?.name ?? t("order.item")} × {item.quantity}
                   </dt>
                   <dd>{money(item.unitPrice * item.quantity)}</dd>
                 </div>
               ))}
               {texts.length > 0 && (
                 <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Personal text</dt>
-                  <dd>Free</dd>
+                  <dt className="text-muted-foreground">{t("order.personalText")}</dt>
+                  <dd>{t("common.free")}</dd>
                 </div>
               )}
               {order.quantity && order.quantity > 1 && (
                 <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Quantity</dt>
+                  <dt className="text-muted-foreground">{t("checkout.quantity")}</dt>
                   <dd>×{order.quantity}</dd>
                 </div>
               )}
               <div className="flex items-baseline justify-between border-t border-border pt-4">
-                <dt className="font-semibold">Total</dt>
+                <dt className="font-semibold">{t("common.total")}</dt>
                 <dd className="font-display text-3xl font-semibold text-primary">{money(order.totalPrice)}</dd>
               </div>
             </dl>
@@ -136,13 +136,14 @@ export default function OrderDetailPage({ id, query }: { id: string; query: URLS
 }
 
 function Timeline({ order }: { order: Order }) {
+  const { t } = useTranslation();
   const current = statusIndex(order.status);
   const delivered = order.status === "COMPLETED";
 
   if (current === -1)
     return (
       <p className="mt-6 text-muted-foreground">
-        Current status: <span className="font-semibold text-foreground">{order.status.replaceAll("_", " ").toLowerCase()}</span>
+        {t("order.currentStatus")} <span className="font-semibold text-foreground">{order.status.replaceAll("_", " ").toLowerCase()}</span>
       </p>
     );
 
@@ -171,7 +172,7 @@ function Timeline({ order }: { order: Order }) {
             <div className="pt-2">
               <p className={`flex items-center gap-3 font-semibold ${done || isNow ? "" : "text-muted-foreground"}`}>
                 {s.label}
-                {isNow && <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold tracking-widest text-primary-foreground">NOW</span>}
+                {isNow && <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold tracking-widest text-primary-foreground">{t("order.now")}</span>}
               </p>
               {(isNow || (delivered && last)) && <p className="mt-1 text-muted-foreground">{s.description}</p>}
             </div>

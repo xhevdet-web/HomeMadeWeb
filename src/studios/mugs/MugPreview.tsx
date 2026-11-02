@@ -1,4 +1,8 @@
 import { useRef, useState } from "react";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 import { Stepper } from "../../components/Controls";
 import { useSaveDesign, useStudio } from "../../studio/StudioContext";
 import { NothingToPreview, PreviewActions, PreviewLayout, PriceLines, StudioShell, Tabs } from "../../studio/StudioShell";
@@ -27,20 +31,20 @@ export function MugPreview({ category, data }: StudioProps) {
   );
   const title = (
     <>
-      Your custom <em className="font-normal text-primary">mug.</em>
+      {t("mugs.previewTitle")} <em className="font-normal text-primary">{t("mugs.previewTitleAccent")}</em>
     </>
   );
 
   if (!blank || !area || d.elements.length === 0) {
     return (
       <StudioShell category={category} step={2} title={title}>
-        <NothingToPreview category={category} message="Add an image or text to your mug first." />
+        <NothingToPreview category={category} message={t("mugs.addFirst")} />
       </StudioShell>
     );
   }
 
   return (
-    <StudioShell category={category} step={2} title={title} intro="Turn the mug to check every side of your print.">
+    <StudioShell category={category} step={2} title={title} intro={t("mugs.previewIntro")}>
       <PreviewLayout
         visual={
           <div className="w-full">
@@ -56,21 +60,21 @@ export function MugPreview({ category, data }: StudioProps) {
             >
               {/* The studio's mug, turned to the chosen side. */}
               <div className="mx-auto w-full max-w-[460px]">
-                <MugEditor area={area} view={view} guides={false} label={`Mug with ${mugSummary(d)}, ${view} side`}>
-                  <PlacementLayer elements={d.elements} label="Mug print" readOnly />
+                <MugEditor area={area} view={view} guides={false} label={t("mugs.previewLabel", { summary: mugSummary(d), side: t(`mugs.views.${view}`) })}>
+                  <PlacementLayer elements={d.elements} label={t("preview.mugPrint")} readOnly />
                 </MugEditor>
               </div>
             </div>
-            <p className="mt-3 text-center text-xs text-muted-foreground md:hidden">Swipe the mug to turn it</p>
+            <p className="mt-3 text-center text-xs text-muted-foreground md:hidden">{t("mugs.swipe")}</p>
             <div className="mx-auto mt-5 max-w-sm">
               <Tabs
-                label="Mug side"
+                label={t("mugs.sideOfMug")}
                 value={view}
                 onChange={setView}
                 tabs={[
-                  { id: "left", label: "Left side" },
-                  { id: "front", label: "Front" },
-                  { id: "right", label: "Right side" },
+                  { id: "left", label: t("mugs.sides.left") },
+                  { id: "front", label: t("mugs.sides.front") },
+                  { id: "right", label: t("mugs.sides.right") },
                 ]}
               />
             </div>
@@ -78,20 +82,20 @@ export function MugPreview({ category, data }: StudioProps) {
         }
       >
         <div>
-          <p className="text-sm text-muted-foreground">Design</p>
+          <p className="text-sm text-muted-foreground">{t("mugs.design")}</p>
           <p className="font-display text-xl font-semibold">{mugSummary(d)}</p>
         </div>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="font-semibold">Quantity</p>
-            <p className="text-sm text-muted-foreground">Identical mugs with this design</p>
+            <p className="font-semibold">{t("checkout.quantity")}</p>
+            <p className="text-sm text-muted-foreground">{t("mugs.quantityHint")}</p>
           </div>
-          <Stepper value={d.quantity} min={1} max={MAX_MUGS} label="mugs" onChange={(quantity) => setDraft(category.id, { ...d, quantity })} />
+          <Stepper value={d.quantity} min={1} max={MAX_MUGS} label={t("mugs.stepperLabel")} onChange={(quantity) => setDraft(category.id, { ...d, quantity })} />
         </div>
         <PriceLines
           lines={[
-            ["Price per mug", blank.price],
-            [`${d.quantity} × mug`, blank.price * d.quantity],
+            [t("mugs.pricePerMug"), blank.price],
+            [t("mugs.lineQuantity", { count: d.quantity }), blank.price * d.quantity],
           ]}
           total={blank.price * d.quantity}
         />
@@ -100,8 +104,8 @@ export function MugPreview({ category, data }: StudioProps) {
           onSave={saver.save}
           onOrder={saver.order}
           saving={saver.saving}
-          orderBlocked={mugImage(d)?.missing ? "Re-upload your image to continue." : stockProblem(d.elements.map((e) => e.ref), componentById(data))}
-          saveBlocked={mugImage(d)?.missing ? "Re-upload your image to continue." : null}
+          orderBlocked={mugImage(d)?.missing ? t("mugs.reuploadToContinue") : stockProblem(d.elements.map((e) => e.ref), componentById(data))}
+          saveBlocked={mugImage(d)?.missing ? t("mugs.reuploadToContinue") : null}
         />
       </PreviewLayout>
     </StudioShell>

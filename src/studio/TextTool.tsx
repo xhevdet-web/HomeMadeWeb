@@ -3,16 +3,20 @@ import { Button } from "../components/Button";
 import { Chip, inputClass } from "../components/Controls";
 import { Icon } from "../components/Icon";
 import { SectionLabel } from "../components/Page";
+import i18n from "../i18n";
 import { FONTS, TEXT_COLORS, newId, type FontId, type PlacedElement, type TextColor } from "./elements";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 
 export const MAX_TEXTS = 6;
 export const MAX_TEXT_LENGTH = 80;
 
 type Weight = 300 | 400 | 700;
-const WEIGHTS: [Weight, string][] = [
-  [300, "Light"],
-  [400, "Regular"],
-  [700, "Bold"],
+const WEIGHTS: [Weight, "light" | "regular" | "bold"][] = [
+  [300, "light"],
+  [400, "regular"],
+  [700, "bold"],
 ];
 
 interface Style {
@@ -65,14 +69,14 @@ export function TextTool({ texts, selected, onAdd, onUpdate, onDone, defaultColo
     <div className="flex flex-col gap-6">
       <div>
         <label htmlFor="text-tool-input">
-          <SectionLabel as="span">{editing ? "Edit text" : "Your text"}</SectionLabel>
+          <SectionLabel as="span">{editing ? t("textTool.editText") : t("textTool.yourText")}</SectionLabel>
         </label>
         <div className="flex gap-2">
           <input
             id="text-tool-input"
             maxLength={MAX_TEXT_LENGTH}
             value={current.text}
-            placeholder="Happy birthday!"
+            placeholder={t("textTool.placeholder")}
             disabled={full}
             onChange={(e) => (editing ? onUpdate({ ...editing, text: e.target.value }, `text-${editing.id}`) : setDraft(e.target.value))}
             onKeyDown={(e) => e.key === "Enter" && add()}
@@ -80,46 +84,46 @@ export function TextTool({ texts, selected, onAdd, onUpdate, onDone, defaultColo
           />
           {editing ? (
             <Button variant="secondary" size="sm" onClick={onDone}>
-              Done
+              {t("common.done")}
             </Button>
           ) : (
             <Button size="sm" onClick={add} disabled={!draft.trim() || full}>
-              Add
+              {t("textTool.add")}
             </Button>
           )}
         </div>
         <p className="mt-2 flex justify-between gap-3 text-xs text-muted-foreground">
-          <span>Personalised text is free.</span>
+          <span>{t("textTool.free")}</span>
           <span>
-            {current.text.length}/{MAX_TEXT_LENGTH} · {texts.length} of {MAX_TEXTS} texts
+            {current.text.length}/{MAX_TEXT_LENGTH} · {t("textTool.count", { count: texts.length, max: MAX_TEXTS })}
           </span>
         </p>
-        {full && <p className="mt-2 text-sm text-primary">You can add up to {MAX_TEXTS} texts. Select one to edit it.</p>}
+        {full && <p className="mt-2 text-sm text-primary">{t("textTool.full", { max: MAX_TEXTS })}</p>}
       </div>
 
       <div>
-        <SectionLabel>Font</SectionLabel>
+        <SectionLabel>{t("textTool.font")}</SectionLabel>
         <div className="flex flex-wrap gap-2">
           {(Object.keys(FONTS) as FontId[]).map((f) => (
             <Chip key={f} selected={current.font === f} onClick={() => set({ font: f }, "font")}>
-              <span style={{ fontFamily: FONTS[f].family }}>{FONTS[f].label}</span>
+              <span style={{ fontFamily: FONTS[f].family }}>{t(`textTool.fonts.${f}`)}</span>
             </Chip>
           ))}
         </div>
       </div>
 
       <div>
-        <SectionLabel>Weight</SectionLabel>
+        <SectionLabel>{t("textTool.weight")}</SectionLabel>
         <div className="flex flex-wrap gap-2">
           {WEIGHTS.map(([w, name]) => (
             <Chip key={w} selected={current.weight === w} onClick={() => set({ weight: w }, "weight")}>
-              {name}
+              {t(`textTool.weights.${name}`)}
             </Chip>
           ))}
           <button
             type="button"
             aria-pressed={current.italic}
-            aria-label="Italic"
+            aria-label={t("textTool.italic")}
             onClick={() => set({ italic: !current.italic }, "italic")}
             className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
               current.italic ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:bg-secondary"
@@ -132,7 +136,7 @@ export function TextTool({ texts, selected, onAdd, onUpdate, onDone, defaultColo
 
       <div>
         <label htmlFor="text-tool-size" className="flex justify-between">
-          <SectionLabel as="span">Size</SectionLabel>
+          <SectionLabel as="span">{t("textTool.size")}</SectionLabel>
           <span className="text-xs text-muted-foreground">{Math.round(current.scale * 100)}</span>
         </label>
         <input
@@ -148,15 +152,15 @@ export function TextTool({ texts, selected, onAdd, onUpdate, onDone, defaultColo
       </div>
 
       <div>
-        <SectionLabel>Colour</SectionLabel>
-        <div className="flex flex-wrap gap-3" role="group" aria-label="Text colour">
+        <SectionLabel>{t("textTool.colour")}</SectionLabel>
+        <div className="flex flex-wrap gap-3" role="group" aria-label={t("textTool.textColour")}>
           {(Object.keys(TEXT_COLORS) as TextColor[]).map((c) => (
             <button
               key={c}
               type="button"
-              aria-label={TEXT_COLORS[c].name}
+              aria-label={t(`textTool.colours.${c}`)}
               aria-pressed={current.color === c}
-              title={TEXT_COLORS[c].name}
+              title={t(`textTool.colours.${c}`)}
               onClick={() => set({ color: c }, "color")}
               className={`h-9 w-9 rounded-full border border-border ${current.color === c ? "ring-2 ring-primary ring-offset-2 ring-offset-card" : ""}`}
               style={{ background: TEXT_COLORS[c].value }}

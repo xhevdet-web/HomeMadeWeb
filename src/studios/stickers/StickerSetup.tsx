@@ -1,4 +1,8 @@
 import { useRef, useState } from "react";
+import i18n from "../../i18n";
+
+// Re-renders with the app when the language changes.
+const t = i18n.t.bind(i18n);
 import { Button } from "../../components/Button";
 import { Icon } from "../../components/Icon";
 import { SectionLabel } from "../../components/Page";
@@ -10,7 +14,7 @@ import { useStudio } from "../../studio/StudioContext";
 import { StudioShell } from "../../studio/StudioShell";
 import { ReadyMade } from "../ReadyMade";
 import type { StudioProps } from "../data";
-import { SHAPE_NAMES, dimensions, recenter, sizeOf } from "./logic";
+import { dimensions, recenter, sizeOf } from "./logic";
 
 const SHAPE_CLASS: Record<StickerShape, string> = {
   SQUARE: "h-12 w-12 rounded-lg",
@@ -44,18 +48,18 @@ export function StickerSetup({ category, data }: StudioProps) {
       others
       title={
         <>
-          Choose your shape <em className="font-normal text-primary">and size.</em>
+          {t("stickers.setupTitle")} <em className="font-normal text-primary">{t("stickers.setupTitleAccent")}</em>
         </>
       }
-      intro="All designs in one set share the same shape and size."
+      intro={t("stickers.setupIntro")}
     >
       {all.length === 0 ? (
-        <p className="mt-10 rounded-[2rem] border border-border bg-card px-6 py-12 text-center text-muted-foreground">No sticker sizes yet. Please check back soon.</p>
+        <p className="mt-10 rounded-[2rem] border border-border bg-card px-6 py-12 text-center text-muted-foreground">{t("stickers.noSizes")}</p>
       ) : (
         <>
           <section className="mt-10 rounded-[2rem] border border-border bg-card p-6 sm:p-8">
-            <SectionLabel as="h2">Shape</SectionLabel>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" role="radiogroup" aria-label="Shape">
+            <SectionLabel as="h2">{t("stickers.shape")}</SectionLabel>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" role="radiogroup" aria-label={t("stickers.shape")}>
               {shapes.map((s) => (
                 <button
                   key={s}
@@ -68,7 +72,7 @@ export function StickerSetup({ category, data }: StudioProps) {
                   <span className="flex h-14 items-center">
                     <span className={`block border-2 border-primary/80 bg-foreground/10 ${SHAPE_CLASS[s]}`} />
                   </span>
-                  <span className="font-semibold">{SHAPE_NAMES[s]}</span>
+                  <span className="font-semibold">{t(`stickers.shapes.${s}`)}</span>
                 </button>
               ))}
             </div>
@@ -76,8 +80,8 @@ export function StickerSetup({ category, data }: StudioProps) {
 
           {shape && (
             <section className="mt-6 rounded-[2rem] border border-border bg-card p-6 sm:p-8">
-              <SectionLabel as="h2">Size</SectionLabel>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Size">
+              <SectionLabel as="h2">{t("checkout.size")}</SectionLabel>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" role="radiogroup" aria-label={t("checkout.size")}>
                 {sizes.map((s) => (
                   <button
                     key={s.id}
@@ -89,11 +93,11 @@ export function StickerSetup({ category, data }: StudioProps) {
                   >
                     <span className="block font-display text-2xl font-semibold">{dimensions(s)}</span>
                     <span className="mt-1 block text-sm text-muted-foreground">{s.name}</span>
-                    <span className="mt-1 block text-sm text-primary">{money(s.price)} each</span>
+                    <span className="mt-1 block text-sm text-primary">{t("stickers.each", { price: money(s.price) })}</span>
                   </button>
                 ))}
               </div>
-              <p className="mt-4 text-sm text-muted-foreground">The biggest size is 7 × 7 cm.</p>
+              <p className="mt-4 text-sm text-muted-foreground">{t("stickers.biggest")}</p>
             </section>
           )}
 
@@ -101,10 +105,10 @@ export function StickerSetup({ category, data }: StudioProps) {
             <Button size="lg" glow={ready} disabled={!ready} onClick={use} className="w-full sm:w-auto">
               {ready ? (
                 <>
-                  Use this size <Icon name="arrowRight" size={18} />
+                  {t("stickers.useSize")} <Icon name="arrowRight" size={18} />
                 </>
               ) : (
-                "Choose a shape and size"
+                t("stickers.chooseShapeSize")
               )}
             </Button>
           </div>

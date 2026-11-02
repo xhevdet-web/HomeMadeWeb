@@ -1,4 +1,5 @@
 import { parseTextLayers, type Category, type Product, type ProductInput } from "../../api/models";
+import i18n from "../../i18n";
 import { imageSize, renderPng, drawElements } from "../../studio/capture";
 import type { MugDraft } from "../../studio/drafts";
 import { describeElement, imageElement, newId, type PlacedElement } from "../../studio/elements";
@@ -49,8 +50,8 @@ export function fittedImage(area: MugArea, props: Partial<PlacedElement> & { asp
 export function mugSummary(d: MugDraft) {
   const img = mugImage(d);
   const n = mugTexts(d).length;
-  const parts = [img ? describeElement(img) : null, n ? `${n} text${n > 1 ? "s" : ""}` : null].filter(Boolean);
-  return parts.length ? parts.join(" · ") : "Empty mug";
+  const parts = [img ? describeElement(img) : null, n ? i18n.t("mugs.texts", { count: n }) : null].filter(Boolean);
+  return parts.length ? parts.join(" · ") : i18n.t("mugs.empty");
 }
 
 /** My scale is a share of the print width; the API's is relative to 60% of the print height. */

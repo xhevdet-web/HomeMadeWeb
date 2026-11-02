@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Footer } from "./components/Footer";
@@ -53,6 +54,9 @@ function renderPage({ segments, query }: Route) {
 
 export default function App() {
   const route = useRoute();
+  // Re-renders every page when the language changes, so text made outside components (status
+  // labels, summaries, messages) switches too.
+  useTranslation();
 
   return (
     <ThemeProvider>

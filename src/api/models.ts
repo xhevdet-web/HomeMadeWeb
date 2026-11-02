@@ -1,5 +1,7 @@
 /* Types and parsers for API responses, ported from the mobile app's *Models.ts. */
 
+import i18n from "../i18n";
+
 export const BUILDER_TYPES = ["JEWELRY", "BOUQUET", "GIFT", "APPAREL", "CASE", "STICKER", "MUG"] as const;
 export type BuilderType = (typeof BUILDER_TYPES)[number];
 
@@ -12,7 +14,7 @@ const whole = (v: unknown): v is number => Number.isInteger(v) && (v as number) 
 const fraction = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1;
 
 function invalid(): never {
-  throw new Error("The server sent catalog data we couldn't read.");
+  throw new Error(i18n.t("errors.catalogData"));
 }
 
 /* ---------------- Catalog ---------------- */
@@ -320,13 +322,13 @@ export interface User {
 }
 
 export function parseUser(value: unknown): User {
-  if (!isObject(value)) throw new Error("The server sent account data we couldn't read.");
+  if (!isObject(value)) throw new Error(i18n.t("errors.accountData"));
   for (const field of ["id", "email"])
-    if (typeof value[field] !== "string" || !value[field]) throw new Error("The server sent account data we couldn't read.");
+    if (typeof value[field] !== "string" || !value[field]) throw new Error(i18n.t("errors.accountData"));
   // Accounts made with Google can have an empty name until the customer adds it.
   for (const field of ["firstName", "lastName"])
-    if (typeof value[field] !== "string") throw new Error("The server sent account data we couldn't read.");
-  if (value.isActive === false) throw new Error("This account is not active.");
+    if (typeof value[field] !== "string") throw new Error(i18n.t("errors.accountData"));
+  if (value.isActive === false) throw new Error(i18n.t("errors.accountInactive"));
   return {
     id: value.id as string,
     firstName: value.firstName as string,
@@ -347,23 +349,29 @@ export const missingDelivery = (u: User) =>
 
 /* ---------------- Orders ---------------- */
 
-export const ORDER_STATUSES = [
-  { status: "ORDERED", label: "Ordered", description: "We received your order and will start on it soon." },
-  { status: "CREATING", label: "Being made", description: "Our maker is crafting your piece by hand." },
-  { status: "CREATED", label: "Created", description: "Your piece is finished and getting a final check." },
-  { status: "READY_FOR_COURIER", label: "Ready for courier", description: "Packed with care and waiting for the courier." },
-  { status: "PICKED_UP_BY_COURIER", label: "With courier", description: "Your piece is on its way to you." },
-  { status: "COMPLETED", label: "Completed", description: "Delivered. We hope you love it!" },
-] as const;
+const STATUS_KEYS = ["ORDERED", "CREATING", "CREATED", "READY_FOR_COURIER", "PICKED_UP_BY_COURIER", "COMPLETED"] as const;
+type StatusKey = (typeof STATUS_KEYS)[number];
+const isStatusKey = (status: string): status is StatusKey => STATUS_KEYS.includes(status as StatusKey);
+
+/** The order journey in order, with its customer-friendly label and line in the current language. */
+export const ORDER_STATUSES = STATUS_KEYS.map((status) => ({
+  status,
+  get label() {
+    return i18n.t(`orderStatus.${status}`);
+  },
+  get description() {
+    return i18n.t(`orderStage.${status}`);
+  },
+}));
 
 export const statusIndex = (status: string) => ORDER_STATUSES.findIndex((s) => s.status === status);
 
 /** Customer-friendly label; an unknown backend value is shown readably. */
 export const statusLabel = (status: string) =>
-  ORDER_STATUSES.find((s) => s.status === status)?.label ?? status.replaceAll("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+  isStatusKey(status) ? i18n.t(`orderStatus.${status}`) : status.replaceAll("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
 export const paymentLabel = (type: string) =>
-  type === "CASH_ON_DELIVERY" ? "Cash on Delivery" : type.replaceAll("_", " ").toLowerCase();
+  type === "CASH_ON_DELIVERY" ? i18n.t("payment.cashOnDelivery") : type.replaceAll("_", " ").toLowerCase();
 
 export interface Order {
   id: string;

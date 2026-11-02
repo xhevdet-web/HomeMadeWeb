@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import i18n from "../i18n";
 import { Button } from "../components/Button";
 import { Icon } from "../components/Icon";
 import { money } from "../lib/format";
@@ -45,7 +46,7 @@ export function StudioSummaryBar({
   priceLabel,
   onSave,
   saveBlocked,
-  primaryLabel = "Preview",
+  primaryLabel = i18n.t("studio.preview"),
   onPrimary,
   primaryBlocked,
   note,
@@ -69,7 +70,7 @@ export function StudioSummaryBar({
     <div className="sticky bottom-0 z-30 -mx-6 mt-6 border-t border-border bg-background/90 px-6 py-4 backdrop-blur-xl lg:static lg:mx-0 lg:rounded-[2rem] lg:border lg:bg-card lg:px-8 lg:py-6 lg:backdrop-blur-none">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-baseline justify-between gap-4 sm:block">
-          <p className="truncate text-sm text-muted-foreground">Your creation · {summary}</p>
+          <p className="truncate text-sm text-muted-foreground">{i18n.t("studio.yourCreation", { summary })}</p>
           <p className="flex items-baseline gap-2">
             {priceLabel && <span className="text-sm text-muted-foreground">{priceLabel}</span>}
             <AnimatedPrice cents={price} className="font-display text-2xl font-semibold text-primary sm:text-3xl" />
@@ -77,7 +78,7 @@ export function StudioSummaryBar({
         </div>
         <div className="grid grid-cols-2 gap-3 sm:flex">
           <Button variant="secondary" size="bar" onClick={onSave} disabled={!!saveBlocked || saving}>
-            {saving ? "Saving…" : "Save design"}
+            {saving ? i18n.t("common.saving") : i18n.t("studio.saveDesign")}
           </Button>
           <Button size="bar" glow onClick={onPrimary} disabled={!!primaryBlocked}>
             {primaryLabel} <Icon name="arrowRight" size={16} />
