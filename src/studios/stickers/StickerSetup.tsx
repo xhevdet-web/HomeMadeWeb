@@ -9,7 +9,7 @@ import { SectionLabel } from "../../components/Page";
 import { STICKER_SHAPES, stickerSizes, type StickerShape } from "../../api/models";
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
-import { navigate } from "../../router";
+import { backOrNavigate } from "../../router";
 import { useStudio } from "../../studio/StudioContext";
 import { StudioShell } from "../../studio/StudioShell";
 import { ReadyMade } from "../ReadyMade";
@@ -38,7 +38,7 @@ export function StickerSetup({ category, data }: StudioProps) {
   const use = () => {
     if (!ready) return;
     if (d.sizeId !== startSize.current) setDraft(category.id, recenter(d, size!));
-    navigate(studioHref(category, "design"));
+    backOrNavigate(studioHref(category, "design"));
   };
 
   return (

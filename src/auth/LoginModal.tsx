@@ -246,7 +246,7 @@ export function LoginModal({ request, onDone, onDismiss }: { request: LoginReque
         role="dialog"
         aria-modal="true"
         aria-labelledby="login-title"
-        className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[2rem] border border-border bg-card p-6 shadow-glow sm:rounded-[2rem] sm:p-8"
+        className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[2rem] border border-border bg-card p-6 shadow-glow sm:rounded-[2rem] sm:p-8"
       >
         <div className="flex items-center justify-between">
           <Logo />

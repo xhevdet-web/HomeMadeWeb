@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject, type MouseEvent as ReactMouseEvent } from "react";
-import { beginDrag, cancelDrag, endDrag, isDragging, moveDrag, onDragChange, registerTarget, type DragPayload, type Point } from "./controller";
+import { beginDrag, cancelDrag, endDrag, holdScrollBlocker, isDragging, moveDrag, onDragChange, registerTarget, type DragPayload, type Point } from "./controller";
 
 /** A touch long press this long picks an item up, like the app's activateAfterLongPress(220). */
 export const LONG_PRESS_MS = 220;
@@ -31,12 +31,13 @@ export function useDragSource(getPayload: () => DragPayload | null, onTap: () =>
     handlers.current = { getPayload, onTap };
   });
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const release = holdScrollBlocker();
+    return () => {
+      release();
       if (press.current) window.clearTimeout(press.current.timer);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const lift = () => {
     const p = press.current;

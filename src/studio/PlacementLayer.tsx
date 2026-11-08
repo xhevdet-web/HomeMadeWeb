@@ -365,7 +365,8 @@ export function PlacementLayer({
       ref={root}
       role="group"
       aria-label={label}
-      className={`no-callout absolute inset-0 overflow-hidden ${className}`}
+      // touch-none: a second finger landing on empty canvas joins the pinch instead of zooming the page.
+      className={`no-callout absolute inset-0 overflow-hidden ${readOnly ? "" : "touch-none"} ${className}`}
       onPointerDown={(e) => {
         if (readOnly) return;
         if (gesture.current) {

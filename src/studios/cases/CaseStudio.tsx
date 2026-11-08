@@ -6,7 +6,7 @@ const t = i18n.t.bind(i18n);
 import { Icon } from "../../components/Icon";
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
-import { navigate } from "../../router";
+import { backIfPrevious, backOrNavigate } from "../../router";
 import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
 import { imageSize } from "../../studio/capture";
 import type { PlacedElement } from "../../studio/elements";
@@ -168,7 +168,7 @@ export function CaseStudio({ category, data }: StudioProps) {
       saving={saver.saving}
       saveBlocked={blocked}
       top={
-        <a href={studioHref(category)} className="flex min-h-11 items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm transition-colors hover:bg-secondary">
+        <a href={studioHref(category)} onClick={backIfPrevious} className="flex min-h-11 items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm transition-colors hover:bg-secondary">
           <Icon name="square" size={16} className="text-primary" />
           <span className="min-w-0 flex-1 truncate font-semibold">{model?.name ?? t("cases.noPhone")}</span>
           <span className="font-semibold text-primary">{t("cases.changeModel")}</span>
@@ -181,7 +181,7 @@ export function CaseStudio({ category, data }: StudioProps) {
       footer={{
         summary: `${model?.name ?? t("cases.noPhoneShort")} · ${image ? (image.name ?? t("cases.yourPhoto")) : t("cases.addPhotoOrDesign")}`,
         price: casePrice(d, model, byId),
-        onPrimary: () => navigate(studioHref(category, "preview")),
+        onPrimary: () => backOrNavigate(studioHref(category, "preview")),
         primaryBlocked: unavailable ?? (!image ? t("cases.addFirst") : null),
       }}
     />

@@ -64,17 +64,16 @@ export function DragTile({
   );
 }
 
-/** Large tiles in one sideways row on phones, a grid on wider screens (like the app's ComponentPicker). */
+/**
+ * Picker tiles. Phones (inside the studio drawer): as many columns as fit, never below 5.5rem a
+ * tile, so 320 px phones get 3 columns and 430 px phones 4. Wider screens: the given columns.
+ */
 export function TileRow({ children, cols = "grid-cols-3" }: { children: ReactNode; cols?: string }) {
   const phone = useIsPhone();
-  return phone ? (
-    <ul className="-mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none]">{children}</ul>
-  ) : (
-    <ul className={`grid gap-2 ${cols}`}>{children}</ul>
-  );
+  return <ul className={`grid gap-2 ${phone ? "grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))]" : cols}`}>{children}</ul>;
 }
 
-export const TileItem = ({ children }: { children: ReactNode }) => <li className="w-28 shrink-0 md:w-auto">{children}</li>;
+export const TileItem = ({ children }: { children: ReactNode }) => <li className="min-w-0">{children}</li>;
 
 /**
  * The stage accepts picker drags. `area` is the element whose box the drop position is measured

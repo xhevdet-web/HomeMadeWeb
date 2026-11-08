@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import type { Component } from "../../api/models";
 import { studioHref } from "../../data/homeCategories";
 import { cm } from "../../lib/format";
-import { navigate } from "../../router";
+import { backOrNavigate } from "../../router";
 import { useStageDrop } from "../../studio/dnd/hooks";
 import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
 import { useUndoShortcuts } from "../../studio/useHistory";
@@ -18,6 +18,10 @@ import i18n from "../../i18n";
 // Re-renders with the app when the language changes.
 const t = i18n.t.bind(i18n);
 
+/** Same drop feedback: the drag-over handler runs every frame, and a new object would re-render the whole studio. */
+const samePreview = (a: DropPreview | null, b: DropPreview | null) =>
+  a === b || (!!a && !!b && a.mode === b.mode && a.index === b.index && (a.mode === "replace" || (b.mode === "insert" && a.piece.id === b.piece.id)));
+
 const move = (list: string[], from: number, to: number) => {
   const next = [...list];
   const [item] = next.splice(from, 1);
@@ -32,8 +36,10 @@ export function JewelryStudio({ category, data }: StudioProps) {
   const [notice, notify] = useNotice();
   const [coach, dismissCoach] = useDndHint();
   const [rawSelected, setSelected] = useState<number | null>(null);
-  const [preview, setPreview] = useState<DropPreview | null>(null);
-  const [lifted, setLifted] = useState<number | null>(null);
+  const [preview, setPreviewRaw] = useState<DropPreview | null>(null);
+  const setPreview = (next: DropPreview | null) => setPreviewRaw((current) => (samePreview(current, next) ? current : next));
+  const [lifted, setLiftedRaw] = useState<number | null>(null);
+  const setLifted = (next: number | null) => setLiftedRaw((current) => (current === next ? current : next));
   const svg = useRef<SVGSVGElement>(null);
   const stageRef = useRef<HTMLElement>(null);
   const byId = useMemo(() => componentById(data), [data]);
@@ -182,7 +188,7 @@ export function JewelryStudio({ category, data }: StudioProps) {
       variant="tray"
       overlay={
         <>
-          <span className="pointer-events-none absolute top-3 left-4 text-[10px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">
+          <span className="pointer-events-none absolute top-3 left-4 max-w-[calc(100%-9rem)] truncate text-[10px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">
             {t(`jewelry.nouns.${noun}.name`)} · {size?.name ?? ""}
           </span>
           <span className="pointer-events-none absolute top-3 right-4 text-[11px] font-semibold text-muted-foreground">{counter}</span>
@@ -273,7 +279,7 @@ export function JewelryStudio({ category, data }: StudioProps) {
       footer={{
         summary: `${t("jewelry.beads", { count: draft.pieces.length })} · ${cm(used)}`,
         price,
-        onPrimary: () => navigate(studioHref(category, "preview")),
+        onPrimary: () => backOrNavigate(studioHref(category, "preview")),
         primaryBlocked: empty ? t("gifts.addItem") : null,
         note: empty ? null : (missingForMinimum(price) ?? (complete ? t(`jewelry.nouns.${noun}.fits`) : t("jewelry.toGo", { length: cm(Math.max(0, draft.lengthMm - used)) }))),
         pulse,

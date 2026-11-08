@@ -68,11 +68,31 @@ let session: Session | null = null;
 export const isDragging = () => !!session;
 
 function preventScroll(e: TouchEvent) {
-  if (session) e.preventDefault();
+  if (session && e.cancelable) e.preventDefault();
+}
+
+let blockers = 0;
+
+/**
+ * Keeps a scroll-blocking touchmove listener on the page while drag sources are mounted.
+ * Safari (and Chrome) decide whether a touch can be kept from scrolling when it starts, so a
+ * listener added once the long press lifts the item came too late: the picker scrolled under the
+ * finger, the browser cancelled the pointer and the item flew back. It only blocks during a drag.
+ */
+export function holdScrollBlocker() {
+  if (blockers++ === 0) document.addEventListener("touchmove", preventScroll, { passive: false });
+  return () => {
+    if (--blockers === 0) document.removeEventListener("touchmove", preventScroll);
+  };
 }
 
 function onKey(e: KeyboardEvent) {
   if (e.key === "Escape") cancelDrag();
+}
+
+/** Measures the drop targets again, e.g. after the phone drawer changed height mid-drag. */
+export function remeasureTargets() {
+  measure();
 }
 
 function measure() {
@@ -116,7 +136,6 @@ export function beginDrag(payload: DragPayload, origin: DOMRect, p: Point, onEnd
   measure();
   place();
   navigator.vibrate?.(10);
-  document.addEventListener("touchmove", preventScroll, { passive: false });
   window.addEventListener("keydown", onKey);
   window.addEventListener("scroll", measure, true);
   window.addEventListener("resize", measure);
@@ -149,7 +168,6 @@ function finish(animate: (ghost: HTMLDivElement) => void) {
   session = null;
   cancelAnimationFrame(s.frame);
   s.current?.leave?.();
-  document.removeEventListener("touchmove", preventScroll);
   window.removeEventListener("keydown", onKey);
   window.removeEventListener("scroll", measure, true);
   window.removeEventListener("resize", measure);

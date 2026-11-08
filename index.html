@@ -18,6 +18,17 @@
     />
     <link rel="preload" as="image" href="/images/hero.jpg" />
     <script>
+      // One canonical origin, https://hm-craft.com: Google Sign-In only works on the origins
+      // registered for the Web OAuth client, and never on plain http. The server redirects too
+      // (public/.htaccess); this covers a server that hasn't loaded those rules.
+      (function () {
+        var host = location.hostname.toLowerCase();
+        if ((host === "hm-craft.com" || host === "www.hm-craft.com") && (location.protocol !== "https:" || host !== "hm-craft.com")) {
+          location.replace("https://hm-craft.com" + location.pathname + location.search + location.hash);
+        }
+      })();
+    </script>
+    <script>
       // Apply the saved theme before the first paint to avoid a flash.
       try {
         if (localStorage.getItem("homecreator-theme") === "light") document.documentElement.dataset.theme = "light";

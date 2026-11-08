@@ -27,7 +27,8 @@ interface AuthValue {
   signOut: () => Promise<void>;
   setUser: (user: User) => void;
   /** Runs `action` now when signed in, otherwise after the visitor signs in. */
-  requireAuth: (action: () => void | Promise<void>, message?: string) => void;
+  /** Runs `action` when signed in, else after signing in; `onCancel` when the login is closed instead. */
+  requireAuth: (action: () => void | Promise<void>, message?: string, onCancel?: () => void) => void;
   openLogin: (request?: LoginRequest) => void;
 }
 
@@ -138,9 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const requireAuth = useCallback(
-    (action: () => void | Promise<void>, message?: string) => {
+    (action: () => void | Promise<void>, message?: string, onCancel?: () => void) => {
       if (statusRef.current === "signedIn") void action();
-      else openLogin({ message, onSuccess: action });
+      else openLogin({ message, onSuccess: action, onClose: onCancel });
     },
     [openLogin],
   );

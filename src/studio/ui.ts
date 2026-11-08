@@ -14,25 +14,6 @@ export function useIsPhone() {
   return phone;
 }
 
-/**
- * The visible height: follows the on-screen keyboard (visualViewport) and works on older iOS,
- * where 100dvh isn't supported.
- */
-export function useVisibleHeight() {
-  const read = () => Math.round(window.visualViewport?.height ?? window.innerHeight);
-  const [height, setHeight] = useState(read);
-  useEffect(() => {
-    const on = () => setHeight(read());
-    window.visualViewport?.addEventListener("resize", on);
-    window.addEventListener("resize", on);
-    return () => {
-      window.visualViewport?.removeEventListener("resize", on);
-      window.removeEventListener("resize", on);
-    };
-  }, []);
-  return height;
-}
-
 /** The inline message under the stage (also announced). */
 export function useNotice() {
   const [notice, setNotice] = useState<{ text: string; tone: "info" | "warn"; id: number } | null>(null);

@@ -1,0 +1,21 @@
+# HM Craft website — OpenLiteSpeed (CyberPanel) / Apache.
+#
+# One canonical origin: https://hm-craft.com
+# Google Sign-In only runs on the origins registered for the Web OAuth client, and Google never
+# accepts plain http (except localhost). Without these redirects, visitors who arrive on
+# http:// or www. get "Error 400: origin_mismatch".
+#
+# OpenLiteSpeed reads only the rewrite rules from this file, and only after a restart:
+# CyberPanel → Websites → hm-craft.com → Manage → Rewrite Rules (or restart LiteSpeed).
+# index.html carries the same redirect as a fallback, so the site is correct either way.
+
+RewriteEngine On
+
+# http → https (also behind a proxy that terminates TLS and sets X-Forwarded-Proto).
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+RewriteRule ^(.*)$ https://hm-craft.com/$1 [R=301,L]
+
+# www → non-www.
+RewriteCond %{HTTP_HOST} ^www\.hm-craft\.com$ [NC]
+RewriteRule ^(.*)$ https://hm-craft.com/$1 [R=301,L]

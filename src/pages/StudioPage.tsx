@@ -7,6 +7,7 @@ import { Page } from "../components/Page";
 import { studioBuilder, studioHref, studioSlug, useStudioCategories } from "../data/homeCategories";
 import { redirect } from "../router";
 import { useStudio } from "../studio/StudioContext";
+import { StudioSteps } from "../studio/StudioFrame";
 import { LoadError, StudioSkeleton } from "../studio/StudioShell";
 import { useToast } from "../studio/Toasts";
 import { useStudioData } from "../studios/data";
@@ -61,7 +62,8 @@ export default function StudioPage({ slug, step, query }: { slug: string; step?:
         toast(errorMessage(e));
       }
       redirect(studioHref(category, "design"));
-    }, i18n.t("auth.prompts.openDesign"));
+      // Login closed: open the studio as it is, never leave the customer on a loading screen.
+    }, i18n.t("auth.prompts.openDesign"), () => redirect(studioHref(category)));
   }, [loadId, category, mod, data.data, requireAuth, setDraft, toast]);
 
   if (categories.loading || (mod && data.loading)) return <StudioSkeleton />;
@@ -81,5 +83,9 @@ export default function StudioPage({ slug, step, query }: { slug: string; step?:
   if (target || loadId) return <StudioSkeleton />;
 
   const Step = !step ? mod.Base! : step === "design" ? mod.Design : mod.Preview;
-  return <Step category={category} data={data.data} />;
+  return (
+    <StudioSteps.Provider value={{ hasBase: !!mod.Base }}>
+      <Step category={category} data={data.data} />
+    </StudioSteps.Provider>
+  );
 }

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import type { Component } from "../../api/models";
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
-import { navigate } from "../../router";
+import { backOrNavigate } from "../../router";
 import { BottomSheet } from "../../studio/BottomSheet";
 import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
 import { imageSize } from "../../studio/capture";
@@ -252,7 +252,7 @@ export function ApparelStudio({ category, data }: StudioProps) {
       footer={{
         summary: apparelSummary(d, data),
         price: apparelPrice(d, data, byId),
-        onPrimary: () => navigate(studioHref(category, "preview")),
+        onPrimary: () => backOrNavigate(studioHref(category, "preview")),
         primaryBlocked: empty ? t("apparel.addFirst") : null,
       }}
     />

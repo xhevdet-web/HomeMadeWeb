@@ -8,7 +8,7 @@ import { Icon } from "../../components/Icon";
 import type { StickerSize } from "../../api/models";
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
-import { navigate } from "../../router";
+import { backIfPrevious, backOrNavigate } from "../../router";
 import { BottomSheet } from "../../studio/BottomSheet";
 import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
 import { imageSize } from "../../studio/capture";
@@ -258,7 +258,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
       <BottomSheet title={t("stickers.changeShapeOrSize")} open={shapeOpen} onClose={() => setShapeOpen(false)}>
         <p className="text-sm">{t("stickers.changeShapeNote")}</p>
         <div className="mt-4 flex gap-2">
-          <ButtonLink href={studioHref(category)}>{t("stickers.changeShapeOrSize")}</ButtonLink>
+          <ButtonLink href={studioHref(category)} onClick={backIfPrevious}>{t("stickers.changeShapeOrSize")}</ButtonLink>
           <Button variant="secondary" onClick={() => setShapeOpen(false)}>
             {t("common.cancel")}
           </Button>
@@ -293,7 +293,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
       footer={{
         summary: `${t("stickers.designsCount", { count: d.designs.length })} · ${setLabel(size)}`,
         price: stickerPrice(d, size),
-        onPrimary: () => navigate(studioHref(category, "preview")),
+        onPrimary: () => backOrNavigate(studioHref(category, "preview")),
         primaryBlocked: blocked,
       }}
     />

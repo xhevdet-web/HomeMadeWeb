@@ -6,7 +6,7 @@ const t = i18n.t.bind(i18n);
 import { Icon } from "../../components/Icon";
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
-import { navigate } from "../../router";
+import { backOrNavigate } from "../../router";
 import { BottomSheet } from "../../studio/BottomSheet";
 import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
 import { imageSize } from "../../studio/capture";
@@ -236,7 +236,7 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
           price: blankPrice,
           priceLabel: t("mugs.perMug"),
           primaryLabel: t("mugs.previewOnMug"),
-          onPrimary: () => navigate(studioHref(category, "preview")),
+          onPrimary: () => backOrNavigate(studioHref(category, "preview")),
           primaryBlocked: empty ? t("mugs.addFirst") : null,
         }}
       />

@@ -3,7 +3,7 @@ import type { Component } from "../../api/models";
 import { Icon } from "../../components/Icon";
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
-import { navigate } from "../../router";
+import { backIfPrevious, backOrNavigate } from "../../router";
 import { BottomSheet } from "../../studio/BottomSheet";
 import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
 import { imageSize, corsImage } from "../../studio/capture";
@@ -233,7 +233,7 @@ export function GiftStudio({ category, data }: StudioProps) {
       saving={saver.saving}
       saveBlocked={unavailable ?? (empty ? t("gifts.addItem") : null)}
       top={
-        <a href={studioHref(category)} className="flex min-h-11 items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm transition-colors hover:bg-secondary">
+        <a href={studioHref(category)} onClick={backIfPrevious} className="flex min-h-11 items-center gap-3 rounded-2xl border border-border bg-card px-3 py-2 text-sm transition-colors hover:bg-secondary">
           {packaging?.imageUrl ? <img {...corsImage} src={packaging.imageUrl} alt="" className="h-8 w-8 object-contain" /> : <Icon name="package" size={18} className="text-primary" />}
           <span className="min-w-0 flex-1 truncate">
             {t("gifts.arrivesInLabel")} <span className="font-semibold">{packaging?.name ?? "—"}</span>
@@ -249,7 +249,7 @@ export function GiftStudio({ category, data }: StudioProps) {
       footer={{
         summary: [t("gifts.items", { count: items.length }), ...(textEls.length ? [t("gifts.messages", { count: textEls.length })] : []), t("gifts.packagingPrice", { price: money((packaging?.price ?? 0) + (color?.priceAdjustment ?? 0)) })].join(" · "),
         price: giftPrice(d, data, byId),
-        onPrimary: () => navigate(studioHref(category, "preview")),
+        onPrimary: () => backOrNavigate(studioHref(category, "preview")),
         primaryBlocked: unavailable ?? (empty ? t("gifts.addItem") : null),
       }}
     />

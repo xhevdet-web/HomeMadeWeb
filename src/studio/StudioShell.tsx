@@ -9,6 +9,7 @@ import { StepIndicator } from "../components/StepIndicator";
 import { lookFor, studioHref } from "../data/homeCategories";
 import { useApi } from "../hooks/useApi";
 import { money } from "../lib/format";
+import { backIfPrevious } from "../router";
 import { useUndoShortcuts } from "./useHistory";
 import { corsImage } from "./capture";
 import i18n from "../i18n";
@@ -229,7 +230,7 @@ export function BaseChip({ label, value, href, action = t("studio.change") }: { 
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="truncate font-semibold">{value}</p>
       </div>
-      <a href={href} className="text-sm font-semibold whitespace-nowrap text-primary hover:underline">
+      <a href={href} onClick={backIfPrevious} className="text-sm font-semibold whitespace-nowrap text-primary hover:underline">
         {action}
       </a>
     </div>
@@ -344,7 +345,7 @@ export function PreviewActions({ category, onSave, onOrder, orderBlocked, orderH
         </p>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <ButtonLink href={studioHref(category, "design")} variant="secondary" size="sm">
+        <ButtonLink href={studioHref(category, "design")} onClick={backIfPrevious} variant="secondary" size="sm">
           <Icon name="arrowLeft" size={15} /> {t("studio.backToStudio")}
         </ButtonLink>
         <Button variant="secondary" size="sm" onClick={onSave} disabled={!!saveBlocked || saving}>
@@ -361,7 +362,7 @@ export function NothingToPreview({ category, message }: { category: Category; me
     <div className="mt-8 rounded-[2rem] border border-border bg-card px-6 py-16 text-center">
       <p className="font-display text-3xl font-semibold">{t("studio.nothingToPreview")}</p>
       <p className="mt-3 text-muted-foreground">{message}</p>
-      <ButtonLink href={studioHref(category, "design")} className="mt-8">
+      <ButtonLink href={studioHref(category, "design")} onClick={backIfPrevious} className="mt-8">
         {t("studio.backToStudio")}
       </ButtonLink>
     </div>
@@ -371,7 +372,7 @@ export function NothingToPreview({ category, message }: { category: Category; me
 /** Continue button at the end of a base step; explains what is missing when disabled. */
 export function ContinueButton({ ready, href, label, blockedLabel }: { ready: boolean; href: string; label: string; blockedLabel?: string }) {
   return ready ? (
-    <ButtonLink href={href} glow size="lg" className="w-full sm:w-auto">
+    <ButtonLink href={href} onClick={backIfPrevious} glow size="lg" className="w-full sm:w-auto">
       {label} <Icon name="arrowRight" size={18} />
     </ButtonLink>
   ) : (

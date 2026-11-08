@@ -26,6 +26,18 @@ declare global {
 /** Off until VITE_GOOGLE_CLIENT_ID is set, so the website works without Google configured. */
 export const googleSignInEnabled = !!CLIENT_ID;
 
+/**
+ * Development only: which origin Google will see and which Web client is bundled (its public
+ * prefix only). "origin_mismatch" means this origin is missing from that client's Authorized
+ * JavaScript origins in Google Cloud. Never logs tokens.
+ */
+let diagnosed = false;
+function diagnose() {
+  if (!import.meta.env.DEV || diagnosed) return;
+  diagnosed = true;
+  console.info(`[google sign-in] origin=${location.origin} client=${CLIENT_ID.split("-")[0]}-…${CLIENT_ID.slice(-30)} mode=${import.meta.env.MODE}`);
+}
+
 let loading: Promise<GoogleId> | null = null;
 function loadGoogle() {
   loading ??= new Promise<GoogleId>((resolve, reject) => {
@@ -59,6 +71,7 @@ export function GoogleButton({ onCredential, disabled = false }: { onCredential:
   // Drawn again when the language changes: Google writes the button's text itself.
   useEffect(() => {
     if (!CLIENT_ID) return;
+    diagnose();
     let live = true;
     loadGoogle()
       .then((google) => {

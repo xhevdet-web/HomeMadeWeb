@@ -27,7 +27,7 @@ export function MeasurementBar({ noun, usedMm, lengthMm, size, onLength }: {
   const complete = Math.abs(usedMm - lengthMm) <= TOLERANCE_MM;
   const pct = Math.min(100, (usedMm / Math.max(1, lengthMm)) * 100);
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-2.5" aria-label={t("jewelry.usedLabel", { used: cmText(usedMm), length: cmText(lengthMm) })}>
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-1.5 md:py-2.5" aria-label={t("jewelry.usedLabel", { used: cmText(usedMm), length: cmText(lengthMm) })}>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2 text-sm">
           <span className={`font-display font-semibold ${complete ? "text-success" : ""}`}>
@@ -157,16 +157,40 @@ interface PickerProps {
   onDismissCoach: () => void;
 }
 
-/** Material sidebar (2+ materials), hint line and a grid of drag-and-tap tiles, like the app's BeadPicker. */
+/**
+ * Material filter (2+ materials), hint line and a grid of drag-and-tap tiles, like the app's
+ * BeadPicker. Desktop: a sidebar of filters. Phones (in the studio drawer): a sideways row of
+ * chips that stays on top while the grid scrolls, and as many columns as the width allows.
+ */
 export function JewelryPicker({ components, pieces, problem, replacing, full, onPick, coach, onDismissCoach }: PickerProps) {
   const materials = [...new Set(components.map((c) => c.type?.trim()).filter((t): t is string => !!t))];
   const [material, setMaterial] = useState("");
-  const sidebar = materials.length > 1;
+  const phone = useIsPhone();
+  const filters = materials.length > 1;
+  const sidebar = filters && !phone;
   const shown = components.filter((c) => !material || c.type?.trim() === material);
   const hint = full ? t("jewelry.hintFull") : replacing ? t("jewelry.hintReplace") : t("jewelry.hintAdd");
 
   return (
-    <div className="relative flex gap-3">
+    <div className={phone ? "relative flex flex-col" : "relative flex gap-3"}>
+      {filters && phone && (
+        <div role="group" aria-label={t("jewelry.filterMaterial")} className="sticky top-0 z-10 -mx-4 mb-2 flex gap-2 overflow-x-auto overscroll-x-contain bg-card px-4 pt-1 pb-2 [scrollbar-width:none]">
+          {["", ...materials].map((m) => (
+            <button
+              key={m || "all"}
+              type="button"
+              onClick={() => setMaterial(m)}
+              aria-pressed={material === m}
+              aria-label={m ? t("jewelry.showMaterial", { name: typeLabel(m) }) : t("jewelry.showAll")}
+              className={`min-h-10 shrink-0 rounded-full border px-4 text-sm font-semibold whitespace-nowrap transition-colors ${
+                material === m ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:bg-secondary"
+              }`}
+            >
+              {m ? typeLabel(m) : t("create.groups.all")}
+            </button>
+          ))}
+        </div>
+      )}
       {sidebar && (
         <div role="group" aria-label={t("jewelry.filterMaterial")} className="sticky top-0 flex w-[68px] shrink-0 flex-col gap-1.5 self-start">
           {["", ...materials].map((m) => (
@@ -196,7 +220,7 @@ export function JewelryPicker({ components, pieces, problem, replacing, full, on
             </button>
           </div>
         ) : (
-          <ul className={`grid gap-2 ${sidebar ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-4 sm:grid-cols-5"} md:grid-cols-3 lg:grid-cols-4`}>
+          <ul className={`grid gap-2 ${phone ? "grid-cols-[repeat(auto-fill,minmax(4.75rem,1fr))]" : "md:grid-cols-3 lg:grid-cols-4"}`}>
             {shown.map((c) => (
               <li key={c.id}>
                 <Tile component={c} count={pieces.filter((id) => id === c.id).length} problem={problem(c)} replacing={replacing} onPick={onPick} />

@@ -1,11 +1,25 @@
-import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  createContext,
+  forwardRef,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import type { Category } from "../api/models";
 import { Button } from "../components/Button";
 import { Icon, type IconName } from "../components/Icon";
 import { studioHref } from "../data/homeCategories";
+import { goBack } from "../router";
+import { isDragging, onDragChange, remeasureTargets } from "./dnd/controller";
 import { StudioShell } from "./StudioShell";
 import { AnimatedPrice, StudioSummaryBar } from "./StudioSummaryBar";
-import { useIsPhone, useVisibleHeight } from "./ui";
+import { useIsPhone } from "./ui";
 import { corsImage } from "./capture";
 import i18n from "../i18n";
 
@@ -40,6 +54,8 @@ interface FrameProps {
   /** The studio's StudioToolbar, right above the picker. */
   toolbar?: ReactNode;
   picker: ReactNode;
+  /** The phone drawer's title; "Add to your design" by default. */
+  pickerTitle?: string;
   /** Pinned under the picker on phones (sticker design tabs). */
   pickerFooter?: ReactNode;
   footer: FrameFooter;
@@ -75,7 +91,7 @@ function DesktopFrame({ category, top, stage, side, notice, toolbar, picker, pic
           {side}
           <Notice notice={notice} />
         </div>
-        <aside aria-label={t("studio.tools")} className="flex min-w-0 flex-col gap-6 rounded-[2rem] border border-border bg-card p-5 sm:p-7 md:max-h-[calc(100vh-8rem)] md:overflow-y-auto md:overscroll-contain">
+        <aside aria-label={t("studio.tools")} className="flex min-w-0 flex-col gap-6 rounded-[2rem] border border-border bg-card p-5 sm:p-7 md:max-h-[calc(100dvh-8rem)] md:overflow-y-auto md:overscroll-contain">
           {toolbar}
           {picker}
           {pickerFooter}
@@ -97,37 +113,163 @@ function DesktopFrame({ category, top, stage, side, notice, toolbar, picker, pic
   );
 }
 
-function PhoneShell({ category, subtitle, onSave, saveBlocked, saving, top, stage, side, notice, toolbar, picker, pickerFooter, footer }: FrameProps) {
-  const height = useVisibleHeight();
-  const [width, setWidth] = useState(() => window.innerWidth);
+/** Which studio steps exist, from the studio's module (mugs open the design straight away). */
+export const StudioSteps = createContext<{ hasBase: boolean }>({ hasBase: true });
 
+type DrawerState = "peek" | "half" | "full";
+const DRAWER_KEY = "hc.studio.drawer";
+/** The closed drawer: handle and title only. */
+const PEEK = 56;
+
+function storedDrawer(): DrawerState {
+  try {
+    const v = sessionStorage.getItem(DRAWER_KEY);
+    return v === "peek" || v === "full" ? v : "half";
+  } catch {
+    return "half";
+  }
+}
+
+/**
+ * While the phone studio is open the page itself never scrolls or zooms: iOS Safari ignores
+ * `user-scalable=no`, so a pinch or double tap outside the canvas would zoom the whole studio and
+ * a page scroll would fight the drawer. Pinching a design element still works (pointer events).
+ */
+function useShellLock() {
   useEffect(() => {
-    const on = () => setWidth(window.innerWidth);
-    window.addEventListener("resize", on);
-    // The page itself never scrolls while the shell is open.
     const html = document.documentElement;
-    const prev = html.style.overflow;
+    const prev = { overflow: html.style.overflow, overscroll: html.style.overscrollBehavior };
     html.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
     window.scrollTo(0, 0);
+    const stop = (e: Event) => e.preventDefault();
+    document.addEventListener("gesturestart", stop, { passive: false });
     return () => {
-      window.removeEventListener("resize", on);
-      html.style.overflow = prev;
+      html.style.overflow = prev.overflow;
+      html.style.overscrollBehavior = prev.overscroll;
+      document.removeEventListener("gesturestart", stop);
     };
   }, []);
+}
 
-  const sideWidth = side ? 54 : 0;
-  // Like the app: min(width − 32 − sequence, 42% of the visible height, 440), never below 240.
-  const stageSize = Math.max(240, Math.min(width - 32 - sideWidth, height * 0.42, 440));
+/**
+ * Phones: a full-screen app shell. It is sized by CSS (fixed, inset 0), so Safari's toolbars and
+ * the keyboard never re-layout the canvas mid-gesture. The picker lives in a drawer with three
+ * heights (closed, half, full), dragged by its handle or tapped; the canvas takes whatever the
+ * drawer leaves. The drawer is UI state only: opening or closing it never touches the design.
+ */
+function PhoneShell({ category, subtitle, onSave, saveBlocked, saving, top, stage, side, notice, toolbar, picker, pickerTitle, pickerFooter, footer }: FrameProps) {
+  const { hasBase } = useContext(StudioSteps);
+  useShellLock();
+  const work = useRef<HTMLDivElement>(null);
+  const tools = useRef<HTMLDivElement>(null);
+  const drawer = useRef<HTMLElement>(null);
+  const [space, setSpace] = useState({ work: 0, tools: 0 });
+  const [state, setStateRaw] = useState<DrawerState>(storedDrawer);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const setState = useCallback((next: DrawerState) => {
+    setStateRaw(next);
+    try {
+      sessionStorage.setItem(DRAWER_KEY, next);
+    } catch {
+      // Storage blocked: the drawer simply opens half way next time.
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    const measure = () => setSpace({ work: work.current?.clientHeight ?? 0, tools: tools.current?.offsetHeight ?? 0 });
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (work.current) ro.observe(work.current);
+    if (tools.current) ro.observe(tools.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // Room for the canvas and the drawer; the canvas always keeps a visible part of the design.
+  const avail = Math.max(0, space.work - space.tools);
+  const halfH = Math.round(Math.max(PEEK + 64, Math.min(Math.max(avail * 0.5, Math.min(200, avail - 150)), avail - 150)));
+  const fullH = Math.max(halfH, avail - 112);
+  const heightOf = (s: DrawerState) => (space.work ? (s === "peek" ? PEEK : s === "half" ? halfH : fullH) : PEEK);
+  const open = state !== "peek";
+
+  // Adding something from the full drawer shows the result: the drawer drops to half.
+  const designKey = `${footer.price}|${footer.summary}`;
+  const lastDesign = useRef(designKey);
+  useEffect(() => {
+    if (designKey === lastDesign.current) return;
+    lastDesign.current = designKey;
+    if (stateRef.current === "full") setState("half");
+  }, [designKey, setState]);
+
+  // Picking an item up from the full drawer uncovers the canvas to drop it on.
+  useEffect(
+    () =>
+      onDragChange((active) => {
+        if (active && stateRef.current === "full") setState("half");
+      }),
+    [setState],
+  );
+
+  // Swiping the handle: the drawer follows the finger, then snaps to the nearest height (a flick counts).
+  const swipe = useRef<{ id: number; y0: number; h0: number; moved: boolean; samples: { y: number; t: number }[] } | null>(null);
+  const onHandleDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || !drawer.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    swipe.current = { id: e.pointerId, y0: e.clientY, h0: drawer.current.offsetHeight, moved: false, samples: [{ y: e.clientY, t: e.timeStamp }] };
+  };
+  const onHandleMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const g = swipe.current;
+    const node = drawer.current;
+    if (!g || g.id !== e.pointerId || !node) return;
+    const dy = e.clientY - g.y0;
+    if (!g.moved && Math.abs(dy) < 6) return;
+    g.moved = true;
+    g.samples = [...g.samples.slice(-4), { y: e.clientY, t: e.timeStamp }];
+    node.style.transition = "none";
+    node.style.height = `${Math.min(fullH, Math.max(PEEK, g.h0 - dy))}px`;
+  };
+  const onHandleUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const g = swipe.current;
+    const node = drawer.current;
+    if (!g || g.id !== e.pointerId || !node) return;
+    swipe.current = null;
+    node.style.transition = "";
+    if (!g.moved) {
+      if (e.type === "pointerup") setState(open ? "peek" : "half");
+      return;
+    }
+    const first = g.samples[0];
+    const end = g.samples[g.samples.length - 1];
+    const velocity = (end.y - first.y) / Math.max(1, end.t - first.t); // px/ms, positive = down
+    const projected = node.offsetHeight - velocity * 160;
+    const options: [DrawerState, number][] = [
+      ["peek", PEEK],
+      ["half", halfH],
+      ["full", fullH],
+    ];
+    const [next] = options.reduce((best, o) => (Math.abs(o[1] - projected) < Math.abs(best[1] - projected) ? o : best));
+    node.style.height = `${heightOf(next)}px`;
+    setState(next);
+  };
+
+  const title = pickerTitle ?? t("studio.drawer.title");
 
   return (
     <div
-      className="fixed inset-x-0 top-0 z-[60] flex flex-col bg-background text-foreground"
-      style={{ height, paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}
+      className="fixed inset-0 z-[60] flex touch-manipulation flex-col bg-background text-foreground"
+      style={{ paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}
     >
-      <header className="flex items-center gap-1 px-2 pt-1">
-        <a href={studioHref(category)} aria-label={t("studio.backToFirstStep")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary">
+      <header className="flex shrink-0 items-center gap-1 px-2 pt-1">
+        <button
+          type="button"
+          onClick={() => goBack(hasBase ? studioHref(category) : "#/studios")}
+          aria-label={t("common.back")}
+          title={t("common.back")}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-secondary"
+        >
           <Icon name="arrowLeft" size={20} />
-        </a>
+        </button>
         <div className="min-w-0 flex-1 text-center">
           <h1 className="truncate font-display text-lg leading-tight font-semibold">{t("studio.phoneTitle", { name: category.name })}</h1>
           <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
@@ -144,23 +286,78 @@ function PhoneShell({ category, subtitle, onSave, saveBlocked, saving, top, stag
         </button>
       </header>
 
-      {top && <div className="px-4 pt-1">{top}</div>}
+      {top && <div className="shrink-0 px-4 pt-1">{top}</div>}
 
-      <div className="flex shrink-0 justify-center gap-2 px-4 pt-2" style={{ height: stageSize + 8 }}>
-        <div style={{ width: side ? stageSize : "100%", height: stageSize }} className="min-w-0">
-          {stage}
+      <div ref={work} className="flex min-h-0 flex-1 flex-col">
+        <div className="relative flex min-h-0 flex-1 justify-center gap-2 px-4 pt-2 pb-1">
+          <div className="h-full min-w-0 flex-1">{stage}</div>
+          {side && <div className="h-full shrink-0">{side}</div>}
+          <div className="pointer-events-none absolute inset-x-6 bottom-2 z-20">
+            <Notice notice={notice} />
+          </div>
         </div>
-        {side && <div style={{ height: stageSize }}>{side}</div>}
+
+        {/* Browsing the full drawer hides the design tools; they come back with the canvas. */}
+        <div ref={tools} className="shrink-0">
+          {toolbar && state !== "full" && <div className="px-4 pb-2">{toolbar}</div>}
+        </div>
+
+        <section
+          ref={drawer}
+          aria-label={title}
+          className="flex shrink-0 flex-col overflow-hidden rounded-t-[1.75rem] border-x border-t border-border bg-card shadow-[0_-10px_30px_-18px_rgb(0_0_0/0.5)] transition-[height] duration-300 ease-[cubic-bezier(.2,.7,.2,1)] motion-reduce:transition-none"
+          style={{ height: heightOf(state) }}
+          onTransitionEnd={(e) => {
+            if (e.target === drawer.current && isDragging()) remeasureTargets();
+          }}
+        >
+          <div
+            className="flex shrink-0 cursor-grab touch-none items-center gap-1 pr-2 pl-4 select-none"
+            style={{ height: PEEK }}
+            onPointerDown={onHandleDown}
+            onPointerMove={onHandleMove}
+            onPointerUp={onHandleUp}
+            onPointerCancel={onHandleUp}
+          >
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls="studio-drawer-content"
+              // Taps arrive through the handle's pointer events; this answers the keyboard.
+              onClick={(e) => e.detail === 0 && setState(open ? "peek" : "half")}
+              className="relative flex h-full min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
+              <span className="absolute top-1.5 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-border" aria-hidden="true" />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary" aria-hidden="true">
+                <Icon name="plus" size={18} />
+              </span>
+              <span className="min-w-0 flex-1 pt-1">
+                <span className="block truncate text-sm font-semibold">{title}</span>
+                <span className="block truncate text-xs text-muted-foreground">{open ? t("studio.drawer.hintOpen") : t("studio.drawer.hintClosed")}</span>
+              </span>
+              <Icon name="chevronDown" size={20} className={`shrink-0 text-muted-foreground transition-transform duration-300 ${open ? "" : "rotate-180"}`} />
+            </button>
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => setState(state === "full" ? "half" : "full")}
+              aria-label={state === "full" ? t("studio.drawer.shrink") : t("studio.drawer.expand")}
+              title={state === "full" ? t("studio.drawer.shrink") : t("studio.drawer.expand")}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Icon name={state === "full" ? "minimize" : "maximize"} size={18} />
+            </button>
+          </div>
+          {/* Always mounted, so filters and scroll position survive closing the drawer. */}
+          <div id="studio-drawer-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4" aria-hidden={!open} inert={!open}>
+            {picker}
+          </div>
+        </section>
       </div>
 
-      <Notice notice={notice} />
-      {toolbar && <div className="px-4 pb-2">{toolbar}</div>}
+      {pickerFooter && <div className="shrink-0 border-t border-border bg-card px-4 py-2">{pickerFooter}</div>}
 
-      {/* Only this area scrolls; overscroll stays inside so pull-to-refresh never fires. */}
-      <div className="min-h-[96px] flex-1 overflow-y-auto overscroll-contain px-4 pb-3">{picker}</div>
-      {pickerFooter && <div className="border-t border-border px-4 py-2">{pickerFooter}</div>}
-
-      <footer className="flex items-center gap-3 border-t border-border bg-card/95 px-4 pt-3 backdrop-blur-xl" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+      <footer className="flex shrink-0 items-center gap-3 border-t border-border bg-card px-4 pt-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
         <div className="min-w-0 flex-1">
           <p className="flex items-baseline gap-1.5">
             <AnimatedPrice cents={footer.price} className="font-display text-xl font-semibold text-primary" />
@@ -212,7 +409,7 @@ export const StageFrame = forwardRef<
       aria-label={label}
       className={`relative flex w-full flex-col overflow-hidden rounded-[2rem] border transition-[border-color,box-shadow] duration-200 ${variant === "tray" ? "stage-tray" : "stage-photo"} ${
         chip ? "border-primary ring-2 ring-primary/40" : "border-border"
-      } ${phone ? "h-full" : "h-[clamp(380px,62vh,600px)]"} ${className}`}
+      } ${phone ? "h-full" : "h-[clamp(320px,62dvh,600px)]"} ${className}`}
     >
       {chip && <div className="pointer-events-none absolute inset-0 z-10 bg-primary/12" aria-hidden="true" />}
       {chip && (
@@ -285,7 +482,7 @@ export function StudioToolbar({ undo, redo, canUndo, canRedo, onClear, canClear,
     <div
       role="toolbar"
       aria-label={selection ? t("studio.toolbar.itemActions", { name: selection.title }) : t("studio.toolbar.designActions")}
-      className={`flex flex-col gap-1.5 rounded-2xl border p-2 transition-colors ${selection ? "border-primary/40 bg-primary/10" : "border-border bg-background/40"}`}
+      className={`flex flex-col gap-1.5 border transition-colors ${phone ? "rounded-xl p-1" : "rounded-2xl p-2"} ${selection ? "border-primary/40 bg-primary/10" : "border-border bg-background/40"}`}
     >
       {selection && (
         <div className="flex items-center gap-2">

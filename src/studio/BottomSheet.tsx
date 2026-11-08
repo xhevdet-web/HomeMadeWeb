@@ -76,7 +76,7 @@ export function BottomSheet({ title, open, onClose, children }: { title: string;
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] border border-border bg-card shadow-glow transition-transform duration-200 sm:rounded-[2rem]"
+        className="relative flex max-h-[85dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] border border-border bg-card shadow-glow transition-transform duration-200 sm:rounded-[2rem]"
         style={{ animation: "sheet-up 220ms cubic-bezier(.2,.7,.2,1) both", paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="touch-none px-6 pt-3 pb-2" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
