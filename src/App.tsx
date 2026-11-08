@@ -4,6 +4,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Footer } from "./components/Footer";
 import { Nav } from "./components/Nav";
+import AboutPage from "./pages/AboutPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import ContactPage from "./pages/ContactPage";
 import CreatePage from "./pages/CreatePage";
@@ -33,6 +34,8 @@ function renderPage({ segments, query }: Route) {
       return <HomePage />;
     case "studios":
       return param ? <StudioPage slug={param} step={extra} query={query} /> : <StudiosPage />;
+    case "about":
+      return param ? <NotFoundPage /> : <AboutPage />;
     case "create":
       return param ? <NotFoundPage /> : <CreatePage />;
     case "contact":

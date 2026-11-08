@@ -10,7 +10,7 @@ import { LanguageToggle } from "./LanguageToggle";
 import { Logo } from "./Logo";
 
 // Labels are translation keys; the text is translated when the menu renders.
-type NavKey = "nav.home" | "nav.studios" | "nav.myDesigns" | "nav.orders" | "nav.profile" | "nav.notifications" | "nav.contact";
+type NavKey = "nav.home" | "nav.studios" | "nav.about" | "nav.myDesigns" | "nav.orders" | "nav.profile" | "nav.notifications" | "nav.contact";
 interface NavLink {
   label: NavKey;
   href: string;
@@ -20,6 +20,7 @@ interface NavLink {
 const PUBLIC_LINKS: NavLink[] = [
   { label: "nav.home", href: "#/", section: "" },
   { label: "nav.studios", href: "#/studios", section: "studios" },
+  { label: "nav.about", href: "#/about", section: "about" },
 ];
 const ACCOUNT_LINKS: NavLink[] = [
   { label: "nav.myDesigns", href: "#/designs", section: "designs" },

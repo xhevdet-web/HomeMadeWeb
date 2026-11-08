@@ -198,6 +198,13 @@ body {
 @utility bg-glow {
   background-image: var(--gradient-glow);
 }
+/* Horizontal rows that swipe (chips, carousels) without a visible scrollbar. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
 @utility eyebrow {
   font-size: 14px;
   font-weight: 600;

@@ -30,6 +30,7 @@ export const translationEN = {
     main: "Main",
     home: "Home",
     studios: "Studios",
+    about: "About us",
     myDesigns: "My Designs",
     orders: "Orders",
     profile: "Profile",
@@ -162,6 +163,221 @@ export const translationEN = {
     groups: { all: "All", jewelry: "Jewelry", home: "Home", apparel: "Apparel", tech: "Tech", gifts: "Gifts" },
     designYourOwn: "Design your own",
     noMatch: "No categories match “{{query}}”.",
+  },
+  about: {
+    eyebrow: "About $t(common.brand)",
+    heroTitle: "Your idea.",
+    heroTitle2: "Your design.",
+    heroTitleAccent: "Made real.",
+    heroBody:
+      "The best gifts and keepsakes are the ones that feel personal. That's why we give you the tools to design exactly what you have in mind. You create it on screen, and we turn it into something you can hold.",
+    startCreating: "Start creating →",
+    seeHow: "See how it works",
+    heroImage: "A custom {{name}}",
+    storyEyebrow: "Our idea",
+    storyTitle: "Made for",
+    storyTitleAccent: "your ideas.",
+    storyBody:
+      "Most of us know exactly what we want. A name on a bracelet, a photo on a mug, a gift box filled with their favourite things. We just can't find it on a shelf.",
+    storyBody2:
+      "$t(common.brand) closes that gap. Choose a product, make it yours in one of our creative studios, see a preview, and our makers turn your design into the real thing.",
+    shopAsks: "Most shops ask",
+    shopQuestion: "“What would you like to buy?”",
+    weAsk: "We also ask",
+    weQuestion: "“What would you like to create?”",
+    formulaLabel: "What makes $t(common.brand)",
+    formula: {
+      creativity: { title: "Creativity", text: "Your idea, your style, your story." },
+      personal: { title: "Personalisation", text: "Studios that let you shape every detail." },
+      craft: { title: "Real craft", text: "Made by hand once you place your order." },
+    },
+    howEyebrow: "How it works",
+    howTitle: "How do you want",
+    howTitleAccent: "to create?",
+    howIntro: "Choose a product to see how its studio works, step by step.",
+    filterLabel: "Choose a product",
+    loadingProducts: "Loading products",
+    carouselLabel: "How to create: {{name}}",
+    stepOf: "Step {{number}} of {{total}}",
+    stepLabel: "Step {{number}}: {{title}}",
+    goToStep: "Go to step {{number}}: {{title}}",
+    previous: "Previous step",
+    next: "Next step",
+    stepImage: "{{title}} in the {{name}} studio",
+    openStudio: "Open the {{name}} studio →",
+    guide: {
+      JEWELRY: {
+        size: {
+          title: "Pick your size",
+          text: "Choose a size, then fine-tune the length in half-centimetre steps. Want a head start? Begin with one of our ready-made pieces.",
+        },
+        beads: {
+          title: "Add beads and charms",
+          text: "Tap a bead, letter or charm to add it, or hold and drag it exactly where you want it. Filter by material to find the right one.",
+        },
+        fit: {
+          title: "Watch it come together",
+          text: "Swap, move or remove any detail. The length bar shows how much room is left until your piece fits perfectly.",
+        },
+        preview: {
+          title: "Preview every bead",
+          text: "Look over your piece up close, then save it to My Designs or continue to your order.",
+        },
+        order: {
+          title: "Order, and we make it",
+          text: "Add your delivery details and pay in cash when it arrives. Our makers string it by hand, and you can follow every stage in My Orders.",
+        },
+      },
+      GIFT: {
+        arrive: {
+          title: "Choose how it arrives",
+          text: "Transparent to show what's inside, or closed to keep the surprise. Then pick the shape, style and box colour.",
+        },
+        fill: {
+          title: "Fill the box",
+          text: "Browse items, decorations and filler. Tap to add, or hold and drag each piece into the box.",
+        },
+        note: {
+          title: "Add a personal note",
+          text: "Write a message in your own words and place it in the box. Personal text is free.",
+        },
+        preview: {
+          title: "See your gift",
+          text: "Check how your box will look once it's packed by hand, before you decide.",
+        },
+        order: {
+          title: "Order, and we pack it",
+          text: "Add your delivery details and pay in cash when it arrives. We put your gift together by hand and you can follow it in My Orders.",
+        },
+      },
+      MUG: {
+        image: {
+          title: "Add your image",
+          text: "Upload a photo or artwork, or choose one of our designs. Add up to six lines of text if you like.",
+        },
+        arrange: {
+          title: "Make it yours",
+          text: "Move, resize and rotate your design. Keep the important parts inside the dashed printable area.",
+        },
+        preview: {
+          title: "Turn it around",
+          text: "Preview the left side, front and right side of your mug, so there are no surprises.",
+        },
+        order: {
+          title: "Choose how many, and order",
+          text: "Order one mug or a set of identical ones. We make it once you've placed your order and deliver it to your door.",
+        },
+      },
+      APPAREL: {
+        piece: {
+          title: "Choose your piece and size",
+          text: "Start from the piece you love and pick your size. Your size is reserved when you place the order.",
+        },
+        design: {
+          title: "Add your design",
+          text: "Choose logos and graphics, add your own text, or upload your artwork as a PNG.",
+        },
+        sides: {
+          title: "Front and back",
+          text: "Switch between the front and the back, and place each design inside the print area.",
+        },
+        preview: {
+          title: "Check both sides",
+          text: "See the front and the back exactly as we'll print them.",
+        },
+        order: {
+          title: "Order, and we print it",
+          text: "Add your delivery details and pay in cash when it arrives. You can follow every stage in My Orders.",
+        },
+      },
+      CASE: {
+        phone: {
+          title: "Choose your phone",
+          text: "Pick the brand and model. Every case is made for its exact shape and camera.",
+        },
+        design: {
+          title: "Add your photo or design",
+          text: "Upload a photo you love, or choose one of our designs.",
+        },
+        position: {
+          title: "Position it",
+          text: "Zoom and move your image. The dashed line shows the printable area around the camera.",
+        },
+        preview: {
+          title: "Preview your case",
+          text: "See how the finished case will look. On a phone, tilt it to look around.",
+        },
+        order: {
+          title: "Order, and we make it",
+          text: "Add your delivery details and pay in cash when it arrives. We print your case by hand once you order.",
+        },
+      },
+      STICKER: {
+        shape: {
+          title: "Choose shape and size",
+          text: "Square, circle, rectangle or oval. All the stickers in one set share the same shape and size.",
+        },
+        images: {
+          title: "Add your images",
+          text: "Upload your own images or pick from our designs. One set can hold up to five different designs.",
+        },
+        fit: {
+          title: "Fit each design",
+          text: "Position every image on its sticker and switch between your designs with the tabs.",
+        },
+        quantity: {
+          title: "Choose how many",
+          text: "Preview your sticker sheet and set how many of each design you want.",
+        },
+        order: {
+          title: "Order, and we cut them",
+          text: "Add your delivery details and pay in cash when they arrive. You can follow every stage in My Orders.",
+        },
+      },
+    },
+    journeyEyebrow: "From idea to doorstep",
+    journeyTitle: "From your screen",
+    journeyTitleAccent: "to your hands.",
+    journeyIntro:
+      "Once you're happy with your design, we take care of the next step: turning your digital creation into something real.",
+    journeyDesign: "Your design",
+    journeyDesignText: "Created and previewed in the studio, saved exactly as you made it.",
+    journeyDesignImage: "A mug design previewed in the studio",
+    journeyUs: "Our makers",
+    journeyProduct: "Your product",
+    journeyProductText: "Delivered to your door, ready to use, wear or gift.",
+    journeyProductImage: "A finished custom mug",
+    journeySteps: {
+      craft: "Crafted by hand",
+      check: "Given a final check",
+      pack: "Packed with care",
+      ship: "Sent on its way",
+    },
+    whyEyebrow: "Why $t(common.brand)",
+    whyTitle: "Made around",
+    whyTitleAccent: "you.",
+    why: {
+      you: { title: "Designed by you", text: "Every product starts with your idea, not with what happens to be in stock." },
+      care: { title: "Made with care", text: "Our makers turn your design into a real product, paying attention to every detail." },
+      preview: { title: "Preview before you order", text: "See your creation before you commit, and change anything you like." },
+      personal: { title: "Personal by nature", text: "Make something for yourself, or something meaningful for someone else." },
+    },
+    meaningTitle: "Not just another product.",
+    meaningTitleAccent: "Something that's yours.",
+    meaningBody: "A little personalisation turns an everyday object into something that means more.",
+    meaningImage: "A personalised gift box with a handwritten note",
+    meaning: {
+      bracelet: "A bracelet designed for someone special.",
+      gift: "A gift box filled with their favourite things.",
+      mug: "A mug that carries a memory.",
+      case: "A phone case that shows your style.",
+      stickers: "Stickers that bring an inside joke to life.",
+    },
+    ctaTitle: "Have something",
+    ctaTitleAccent: "in mind?",
+    ctaBody: "You don't have to find exactly what you're looking for. Create it.",
+    ctaTagline: "You imagine it. We help make it real.",
+    browseStudios: "Browse the studios",
   },
   notFound: {
     eyebrow: "Page not found",

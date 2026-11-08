@@ -7,41 +7,9 @@ import { useAuth } from "../auth/AuthContext";
 import { Chip } from "../components/Controls";
 import { STATIC_CATEGORIES, lookByKey, lookFor, studioHref, useStudioCategories } from "../data/homeCategories";
 import { useApi } from "../hooks/useApi";
+import { EASE, prefersReducedMotion, useInView } from "../hooks/useInView";
 import i18n from "../i18n";
 import { formatNumber } from "../lib/format";
-
-const EASE = "cubic-bezier(.2,.7,.2,1)";
-
-function prefersReducedMotion() {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
-
-/** Observes the element once; flips to true on first intersection, then disconnects. */
-function useInView<T extends Element>(threshold = 0.3) {
-  const ref = useRef<T>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { threshold },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [threshold]);
-
-  return [ref, inView] as const;
-}
 
 /* ---------------- Hero ---------------- */
 

@@ -14,11 +14,11 @@ export interface CategoryLook {
   studio: string;
 }
 
-type LookKey = "bracelet" | "necklace" | "gifts" | "mugs" | "apparel" | "cases" | "stickers";
+export type LookKey = "bracelet" | "necklace" | "gifts" | "mugs" | "apparel" | "cases" | "stickers";
 
 const IMAGES: Record<LookKey, string> = {
   bracelet: "/images/bracelet.jpg",
-  necklace: "/images/necklace.jpg",
+  necklace: "/images/necklace_glass_beads.jpg",
   gifts: "/images/gifts.jpg",
   mugs: "/images/mugs.jpg",
   apparel: "/images/apparel.jpg",

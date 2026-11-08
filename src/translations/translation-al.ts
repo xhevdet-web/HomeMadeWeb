@@ -34,6 +34,7 @@ export const translationAL: Translation<TranslationShape> = {
     main: "Kryesore",
     home: "Kryefaqja",
     studios: "Studiot",
+    about: "Rreth nesh",
     myDesigns: "Dizajnet e mia",
     orders: "Porositë",
     profile: "Profili",
@@ -166,6 +167,221 @@ export const translationAL: Translation<TranslationShape> = {
     groups: { all: "Të gjitha", jewelry: "Stoli", home: "Shtëpi", apparel: "Veshje", tech: "Teknologji", gifts: "Dhurata" },
     designYourOwn: "Dizajnoje vetë",
     noMatch: "Asnjë kategori nuk përputhet me “{{query}}”.",
+  },
+  about: {
+    eyebrow: "Rreth $t(common.brand)",
+    heroTitle: "Ideja jote.",
+    heroTitle2: "Dizajni yt.",
+    heroTitleAccent: "E bërë realitet.",
+    heroBody:
+      "Dhuratat dhe kujtimet më të bukura janë ato që ndihen personale. Prandaj të japim mjetet për të dizajnuar pikërisht atë që ke në mendje. Ti e krijon në ekran, ne e kthejmë në diçka që mund ta mbash në dorë.",
+    startCreating: "Fillo krijimin →",
+    seeHow: "Shiko si funksionon",
+    heroImage: "{{name}} e personalizuar",
+    storyEyebrow: "Ideja jonë",
+    storyTitle: "Krijuar për",
+    storyTitleAccent: "idetë e tua.",
+    storyBody:
+      "Shumica prej nesh e dimë saktësisht çfarë duam. Një emër në byzylyk, një fotografi në gotë, një kuti dhuratë me gjërat që i do më shumë. Thjesht nuk e gjejmë dot në raft.",
+    storyBody2:
+      "$t(common.brand) e mbush këtë boshllëk. Zgjidh një produkt, bëje tëndin në njërën nga studiot tona krijuese, shiko pamjen paraprake dhe mjeshtrit tanë e kthejnë dizajnin tënd në realitet.",
+    shopAsks: "Shumica e dyqaneve pyesin",
+    shopQuestion: "“Çfarë dëshiron të blesh?”",
+    weAsk: "Ne pyesim edhe",
+    weQuestion: "“Çfarë dëshiron të krijosh?”",
+    formulaLabel: "Çfarë e bën $t(common.brand)",
+    formula: {
+      creativity: { title: "Kreativitet", text: "Ideja jote, stili yt, historia jote." },
+      personal: { title: "Personalizim", text: "Studio që të lejojnë ta formësosh çdo detaj." },
+      craft: { title: "Punë e vërtetë dore", text: "Punohet me dorë sapo të bësh porosinë." },
+    },
+    howEyebrow: "Si funksionon",
+    howTitle: "Si dëshiron",
+    howTitleAccent: "të krijosh?",
+    howIntro: "Zgjidh një produkt dhe shiko hap pas hapi si funksionon studioja e tij.",
+    filterLabel: "Zgjidh një produkt",
+    loadingProducts: "Po ngarkohen produktet",
+    carouselLabel: "Si të krijosh: {{name}}",
+    stepOf: "Hapi {{number}} nga {{total}}",
+    stepLabel: "Hapi {{number}}: {{title}}",
+    goToStep: "Shko te hapi {{number}}: {{title}}",
+    previous: "Hapi i mëparshëm",
+    next: "Hapi tjetër",
+    stepImage: "{{title}} në studion {{name}}",
+    openStudio: "Hap studion: {{name}} →",
+    guide: {
+      JEWELRY: {
+        size: {
+          title: "Zgjidh madhësinë",
+          text: "Zgjidh një madhësi, pastaj rregullo gjatësinë me hapa nga gjysmë centimetri. Do një fillim të gatshëm? Nis nga njëri prej punimeve tona.",
+        },
+        beads: {
+          title: "Shto rruaza dhe varëse",
+          text: "Prek një rruazë, shkronjë ose varëse për ta shtuar, ose mbaje dhe tërhiqe pikërisht aty ku e do. Filtro sipas materialit për ta gjetur më shpejt.",
+        },
+        fit: {
+          title: "Shiko si merr formë",
+          text: "Ndërro, lëviz ose hiq çdo detaj. Shiriti i gjatësisë tregon sa vend ka mbetur derisa punimi të të rrijë në masë.",
+        },
+        preview: {
+          title: "Shiko çdo rruazë",
+          text: "Shqyrtoje punimin nga afër, pastaj ruaje te Dizajnet e mia ose vazhdo me porosinë.",
+        },
+        order: {
+          title: "Porosit, ne e punojmë",
+          text: "Shto të dhënat e dërgesës dhe paguaj me para në dorë kur të vijë. Mjeshtrit tanë e thurin me dorë dhe ti mund ta ndjekësh çdo fazë te Porositë.",
+        },
+      },
+      GIFT: {
+        arrive: {
+          title: "Zgjidh si do të vijë",
+          text: "E tejdukshme që të duket çfarë ka brenda, ose e mbyllur për ta ruajtur surprizën. Pastaj zgjidh formën, stilin dhe ngjyrën e kutisë.",
+        },
+        fill: {
+          title: "Mbushe kutinë",
+          text: "Shfleto artikujt, dekorimet dhe mbushjet. Prek për ta shtuar, ose mbaje dhe tërhiqe secilën pjesë brenda kutisë.",
+        },
+        note: {
+          title: "Shto një mesazh personal",
+          text: "Shkruaj një mesazh me fjalët e tua dhe vendose në kuti. Teksti personal është falas.",
+        },
+        preview: {
+          title: "Shiko dhuratën tënde",
+          text: "Shiko si do të duket kutia pasi të paketohet me dorë, para se të vendosësh.",
+        },
+        order: {
+          title: "Porosit, ne e paketojmë",
+          text: "Shto të dhënat e dërgesës dhe paguaj me para në dorë kur të vijë. Dhuratën e përgatisim me dorë dhe ti mund ta ndjekësh te Porositë.",
+        },
+      },
+      MUG: {
+        image: {
+          title: "Shto fotografinë",
+          text: "Ngarko një fotografi ose vizatim, ose zgjidh njërin nga dizajnet tona. Nëse do, shto deri në gjashtë rreshta tekst.",
+        },
+        arrange: {
+          title: "Bëje tëndin",
+          text: "Lëvize, zmadhoje dhe rrotulloje dizajnin. Mbaji pjesët kryesore brenda zonës së printimit me vija të ndërprera.",
+        },
+        preview: {
+          title: "Rrotulloje gotën",
+          text: "Shiko anën e majtë, pjesën e përparme dhe anën e djathtë të gotës, që të mos ketë surpriza.",
+        },
+        order: {
+          title: "Zgjidh sasinë dhe porosit",
+          text: "Porosit një gotë ose disa të njëjta. E punojmë sapo të bësh porosinë dhe ta sjellim te dera.",
+        },
+      },
+      APPAREL: {
+        piece: {
+          title: "Zgjidh veshjen dhe masën",
+          text: "Nis nga veshja që të pëlqen dhe zgjidh masën. Masa të rezervohet kur bën porosinë.",
+        },
+        design: {
+          title: "Shto dizajnin",
+          text: "Zgjidh logo dhe grafika, shto tekstin tënd ose ngarko vizatimin tënd si PNG.",
+        },
+        sides: {
+          title: "Përpara dhe prapa",
+          text: "Kalo nga pjesa e përparme te ajo e pasme dhe vendose çdo dizajn brenda zonës së printimit.",
+        },
+        preview: {
+          title: "Kontrollo të dyja anët",
+          text: "Shiko pjesën e përparme dhe të pasme pikërisht ashtu siç do t'i printojmë.",
+        },
+        order: {
+          title: "Porosit, ne e printojmë",
+          text: "Shto të dhënat e dërgesës dhe paguaj me para në dorë kur të vijë. Çdo fazë mund ta ndjekësh te Porositë.",
+        },
+      },
+      CASE: {
+        phone: {
+          title: "Zgjidh telefonin",
+          text: "Zgjidh markën dhe modelin. Çdo maskë punohet për formën dhe kamerën e saktë të telefonit.",
+        },
+        design: {
+          title: "Shto fotografinë ose dizajnin",
+          text: "Ngarko një fotografi që të pëlqen, ose zgjidh njërin nga dizajnet tona.",
+        },
+        position: {
+          title: "Vendose në pozicion",
+          text: "Zmadhoje dhe lëvize fotografinë. Vija e ndërprerë tregon zonën e printimit rreth kamerës.",
+        },
+        preview: {
+          title: "Shiko maskën",
+          text: "Shiko si do të duket maska e përfunduar. Në telefon, anoje për ta parë nga çdo kënd.",
+        },
+        order: {
+          title: "Porosit, ne e punojmë",
+          text: "Shto të dhënat e dërgesës dhe paguaj me para në dorë kur të vijë. Maskën e printojmë me dorë sapo të bësh porosinë.",
+        },
+      },
+      STICKER: {
+        shape: {
+          title: "Zgjidh formën dhe madhësinë",
+          text: "Katror, rreth, drejtkëndësh ose oval. Të gjitha stickers në një set kanë të njëjtën formë dhe madhësi.",
+        },
+        images: {
+          title: "Shto fotografitë",
+          text: "Ngarko fotografitë e tua ose zgjidh nga dizajnet tona. Një set mund të ketë deri në pesë dizajne të ndryshme.",
+        },
+        fit: {
+          title: "Përshtate çdo dizajn",
+          text: "Vendose çdo fotografi në sticker-in e vet dhe kalo nga një dizajn te tjetri me skedat.",
+        },
+        quantity: {
+          title: "Zgjidh sasinë",
+          text: "Shiko fletën me stickers dhe cakto sa copë do nga secili dizajn.",
+        },
+        order: {
+          title: "Porosit, ne i presim",
+          text: "Shto të dhënat e dërgesës dhe paguaj me para në dorë kur të vijnë. Çdo fazë mund ta ndjekësh te Porositë.",
+        },
+      },
+    },
+    journeyEyebrow: "Nga ideja te dera jote",
+    journeyTitle: "Nga ekrani yt",
+    journeyTitleAccent: "në duart e tua.",
+    journeyIntro:
+      "Kur je i kënaqur me dizajnin, hapin tjetër e marrim ne përsipër: e kthejmë krijimin tënd digjital në diçka të vërtetë.",
+    journeyDesign: "Dizajni yt",
+    journeyDesignText: "I krijuar dhe i parë në studio, i ruajtur pikërisht ashtu siç e bëre.",
+    journeyDesignImage: "Dizajn i një gote, i parë paraprakisht në studio",
+    journeyUs: "Mjeshtrit tanë",
+    journeyProduct: "Produkti yt",
+    journeyProductText: "Të vjen te dera, gati për ta përdorur, veshur ose dhuruar.",
+    journeyProductImage: "Gotë e personalizuar e përfunduar",
+    journeySteps: {
+      craft: "Punohet me dorë",
+      check: "Kontrollohet edhe një herë",
+      pack: "Paketohet me kujdes",
+      ship: "Niset drejt teje",
+    },
+    whyEyebrow: "Pse $t(common.brand)",
+    whyTitle: "E krijuar",
+    whyTitleAccent: "rreth teje.",
+    why: {
+      you: { title: "E dizajnuar nga ti", text: "Çdo produkt fillon nga ideja jote, jo nga ajo që rastësisht gjendet në stok." },
+      care: { title: "E punuar me kujdes", text: "Mjeshtrit tanë e kthejnë dizajnin tënd në produkt të vërtetë, duke i kushtuar vëmendje çdo detaji." },
+      preview: { title: "Shiko para se të porositësh", text: "Shiko krijimin tënd para se të vendosësh dhe ndrysho çfarë të duash." },
+      personal: { title: "Personale në thelb", text: "Krijo diçka për vete, ose diçka me kuptim për dikë tjetër." },
+    },
+    meaningTitle: "Jo thjesht një produkt tjetër.",
+    meaningTitleAccent: "Diçka që është e jotja.",
+    meaningBody: "Pak personalizim e kthen një send të përditshëm në diçka që do të thotë shumë më tepër.",
+    meaningImage: "Kuti dhuratë e personalizuar me një shënim të shkruar me dorë",
+    meaning: {
+      bracelet: "Një byzylyk i dizajnuar për dikë të veçantë.",
+      gift: "Një kuti dhuratë me gjërat që i do më shumë.",
+      mug: "Një gotë që mban një kujtim.",
+      case: "Një maskë telefoni që tregon stilin tënd.",
+      stickers: "Stickers që i japin jetë një shakaje mes jush.",
+    },
+    ctaTitle: "Ke diçka",
+    ctaTitleAccent: "në mendje?",
+    ctaBody: "Nuk ke pse ta gjesh pikërisht atë që kërkon. Krijoje.",
+    ctaTagline: "Ti e imagjinon. Ne të ndihmojmë ta bësh realitet.",
+    browseStudios: "Shiko studiot",
   },
   notFound: {
     eyebrow: "Faqja nuk u gjet",
