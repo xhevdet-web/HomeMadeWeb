@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Category, Product } from "../api/models";
-import { isCustom, isSoldOut, priceLabel, productAction, productPictures } from "../lib/products";
+import { fitsLabel, isCustom, isSoldOut, priceLabel, productAction, productPictures } from "../lib/products";
 import { corsImage } from "../studio/capture";
 import { Icon } from "./Icon";
 import { ActionButton, ProductBadge, productShadow, productStage } from "./ProductCard";
@@ -163,6 +163,7 @@ export function ProductViewer({ products, index, categoryOf, onIndex, onClose }:
             {product.name}
           </h2>
           <p className={`mt-2 text-xl font-semibold ${soldOut ? "text-muted-foreground" : "text-primary"}`}>{priceLabel(product, isCustom(product, category))}</p>
+          {fitsLabel(product, category) && <p className="mt-1 text-sm font-medium text-foreground/80">{fitsLabel(product, category)}</p>}
           {product.description && <p className="mt-4 text-sm leading-relaxed whitespace-pre-line text-muted-foreground sm:text-base">{product.description}</p>}
 
           {pics.length > 1 && (

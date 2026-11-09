@@ -8,15 +8,21 @@ import { money } from "../../lib/format";
 import { useStudio } from "../../studio/StudioContext";
 import { ContinueButton, Notice, StudioShell, Tabs } from "../../studio/StudioShell";
 import type { StudioProps } from "../data";
-import { brandGroups, isSoldOut, modelOf } from "./logic";
+import { brandGroups, isSoldOut, modelOf, phoneModels, readyCases } from "./logic";
 import { corsImage } from "../../studio/capture";
+import { ReadyMade } from "../ReadyMade";
 
-/** Step 1: the phone model. Models are the CASE category's COMPANY products, grouped by brand. */
+/**
+ * Step 1: the phone model, from the CASE category's phone models grouped by brand. The category's
+ * ready-made cases are listed below, ordered as they are; those that fit the chosen model first.
+ */
 export function CaseModels({ category, data }: StudioProps) {
   const { getDraft, setDraft } = useStudio();
   const d = getDraft(category.id, "CASE");
   const current = modelOf(d, data);
-  const groups = brandGroups(data.products);
+  const groups = brandGroups(phoneModels(data));
+  const ready = readyCases(data);
+  const fitting = current ? [...ready.filter((p) => p.baseProductId === current.id), ...ready.filter((p) => p.baseProductId !== current.id)] : ready;
   const [brand, setBrand] = useState(current?.deviceBrand?.trim() || groups[0]?.brand || "OTHER");
   const group = groups.find((g) => g.brand === brand) ?? groups[0];
 
@@ -76,6 +82,7 @@ export function CaseModels({ category, data }: StudioProps) {
           blockedLabel={current && isSoldOut(current) ? t("cases.modelSoldOut") : t("cases.chooseModel")}
         />
       </div>
+      <ReadyMade products={fitting} category={category} />
     </StudioShell>
   );
 }

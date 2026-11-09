@@ -9,12 +9,17 @@ import { money } from "./format";
 /**
  * How the catalog's COMPANY products are sold. A product with a print area is a blank to design
  * on (the blank mug, apparel bases, phone case models): "made to order", opened in its studio.
- * Every other COMPANY product is a ready-made piece, ordered as it is.
+ * In a CASE category every product is a phone model, except a ready-made case: it points at the
+ * model it fits (baseProductId). Every other COMPANY product is a ready-made piece, ordered as it is.
  */
-export function isCustom(p: Pick<Product, "printAreas">, category?: Pick<Category, "builderType"> | null) {
+export function isCustom(p: Pick<Product, "printAreas" | "baseProductId">, category?: Pick<Category, "builderType"> | null) {
   const front = (p.printAreas as { front?: unknown } | null | undefined)?.front;
-  return !!front || category?.builderType === "APPAREL" || category?.builderType === "CASE";
+  return !!front || category?.builderType === "APPAREL" || (category?.builderType === "CASE" && !p.baseProductId);
 }
+
+/** "Fits iPhone 15" for a ready-made case; nothing for any other product. */
+export const fitsLabel = (p: Pick<Product, "origin" | "baseProduct">, category?: Pick<Category, "builderType"> | null) =>
+  category?.builderType === "CASE" && p.origin !== "CUSTOMER" && p.baseProduct?.name ? i18n.t("products.fits", { name: p.baseProduct.name }) : "";
 
 /**
  * Out of stock, as the API decides it: with sizes, when no size has stock left; otherwise (no

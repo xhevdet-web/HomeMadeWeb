@@ -8,7 +8,17 @@ import { apiFraction, apiRotation, apiScale, designName, uploadsOf, type StudioD
 /** Until a model's printable area is configured, artwork fills the whole template. */
 const FULL_AREA: PrintArea = { x: 0.02, y: 0.01, width: 0.96, height: 0.98, radius: 0.14 };
 
-export const modelOf = (d: CaseDraft, data: StudioData) => data.products.find((p) => p.id === d.modelId) ?? null;
+/**
+ * The CASE category's COMPANY products are of two kinds, and the API guarantees which: a phone
+ * model (no baseProductId, a print area) is a blank to design on; a ready-made case points at the
+ * model it fits through baseProductId and is sold as it is.
+ */
+export const isPhoneModel = (p: Product) => !p.baseProductId;
+export const phoneModels = (data: StudioData) => data.products.filter(isPhoneModel);
+export const readyCases = (data: StudioData) => data.products.filter((p) => !isPhoneModel(p));
+
+/** The draft's phone model; never a ready-made case, which can't be designed on. */
+export const modelOf = (d: CaseDraft, data: StudioData) => phoneModels(data).find((p) => p.id === d.modelId) ?? null;
 
 export function caseAreas(model: Product | null) {
   const raw = (model?.printAreas ?? {}) as { front?: unknown; camera?: unknown };
@@ -106,7 +116,7 @@ export async function captureCase(d: CaseDraft, model: Product) {
 }
 
 export async function caseFromProduct(p: Product, data: StudioData, display = false): Promise<CaseDraft> {
-  const model = data.products.find((m) => m.id === (p.baseProductId ?? p.baseProduct?.id)) ?? null;
+  const model = phoneModels(data).find((m) => m.id === (p.baseProductId ?? p.baseProduct?.id)) ?? null;
   const item = p.items?.[0];
   if (!item) return { kind: "CASE", modelId: model?.id ?? null, elements: [] };
   const ratio = model?.imageUrl ? await imageSize(model.imageUrl).then((s) => s.width / s.height) : 0.49;

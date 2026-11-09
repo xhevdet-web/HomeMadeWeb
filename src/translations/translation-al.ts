@@ -492,6 +492,7 @@ export const translationAL: Translation<TranslationShape> = {
     page: "Faqja {{page}}",
     madeToOrder: "Me porosi",
     fromPrice: "nga {{price}}",
+    fits: "Për {{name}}",
     customize: "Personalizo →",
     notify: "Na njofto për një të ngjashëm",
     noPhoto: "Foto e produktit",

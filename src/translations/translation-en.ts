@@ -488,6 +488,7 @@ export const translationEN = {
     page: "Page {{page}}",
     madeToOrder: "Made to order",
     fromPrice: "from {{price}}",
+    fits: "Fits {{name}}",
     customize: "Personalise →",
     notify: "Tell me about a similar one",
     noPhoto: "Product photo",

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { Category, Product } from "../api/models";
-import { isCustom, isSoldOut, priceLabel, productAction, productPictures, type ProductAction } from "../lib/products";
+import { fitsLabel, isCustom, isSoldOut, priceLabel, productAction, productPictures, type ProductAction } from "../lib/products";
 import { corsImage } from "../studio/capture";
 import { Icon } from "./Icon";
 
@@ -40,7 +40,7 @@ export function ProductCard({ product, category, onOpen }: { product: Product; c
   const soldOut = isSoldOut(product);
   const custom = isCustom(product, category);
   const [front, back] = productPictures(product);
-  const detail = product.description?.split("\n")[0]?.trim() || product.color || "";
+  const detail = fitsLabel(product, category) || product.description?.split("\n")[0]?.trim() || product.color || "";
   const image = (src: string, extra: string) => (
     <img
       {...corsImage}

@@ -204,7 +204,7 @@ export interface Product {
   designPreviewUrl?: string | null;
   backDesignPreviewUrl?: string | null;
   baseProductId?: string | null;
-  baseProduct?: { id: string; name: string; price?: number; color?: string | null; colorHex?: string | null; imageUrl?: string | null; printAreas?: unknown } | null;
+  baseProduct?: { id: string; name: string; price?: number; color?: string | null; colorHex?: string | null; imageUrl?: string | null; printAreas?: unknown; deviceBrand?: string | null; isActive?: boolean } | null;
   selectedSize?: { id: string; name: string; selectedMeasurementMm?: number } & Record<string, unknown>;
   textLayers?: unknown;
   giftPackagingId?: string | null;
