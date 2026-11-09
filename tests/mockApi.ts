@@ -100,6 +100,9 @@ export interface MockOptions {
   imageCors?: boolean;
   onOrder?: Handler;
   onProduct?: Handler;
+  onContact?: Handler;
+  /** What GET /orders lists (empty by default). */
+  orders?: unknown[];
   /** "sq" leaves the site in its default language, Shqip. */
   language?: "en" | "sq";
 }
@@ -184,7 +187,12 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
     }
     const one = path.match(/^\/orders\/([^/]+)$/);
     if (one) return reply(order(one[1], Object.values(products)[0]));
-    if (path === "/orders") return reply({ data: [], total: 0, page: 1, limit: 20 });
+    if (path === "/orders") return reply({ data: options.orders ?? [], total: options.orders?.length ?? 0, page: 1, limit: 20 });
+    if (path === "/contact" && method === "POST") {
+      const custom = options.onContact?.(req, req.postDataJSON());
+      if (custom) return reply(custom.json, custom.status);
+      return reply({ success: true, message: "Your message has been sent." });
+    }
     if (path === "/notifications/unread-count") return reply({ count: 0 });
     if (path === "/notifications") return reply([]);
     if (path === "/gift-packaging") return reply([]);

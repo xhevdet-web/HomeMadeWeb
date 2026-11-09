@@ -34,11 +34,11 @@ test.describe("Continue with Google", () => {
     await dialog.getByRole("button", { name: "Continue with Google" }).click();
     await expect(dialog.getByText("An account with this email already exists. Enter your password to connect Google.")).toBeVisible();
 
-    await dialog.getByLabel("Your HomeCreator password").fill("wrong-password");
+    await dialog.getByLabel("Your HM Craft password").fill("wrong-password");
     await dialog.getByRole("button", { name: "Connect Google and sign in" }).click();
     await expect(dialog.getByRole("alert")).toContainText("That password is incorrect.");
 
-    await dialog.getByLabel("Your HomeCreator password").fill("right-password");
+    await dialog.getByLabel("Your HM Craft password").fill("right-password");
     await dialog.getByRole("button", { name: "Connect Google and sign in" }).click();
     await expect(dialog).toHaveCount(0);
     expect(googleBodies(api)).toEqual([

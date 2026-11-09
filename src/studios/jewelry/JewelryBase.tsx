@@ -117,7 +117,7 @@ export function JewelryBase({ category, data }: StudioProps) {
       <div className="mt-8">
         <ContinueButton ready={!!size} href={studioHref(category, "design")} label={t("cases.continue")} blockedLabel={t("apparel.chooseSize")} />
       </div>
-      <ReadyMade products={data.products} />
+      <ReadyMade products={data.products} category={category} />
     </StudioShell>
   );
 }

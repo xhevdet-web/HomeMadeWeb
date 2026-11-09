@@ -1,26 +1,19 @@
 import i18n from "../i18n";
-export function Logo() {
+
+// The HM Craft logo, cut out of the brand artwork on a transparent background (public/brand).
+// "compact" leaves out the tagline (used in the sign-in dialog); "header" and "full" keep it.
+const LOGOS = {
+  compact: { src: "/brand/hm-craft-logo.png", width: 513, height: 150, className: "h-9 sm:h-10" },
+  full: { src: "/brand/hm-craft-logo-full.png", width: 753, height: 220, className: "h-12 sm:h-14" },
+  // The full logo, with tagline, at header size.
+  header: { src: "/brand/hm-craft-logo-full.png", width: 753, height: 220, className: "h-10 sm:h-12" },
+} as const;
+
+export function Logo({ variant = "compact" }: { variant?: keyof typeof LOGOS }) {
+  const logo = LOGOS[variant];
   return (
-    <a href="#/" className="flex items-center gap-2.5" aria-label={i18n.t("controls.logo")}>
-      <svg
-        width="28"
-        height="28"
-        viewBox="0 0 28 28"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-primary"
-        aria-hidden="true"
-      >
-        <path d="M3 13 14 4l11 9" />
-        <path d="M6 11v13h16V11" />
-        <path d="M11.5 24v-7h5v7" />
-      </svg>
-      <span className="font-display text-xl font-semibold tracking-tight">
-        Home<em className="font-normal text-primary">Creator</em>
-      </span>
+    <a href="#/" className="flex shrink-0 items-center" aria-label={i18n.t("controls.logo")}>
+      <img src={logo.src} alt="" width={logo.width} height={logo.height} decoding="async" className={`${logo.className} w-auto select-none`} draggable={false} />
     </a>
   );
 }

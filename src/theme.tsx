@@ -4,12 +4,18 @@ export type Theme = "dark" | "light";
 
 const KEY = "homecreator-theme";
 
+/**
+ * Light mode is switched off for now: every visitor gets dark, whatever was saved before.
+ * To bring it back, restore the commented code below (and the toggles in Nav and ProfilePage,
+ * and the early script in index.html).
+ */
 function stored(): Theme {
-  try {
-    return localStorage.getItem(KEY) === "light" ? "light" : "dark";
-  } catch {
-    return "dark";
-  }
+  // try {
+  //   return localStorage.getItem(KEY) === "light" ? "light" : "dark";
+  // } catch {
+  //   return "dark";
+  // }
+  return "dark";
 }
 
 const ThemeContext = createContext<{ theme: Theme; setTheme: (t: Theme) => void }>({ theme: "dark", setTheme: () => {} });

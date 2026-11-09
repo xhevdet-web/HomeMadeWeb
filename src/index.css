@@ -36,6 +36,8 @@
   --fade-stop: 40%;
   /* Muted text that follows the page theme, even inside the dark-forced hero. */
   --page-muted: oklch(0.72 0.03 265);
+  /* Background behind product photos (transparent PNGs): change it here for every card and viewer. */
+  --product-stage: #f3eee6;
 }
 
 /* Light theme: warm paper background, navy text, a deeper apricot so accents stay readable. */

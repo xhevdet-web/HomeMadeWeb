@@ -10,7 +10,7 @@ const NAMES: Record<SiteLanguage, string> = { sq: "Shqip", en: "English" };
  * Language select: shows the current language (globe + SQ / EN, or its name with `label`)
  * and opens a list of both, the current one checked. `up` opens it above, for the footer.
  */
-export function LanguageToggle({ className = "", label = false, up = false }: { className?: string; label?: boolean; up?: boolean }) {
+export function LanguageToggle({ className = "", label = false, up = false, ghost = false }: { className?: string; label?: boolean; up?: boolean; ghost?: boolean }) {
   const { t, i18n } = useTranslation();
   const current: SiteLanguage = i18n.language === "en" ? "en" : "sq";
   const [open, setOpen] = useState(false);
@@ -53,9 +53,12 @@ export function LanguageToggle({ className = "", label = false, up = false }: { 
         aria-label={`${t("language.label")}: ${NAMES[current]}`}
         title={t("language.label")}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-10 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-bold transition-colors hover:bg-secondary"
+        className={`flex items-center gap-1.5 rounded-full text-xs font-bold transition-colors hover:bg-secondary ${
+          // ghost: borderless, for the header toolbar.
+          ghost ? `h-9 px-2.5 text-muted-foreground hover:text-foreground ${open ? "bg-secondary text-foreground" : ""}` : "h-10 border border-border px-3"
+        }`}
       >
-        <Icon name="globe" size={16} />
+        <Icon name="globe" size={ghost ? 15 : 16} />
         {label ? NAMES[current] : current.toUpperCase()}
         <Icon name="chevronDown" size={14} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>

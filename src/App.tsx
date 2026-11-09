@@ -7,6 +7,7 @@ import { Nav } from "./components/Nav";
 import AboutPage from "./pages/AboutPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import ContactPage from "./pages/ContactPage";
+import ProductsPage from "./pages/ProductsPage";
 import CreatePage from "./pages/CreatePage";
 import DesignsPage from "./pages/DesignsPage";
 import HomePage from "./pages/HomePage";
@@ -32,6 +33,8 @@ function renderPage({ segments, query }: Route) {
   switch (section) {
     case undefined:
       return <HomePage />;
+    case "products":
+      return param ? <NotFoundPage /> : <ProductsPage query={query} />;
     case "studios":
       return param ? <StudioPage slug={param} step={extra} query={query} /> : <StudiosPage />;
     case "about":
@@ -39,7 +42,7 @@ function renderPage({ segments, query }: Route) {
     case "create":
       return param ? <NotFoundPage /> : <CreatePage />;
     case "contact":
-      return param ? <NotFoundPage /> : <ContactPage />;
+      return param ? <NotFoundPage /> : <ContactPage query={query} />;
     case "designs":
       return param ? <NotFoundPage /> : protect(<DesignsPage />);
     case "checkout":
@@ -70,7 +73,7 @@ export default function App() {
               <Nav route={route} />
               {/* Keyed by path so each page remounts and replays its entrance animation. */}
               <main key={route.path}>{renderPage(route)}</main>
-              <Footer />
+              <Footer section={route.segments[0] ?? ""} />
             </div>
           </StudioProvider>
         </AuthProvider>

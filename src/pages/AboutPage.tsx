@@ -71,17 +71,21 @@ function AboutHero() {
           </div>
         </div>
 
-        {/* Six of the things you can make; phones show the first three in one row. */}
-        <ul className="animate-rise grid grid-cols-3 gap-3 sm:gap-4" style={rise(450)}>
+        {/* Six of the things you can make: a 3×2 grid on every screen, middle column staggered.
+            Bottom padding leaves room for the shifted column; max width keeps tablets tidy. */}
+        <ul
+          className="animate-rise mx-auto grid w-full max-w-md grid-cols-3 gap-2.5 pb-6 sm:max-w-xl sm:gap-4 sm:pb-10 lg:max-w-none"
+          style={rise(450)}
+        >
           {HERO_TILES.map((key, i) => (
-            <li key={key} className={`${i >= 3 ? "hidden sm:block" : ""} ${i % 3 === 1 ? "sm:translate-y-10" : ""}`}>
+            <li key={key} className={i % 3 === 1 ? "translate-y-6 sm:translate-y-10" : ""}>
               <img
                 src={lookByKey(key).image!}
                 alt={t("about.heroImage", { name: t(`looks.${key}.name`).toLowerCase() })}
                 width={1280}
                 height={960}
                 decoding="async"
-                className="aspect-[3/4] w-full rounded-[1.5rem] border border-border bg-secondary object-cover"
+                className="aspect-[3/4] w-full rounded-2xl border border-border bg-secondary object-cover sm:rounded-[1.5rem]"
               />
             </li>
           ))}

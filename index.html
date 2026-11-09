@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>HomeCreator — Your idea. Made real.</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>HM Craft — Handmade from home</title>
+    <link rel="icon" type="image/png" sizes="256x256" href="/brand/favicon.png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
     <meta name="theme-color" content="#0d1224" />
     <meta
       name="description"
@@ -28,12 +29,14 @@
         }
       })();
     </script>
+    <!-- Light mode is switched off for now (see src/theme.tsx).
     <script>
       // Apply the saved theme before the first paint to avoid a flash.
       try {
         if (localStorage.getItem("homecreator-theme") === "light") document.documentElement.dataset.theme = "light";
       } catch (e) {}
     </script>
+    -->
   </head>
   <body>
     <div id="root"></div>

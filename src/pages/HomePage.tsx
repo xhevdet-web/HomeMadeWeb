@@ -37,7 +37,7 @@ function Hero() {
         </p>
         <h1
           style={rise(150)}
-          className="animate-rise mt-6 font-display text-6xl leading-[0.95] font-extrabold tracking-tight sm:text-8xl lg:text-[128px]"
+          className="animate-rise mt-5 font-display text-[2.625rem] leading-[1.02] font-extrabold tracking-tight sm:text-6xl lg:text-7xl"
         >
           {t("home.heroTitle")}
           <br />
@@ -45,20 +45,20 @@ function Hero() {
         </h1>
         <p
           style={rise(300)}
-          className="animate-rise mt-8 max-w-md text-lg text-muted-foreground"
+          className="animate-rise mt-5 max-w-md text-base text-muted-foreground sm:mt-6 sm:text-lg"
         >
           {t("home.heroBody")}
         </p>
-        <div style={rise(450)} className="animate-rise mt-10 flex flex-wrap gap-4">
+        <div style={rise(450)} className="animate-rise mt-8 flex flex-wrap gap-3 sm:mt-10">
           <a
             href="#/create"
-            className="rounded-full bg-primary px-8 py-4 font-semibold text-primary-foreground shadow-glow transition-transform duration-300 hover:scale-105"
+            className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-glow transition-transform duration-300 hover:scale-105 sm:px-7 sm:py-3.5 sm:text-base"
           >
             {t("home.createYourOwn")}
           </a>
           <a
             href="#/studios"
-            className="rounded-full border border-border px-8 py-4 font-semibold backdrop-blur-md transition-colors hover:bg-secondary"
+            className="rounded-full border border-border px-6 py-3 text-sm font-semibold backdrop-blur-md transition-colors hover:bg-secondary sm:px-7 sm:py-3.5 sm:text-base"
           >
             {t("home.exploreCategories")}
           </a>
@@ -113,7 +113,7 @@ function CategoryIntro({ count }: { count: number | null }) {
   return (
     <div className="mx-auto max-w-7xl px-6 pt-32 pb-10">
       <p className="eyebrow">{count === null ? t("home.waysToCreate") : t("home.waysToCreateCount", { count })}</p>
-      <h2 className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
+      <h2 className="mt-4 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl lg:text-5xl">
         {t("home.pickCanvas")} <em className="font-normal text-primary">{t("home.makeItYours")}</em>
       </h2>
     </div>
@@ -197,16 +197,16 @@ function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolea
             <div className="bg-fade absolute inset-0" />
 
             <div className="relative flex h-full flex-col justify-between p-6 sm:p-14">
-              <span className="font-display text-sm tracking-[0.3em] text-muted-foreground">
+              <span className="font-display text-xs tracking-[0.3em] text-muted-foreground sm:text-sm">
                 {String(i + 1).padStart(2, "0")} / {total}
               </span>
               <div className="max-w-lg">
-                <p className="font-display text-xl text-primary italic sm:text-2xl">{c.line}</p>
-                <h3 className="mt-2 font-display text-5xl leading-none font-extrabold tracking-tight break-words sm:text-8xl">{c.name}</h3>
-                <p className="mt-3 text-base text-muted-foreground sm:mt-5 sm:text-lg">{c.text}</p>
+                <p className="font-display text-lg text-primary italic sm:text-xl">{c.line}</p>
+                <h3 className="mt-2 font-display text-4xl leading-none font-extrabold tracking-tight break-words sm:text-6xl lg:text-7xl">{c.name}</h3>
+                <p className="mt-3 text-sm text-muted-foreground sm:mt-4 sm:text-base">{c.text}</p>
                 <a
                   href={c.href}
-                  className="mt-5 inline-block rounded-full bg-primary px-7 py-3.5 font-semibold text-primary-foreground transition-transform duration-300 hover:scale-105 sm:mt-8"
+                  className="mt-5 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-transform duration-300 hover:scale-105 sm:mt-6 sm:text-base"
                 >
                   {t("home.designCategory", { name: c.name.toLowerCase() })}
                 </a>
@@ -266,25 +266,25 @@ function Stats() {
   });
 
   return (
-    <section id="home-stats" ref={ref} className="relative overflow-hidden py-32">
+    <section id="home-stats" ref={ref} className="relative overflow-hidden py-20 sm:py-28 lg:py-32">
       <div className="bg-glow pointer-events-none absolute inset-0" />
       <div className="relative mx-auto max-w-7xl px-6">
         <p className="eyebrow" style={reveal(0, "translateY(32px)")}>
           {t("home.statsEyebrow")}
         </p>
-        <h2 className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl" style={reveal(150, "translateY(32px)")}>
+        <h2 className="mt-4 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl lg:text-5xl" style={reveal(150, "translateY(32px)")}>
           {t("home.statsTitle")} <em className="font-normal text-primary">{t("home.statsTitleAccent")}</em>
         </h2>
 
         {/* Never a fake number: the grid is hidden if the stats can't be loaded. */}
         {!error && (
-          <div className="mt-16 grid grid-cols-1 gap-px overflow-hidden rounded-[2rem] border border-border bg-border sm:grid-cols-3" aria-busy={!data}>
+          <div className="mt-10 grid grid-cols-1 gap-px sm:mt-14 overflow-hidden rounded-[2rem] border border-border bg-border sm:grid-cols-3" aria-busy={!data}>
             {STAT_TILES.map((s, i) => (
               <div key={s.label} className="bg-card p-8 sm:p-12" style={reveal(300 + i * 150, "translateY(-64px)", !!data)}>
-                <div className="font-display text-5xl font-extrabold tracking-tight text-primary sm:text-6xl">
+                <div className="font-display text-4xl font-extrabold tracking-tight text-primary sm:text-5xl">
                   {data ? <Counter value={Number(data[s.field]) || 0} start /> : " "}
                 </div>
-                <p className="mt-3 text-muted-foreground">{t(s.label)}</p>
+                <p className="mt-2 text-sm text-muted-foreground sm:text-base">{t(s.label)}</p>
               </div>
             ))}
           </div>
@@ -303,9 +303,9 @@ function Community() {
   const { data } = useApi(status === "signedIn" ? `community:${categoryId ?? ""}` : null, (signal) => communityGallery(categoryId, signal));
   if (!data?.creations.length) return null;
   return (
-    <section className="mx-auto max-w-7xl px-6 pb-32" aria-labelledby="community-title">
+    <section className="mx-auto max-w-7xl px-6 pb-20 sm:pb-28 lg:pb-32" aria-labelledby="community-title">
       <p className="eyebrow">{t("home.communityEyebrow")}</p>
-      <h2 id="community-title" className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
+      <h2 id="community-title" className="mt-4 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl lg:text-5xl">
         {t("home.communityTitle")} <em className="font-normal text-primary">{t("home.communityTitleAccent")}</em>
       </h2>
       {data.categories.length > 1 && (
@@ -343,14 +343,14 @@ function Steps() {
   const [ref, inView] = useInView<HTMLOListElement>(0.3);
 
   return (
-    <section id="how-it-works" className="px-4 pb-32 sm:px-6">
-      <div className="mx-auto max-w-7xl rounded-[2rem] border border-border bg-card p-8 sm:p-16">
+    <section id="how-it-works" className="px-4 pb-20 sm:px-6 sm:pb-28 lg:pb-32">
+      <div className="mx-auto max-w-7xl rounded-[2rem] border border-border bg-card p-6 sm:p-12 lg:p-16">
         <p className="eyebrow">{t("home.howItWorks")}</p>
-        <h2 className="mt-5 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
+        <h2 className="mt-4 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl lg:text-5xl">
           {t("home.heroTitle")} <em className="font-normal text-primary">{t("home.heroTitleAccent")}</em>
         </h2>
 
-        <ol ref={ref} className="mt-14 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
+        <ol ref={ref} className="mt-10 grid grid-cols-1 gap-8 sm:mt-12 sm:grid-cols-2 sm:gap-10 lg:grid-cols-4">
           {STEPS.map((step) => ({ title: t(`home.steps.${step}.title`), text: t(`home.steps.${step}.text`) })).map((s, i) => (
             <li
               key={s.title}
@@ -360,18 +360,18 @@ function Steps() {
                 transition: `opacity 700ms ${EASE} ${i * 120}ms, transform 700ms ${EASE} ${i * 120}ms`,
               }}
             >
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary font-display text-xl font-bold text-primary-foreground">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary font-display text-lg font-bold text-primary-foreground">
                 {i + 1}
               </span>
-              <h3 className="mt-5 font-display text-2xl font-semibold">{s.title}</h3>
-              <p className="mt-2 text-muted-foreground">{s.text}</p>
+              <h3 className="mt-4 font-display text-xl font-semibold">{s.title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground sm:text-base">{s.text}</p>
             </li>
           ))}
         </ol>
 
         <a
           href="#/create"
-          className="mt-14 inline-block rounded-full bg-primary px-8 py-4 font-semibold text-primary-foreground shadow-glow transition-transform duration-300 hover:scale-105"
+          className="mt-10 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-glow transition-transform duration-300 hover:scale-105 sm:mt-12 sm:px-7 sm:py-3.5 sm:text-base"
         >
           {t("home.createYourOwn")}
         </a>

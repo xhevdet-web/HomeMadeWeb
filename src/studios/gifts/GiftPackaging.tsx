@@ -158,7 +158,7 @@ export function GiftPackagingStep({ category, data }: StudioProps) {
           </div>
         </div>
       )}
-      <ReadyMade products={data.products} />
+      <ReadyMade products={data.products} category={category} />
     </StudioShell>
   );
 }

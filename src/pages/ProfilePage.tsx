@@ -13,7 +13,8 @@ import { setLanguage } from "../i18n";
 import { initialsOf } from "../lib/format";
 import { navigate } from "../router";
 import { useToast } from "../studio/Toasts";
-import { useTheme } from "../theme";
+// Light mode is switched off for now (see theme.tsx).
+// import { useTheme } from "../theme";
 import { DeliveryForm } from "./CheckoutPage";
 
 const rise = (delay: number) => ({ animationDelay: `${delay}ms` });
@@ -22,7 +23,7 @@ export default function ProfilePage() {
   const { t, i18n } = useTranslation();
   const { user, setUser, signOut } = useAuth();
   const toast = useToast();
-  const { theme, setTheme } = useTheme();
+  // const { theme, setTheme } = useTheme();
   // Opens straight away when the account has no name yet (a new Google account without one).
   const [editing, setEditing] = useState(() => !!user && (!user.firstName.trim() || !user.lastName.trim()));
   const [changingPassword, setChangingPassword] = useState(false);
@@ -108,7 +109,9 @@ export default function ProfilePage() {
           </Group>
 
           <Group title={t("profile.preferences")}>
+            {/* Light mode is off for now.
             <Row icon="moon" title={t("nav.darkMode")} trailing={<Toggle checked={theme === "dark"} onChange={(on) => setTheme(on ? "dark" : "light")} label={t("nav.darkMode")} />} />
+            */}
             <Row
               icon="bell"
               title={t("nav.notifications")}

@@ -114,7 +114,7 @@ export function StickerSetup({ category, data }: StudioProps) {
           </div>
         </>
       )}
-      <ReadyMade products={data.products} />
+      <ReadyMade products={data.products} category={category} />
     </StudioShell>
   );
 }

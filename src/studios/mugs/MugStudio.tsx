@@ -37,7 +37,7 @@ export function MugStudio({ category, data }: StudioProps) {
         <div className="mt-8">
           <InfoNotice>{t("mugs.notReady")}</InfoNotice>
         </div>
-        <ReadyMade products={readyMugs(data)} />
+        <ReadyMade products={readyMugs(data)} category={category} />
       </StudioShell>
     );
   return <MugDesigner category={category} data={data} area={area} blankPrice={blank.price} />;
@@ -240,16 +240,16 @@ function MugDesigner({ category, data, area, blankPrice }: StudioProps & { area:
           primaryBlocked: empty ? t("mugs.addFirst") : null,
         }}
       />
-      {!phone && <ReadyMadeBelow products={readyMugs(data)} />}
+      {!phone && <ReadyMadeBelow products={readyMugs(data)} category={category} />}
     </>
   );
 }
 
-function ReadyMadeBelow({ products }: { products: Parameters<typeof ReadyMade>[0]["products"] }) {
+function ReadyMadeBelow({ products, category }: Parameters<typeof ReadyMade>[0]) {
   if (!products.length) return null;
   return (
     <div className="mx-auto max-w-7xl px-6 pb-24">
-      <ReadyMade products={products} />
+      <ReadyMade products={products} category={category} />
     </div>
   );
 }

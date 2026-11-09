@@ -66,13 +66,16 @@ export function useRoute() {
     stamp();
     return parse(window.location.hash);
   });
-  const [restore, setRestore] = useState<number | null>(null);
+  // A scroll position to go back to, "keep" to stay where the page is, or null for the top.
+  const [restore, setRestore] = useState<number | "keep" | null>(null);
 
   useEffect(() => {
     const onChange = () => {
       if (last) scrolls.set(last.idx, window.scrollY);
       const { entry, returning } = stamp();
-      setRestore(returning ? (scrolls.get(entry.hcIdx) ?? null) : null);
+      const keep = keepScroll;
+      keepScroll = false;
+      setRestore(keep ? "keep" : returning ? (scrolls.get(entry.hcIdx) ?? null) : null);
       setRoute(parse(window.location.hash));
     };
     window.addEventListener("hashchange", onChange);
@@ -81,6 +84,7 @@ export function useRoute() {
 
   useEffect(() => {
     if (route.anchor) document.getElementById(route.anchor)?.scrollIntoView();
+    else if (restore === "keep") return;
     else if (restore !== null) {
       // After the page has laid out (cached data renders in the same frame).
       const frame = requestAnimationFrame(() => window.scrollTo({ top: restore, behavior: "instant" }));
@@ -93,6 +97,19 @@ export function useRoute() {
 
 export function navigate(to: string) {
   window.location.hash = to;
+}
+
+let keepScroll = false;
+
+/**
+ * Changes the URL's query on the same page (filters, sorting) without jumping to the top.
+ * `replace` swaps the current history entry instead of adding one (e.g. while typing a search).
+ */
+export function updateQuery(to: string, { replace = false }: { replace?: boolean } = {}) {
+  if (normalise(to) === currentHash()) return;
+  keepScroll = true;
+  if (replace) redirect(to);
+  else navigate(to);
 }
 
 /**
