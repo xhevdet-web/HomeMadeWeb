@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { buttonLook } from "../components/Button";
 
 export interface ToastOptions {
   /** A button in the toast, e.g. "Try again". */
@@ -59,7 +60,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   dismiss(t.id);
                   t.action!.onClick();
                 }}
-                className="min-h-11 shrink-0 rounded-full bg-primary px-4 font-semibold text-primary-foreground"
+                className={`min-h-11 shrink-0 rounded-full px-4 font-semibold ${buttonLook("primary")}`}
               >
                 {t.action.label}
               </button>

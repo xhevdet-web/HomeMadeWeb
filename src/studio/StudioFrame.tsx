@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Category } from "../api/models";
-import { Button } from "../components/Button";
+import { Button, buttonLook } from "../components/Button";
 import { Icon, type IconName } from "../components/Icon";
 import { studioHref } from "../data/homeCategories";
 import { goBack } from "../router";
@@ -492,7 +492,7 @@ export function StudioToolbar({ undo, redo, canUndo, canRedo, onClear, canClear,
             </span>
           )}
           <p className="min-w-0 flex-1 truncate text-sm font-semibold">{selection.title}</p>
-          <button type="button" onClick={selection.onDone} className="h-10 shrink-0 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground">
+          <button type="button" onClick={selection.onDone} className={`h-10 shrink-0 rounded-full px-5 text-sm font-semibold ${buttonLook("secondary")}`}>
             {t("common.done")}
           </button>
         </div>

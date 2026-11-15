@@ -8,11 +8,8 @@ export default function NotFoundPage() {
     <Page>
       <PageHeader
         eyebrow={t("notFound.eyebrow")}
-        title={
-          <>
-            {t("notFound.title")} <em className="font-normal text-primary">{t("notFound.titleAccent")}</em>
-          </>
-        }
+        title={t("notFound.title")}
+        accent={t("notFound.titleAccent")}
         intro={t("notFound.intro")}
       />
       <ButtonLink href="#/" className="mt-10">

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Component, MeasuredSize } from "../../api/models";
+import { buttonLook } from "../../components/Button";
 import { Icon } from "../../components/Icon";
 import { money } from "../../lib/format";
 import { BottomSheet } from "../../studio/BottomSheet";
@@ -102,7 +103,7 @@ function LengthSheet({ open, onClose, noun, size, lengthMm, usedMm, onLength }: 
           {warning}
         </p>
       )}
-      <button type="button" onClick={onClose} className="mt-6 min-h-12 w-full rounded-full bg-primary font-semibold text-primary-foreground">
+      <button type="button" onClick={onClose} className={`mt-6 min-h-12 w-full rounded-full font-semibold ${buttonLook("primary")}`}>
         {t("common.done")}
       </button>
     </BottomSheet>

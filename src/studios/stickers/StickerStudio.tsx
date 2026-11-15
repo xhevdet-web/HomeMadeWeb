@@ -251,7 +251,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
         </ToolSection>
       )}
       <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" size="sm" onClick={deleteDesign}>
+        <Button variant="neutral" size="sm" onClick={deleteDesign}>
           <Icon name="trash" size={15} /> {t("stickers.deleteDesign", { number: active + 1 })}
         </Button>
       </div>
@@ -259,7 +259,7 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
         <p className="text-sm">{t("stickers.changeShapeNote")}</p>
         <div className="mt-4 flex gap-2">
           <ButtonLink href={studioHref(category)} onClick={backIfPrevious}>{t("stickers.changeShapeOrSize")}</ButtonLink>
-          <Button variant="secondary" onClick={() => setShapeOpen(false)}>
+          <Button variant="neutral" onClick={() => setShapeOpen(false)}>
             {t("common.cancel")}
           </Button>
         </div>

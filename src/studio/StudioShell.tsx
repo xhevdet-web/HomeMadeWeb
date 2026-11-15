@@ -33,13 +33,8 @@ export function StudioShell({ category, step, title, intro, children, others = f
       <PageHeader
         back={{ href: "#/studios", label: t("studio.allStudios") }}
         eyebrow={t("studio.eyebrow")}
-        title={
-          title ?? (
-            <>
-              {category.name} <em className="font-normal text-primary">{t("studio.titleAccent")}</em>
-            </>
-          )
-        }
+        title={title ?? category.name}
+        accent={title ? undefined : t("studio.titleAccent")}
         intro={intro ?? lookFor(category).studio}
       />
       <StepIndicator steps={studioSteps()} active={step} className="mt-10" />
@@ -230,9 +225,9 @@ export function BaseChip({ label, value, href, action = t("studio.change") }: { 
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="truncate font-semibold">{value}</p>
       </div>
-      <a href={href} onClick={backIfPrevious} className="text-sm font-semibold whitespace-nowrap text-primary hover:underline">
+      <ButtonLink href={href} onClick={backIfPrevious} variant="tertiary" size="sm">
         {action}
-      </a>
+      </ButtonLink>
     </div>
   );
 }
@@ -345,8 +340,8 @@ export function PreviewActions({ category, onSave, onOrder, orderBlocked, orderH
         </p>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <ButtonLink href={studioHref(category, "design")} onClick={backIfPrevious} variant="secondary" size="sm">
-          <Icon name="arrowLeft" size={15} /> {t("studio.backToStudio")}
+        <ButtonLink href={studioHref(category, "design")} onClick={backIfPrevious} variant="tertiary" arrow="left" size="sm">
+          {t("studio.backToStudio")}
         </ButtonLink>
         <Button variant="secondary" size="sm" onClick={onSave} disabled={!!saveBlocked || saving}>
           {t("studio.saveDesign")}
@@ -404,7 +399,7 @@ export function LoadError({ message, onRetry, className = "" }: { message: strin
         <Icon name="alert" size={22} />
       </span>
       <p className="mt-4 font-semibold">{message}</p>
-      <Button variant="secondary" size="sm" className="mt-6" onClick={onRetry}>
+      <Button variant="neutral" size="sm" className="mt-6" onClick={onRetry}>
         {t("common.retry")}
       </Button>
     </div>

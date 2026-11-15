@@ -6,6 +6,7 @@ import { initialsOf } from "../lib/format";
 import { navigate, type Route } from "../router";
 // Light mode is switched off for now (see theme.tsx); the toggles below are commented out.
 // import { useTheme } from "../theme";
+import { ButtonLink } from "./Button";
 import { Icon, type IconName } from "./Icon";
 import { LanguageToggle } from "./LanguageToggle";
 import { Logo } from "./Logo";
@@ -285,13 +286,12 @@ export function Nav({ route }: { route: Route }) {
             )
           )}
 
-          <a
-            href="#/create"
-            className="ml-1.5 hidden h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-glow transition-transform duration-300 hover:scale-[1.03] lg:inline-flex"
-          >
-            <Icon name="sparkle" size={15} />
-            {t("nav.startCreating")}
-          </a>
+          <span className="ml-1.5 hidden lg:inline-flex">
+            <ButtonLink href="#/create" size="nav" glow>
+              <Icon name="sparkle" size={15} />
+              {t("nav.startCreating")}
+            </ButtonLink>
+          </span>
           <button
             type="button"
             className={`${iconButton} ${wide.hide} ${menuOpen ? "bg-secondary text-foreground" : ""}`}
@@ -347,9 +347,9 @@ export function Nav({ route }: { route: Route }) {
               <LanguageToggle label />
             </div>
             <div className="flex flex-col gap-2.5">
-              <a href="#/create" className="block rounded-full bg-primary px-6 py-3 text-center text-sm font-semibold text-primary-foreground shadow-glow">
+              <ButtonLink href="#/create" size="cta" glow className="w-full">
                 {t("nav.startCreating")}
-              </a>
+              </ButtonLink>
               {signedIn && (
                 <button type="button" onClick={() => void doSignOut()} className="rounded-full border border-border px-6 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-secondary">
                   {t("nav.signOut")}

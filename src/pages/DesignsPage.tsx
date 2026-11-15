@@ -1,145 +1,190 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { userProducts } from "../api/designs";
-import { type Category, type Product } from "../api/models";
-import { useAuth } from "../auth/AuthContext";
-import { ButtonLink } from "../components/Button";
-import { Chip } from "../components/Controls";
+import { savedDesigns, type SavedDesign } from "../api/designs";
+import { Button, ButtonLink } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
 import { Icon } from "../components/Icon";
 import { Page, PageHeader } from "../components/Page";
 import { studioBuilder, studioHref, useStudioCategories } from "../data/homeCategories";
 import { useApi } from "../hooks/useApi";
-import { formatDate, money } from "../lib/format";
 import { LoadError } from "../studio/StudioShell";
-import { DesignPreview } from "../studios/DesignPreview";
+import { DesignActionsMenu, usePhone, type MenuTarget } from "./designs/DesignActionsMenu";
+import { DesignCard, DesignCardSkeleton, DesignRow } from "./designs/DesignCard";
+import { DeleteDesignDialog, RenameDesignDialog } from "./designs/DesignDialogs";
+import { bannerClosed, DesignsToolbar, MissingPreviewBanner } from "./designs/DesignsToolbar";
+import { useDesignActions } from "./designs/useDesignActions";
+import { useDesignFilters } from "./designs/useDesignFilters";
 
-const MAX_CHIPS = 3;
+/**
+ * "My designs": only the designs the customer explicitly saved with "Save design" in a studio
+ * (never orders or catalog products). Search, sort, category filters and grid/list live in the
+ * URL; rename, duplicate and delete (with undo) are in each design's ⋯ menu.
+ */
 
-function DesignSkeleton() {
+// grid-cols-1 (minmax(0, 1fr)) so a long name never widens a phone row past the screen.
+const GRID = "grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] sm:gap-5";
+
+function NewDesignButton({ className = "" }: { className?: string }) {
   const { t } = useTranslation();
   return (
-    <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label={t("designs.loading")}>
-      {Array.from({ length: 3 }, (_, i) => (
-        <li key={i} className="h-[480px] animate-pulse rounded-[2rem] border border-border bg-card" />
-      ))}
-    </ul>
+    <ButtonLink href="#/studios" glow className={className}>
+      <Icon name="plus" size={18} />
+      {t("designs.new")}
+    </ButtonLink>
   );
 }
 
-/** "Amber ×8", grouped per component. */
-function materials(p: Product, item: string) {
-  const lines = new Map<string, number>();
-  for (const it of p.items ?? []) {
-    const name = it.subCategory?.name ?? item;
-    lines.set(name, (lines.get(name) ?? 0) + it.quantity);
-  }
-  return [...lines].map(([name, n]) => `${name} ×${n}`);
-}
-
-function DesignCard({ product, category }: { product: Product; category: Category | undefined }) {
+function NoResults({ onClear }: { onClear: () => void }) {
   const { t } = useTranslation();
-  const chips = materials(product, t("order.item"));
-  const editable = product.origin !== "COMPANY" && !!category && !!studioBuilder(category);
-  const meta = [product.category?.name ?? category?.name, product.selectedSize?.name, product.baseProduct?.name, product.createdAt && formatDate(product.createdAt)]
-    .filter(Boolean)
-    .join(" · ");
-
   return (
-    <li className="flex flex-col rounded-[2rem] border border-border bg-card p-4">
-      <div className="relative">
-        <DesignPreview product={product} category={category} missingNote />
-        {product.origin === "COMPANY" && <span className="absolute top-4 left-4 rounded-full bg-background/80 px-3 py-1 text-xs font-semibold backdrop-blur-md">{t("designs.readyMade")}</span>}
+    <div className="flex flex-col items-center rounded-2xl border border-dashed border-white/14 px-6 py-14 text-center">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#18223A] text-muted-foreground">
+        <Icon name="search" size={24} />
+      </span>
+      <h2 className="mt-5 font-display text-2xl font-semibold">{t("designs.noResultsTitle")}</h2>
+      <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{t("designs.noResultsText")}</p>
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <Button variant="secondary" size="sm" onClick={onClear}>
+          {t("designs.clearFilters")}
+        </Button>
+        <ButtonLink href="#/studios" size="sm">
+          {t("designs.openStudio")}
+        </ButtonLink>
       </div>
-      <div className="flex flex-1 flex-col px-2 pt-5">
-        <div className="flex items-start justify-between gap-4">
-          <h2 className="font-display text-2xl font-semibold break-words">{product.name}</h2>
-          <span className="font-display text-xl font-semibold text-primary">{money(product.price)}</span>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">{meta}</p>
-        {chips.length > 0 && (
-          <ul className="mt-4 flex flex-wrap gap-2">
-            {chips.slice(0, MAX_CHIPS).map((m) => (
-              <li key={m} className="rounded-full bg-secondary px-3 py-1 text-xs">
-                {m}
-              </li>
-            ))}
-            {chips.length > MAX_CHIPS && <li className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">{t("designs.more", { count: chips.length - MAX_CHIPS })}</li>}
-          </ul>
-        )}
-        <div className="mt-auto" />
-        <div className="mt-6 flex items-center justify-between gap-4 border-t border-border pt-4">
-          {editable ? (
-            <a href={`${studioHref(category!, "design")}?load=${product.id}`} className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground">
-              <Icon name="pencil" size={15} /> {t("designs.editCopy")}
-            </a>
-          ) : (
-            <span className="text-sm text-muted-foreground">{product.origin === "COMPANY" ? t("designs.madeByUs") : ""}</span>
-          )}
-          <ButtonLink href={`#/checkout?design=${product.id}`} size="sm">
-            {t("designs.order")}
-          </ButtonLink>
-        </div>
-      </div>
-    </li>
+    </div>
   );
 }
 
-export default function DesignsPage() {
+export default function DesignsPage({ query }: { query: URLSearchParams }) {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const phone = usePhone();
   const categories = useStudioCategories();
-  const { data, loading, error, retry } = useApi(user ? `my-designs:${user.id}` : null, (signal) => userProducts(user!.id, signal));
-  const [filter, setFilter] = useState("all");
-  const designs = [...(data ?? [])].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
-  const used = [...new Map(designs.map((d) => [d.categoryId, d.category?.name ?? t("designs.other")])).entries()];
-  const shown = filter === "all" ? designs : designs.filter((d) => d.categoryId === filter);
+  const { data, loading, error, retry, setData } = useApi("saved-designs", savedDesigns);
+  const designs = data ?? [];
+  const f = useDesignFilters(designs, query);
+  const actions = useDesignActions(setData);
+
+  const [menu, setMenu] = useState<MenuTarget | null>(null);
+  const [renaming, setRenaming] = useState<SavedDesign | null>(null);
+  const [deleting, setDeleting] = useState<SavedDesign | null>(null);
+  const [bannerHidden, setBannerHidden] = useState(bannerClosed);
+
+  const editHref = (saved: SavedDesign) => {
+    const category = categories.data?.find((c) => c.id === saved.product.categoryId);
+    return category && studioBuilder(category) ? `${studioHref(category, "design")}?saved=${saved.id}` : null;
+  };
+  const cardProps = (saved: SavedDesign) => ({
+    saved,
+    editHref: editHref(saved),
+    orderHref: `#/checkout?design=${saved.productId}`,
+    menuOpen: menu?.saved.id === saved.id,
+    onMenu: (anchor: HTMLElement) => setMenu((m) => (m?.saved.id === saved.id ? null : { saved, anchor })),
+  });
+
+  const list = f.filters.view === "list" && !phone;
 
   return (
     <Page>
-      <PageHeader
-        eyebrow={t("designs.eyebrow")}
-        title={
-          <>
-            {t("designs.title")} <em className="font-normal text-primary">{t("designs.titleAccent")}</em>
-          </>
-        }
-        intro={data ? t("designs.count", { count: designs.length }) : t("designs.intro")}
-        aside={
-          <ButtonLink href="#/create">
-            <Icon name="plus" size={18} /> {t("designs.new")}
-          </ButtonLink>
-        }
-      />
+      <div className="pb-24 sm:pb-0">
+        <PageHeader
+          eyebrow={t("designs.eyebrow")}
+          title={
+            <>
+              <span className="sm:hidden">
+                {t("designs.titleShort")} <em>{t("designs.titleShortAccent")}</em>
+              </span>
+              <span className="hidden sm:inline">
+                {t("designs.title")} <em>{t("designs.titleAccent")}</em>
+              </span>
+            </>
+          }
+          intro={t("designs.intro")}
+          aside={
+            // Phones use the sticky button at the bottom instead.
+            <span className="hidden sm:block">
+              <NewDesignButton className="h-[46px]" />
+            </span>
+          }
+        />
 
-      {loading && <DesignSkeleton />}
-      {error && <LoadError className="mt-12" message={error} onRetry={retry} />}
-      {data && designs.length === 0 && (
-        <div className="mt-12">
-          <EmptyState icon="sparkle" title={t("designs.emptyTitle")} text={t("designs.emptyText")} action={{ href: "#/create", label: t("orders.emptyAction") }} />
-        </div>
-      )}
-      {data && designs.length > 0 && (
-        <>
-          {used.length > 1 && (
-            <div className="mt-12 flex flex-wrap gap-2" role="group" aria-label={t("designs.filter")}>
-              <Chip selected={filter === "all"} onClick={() => setFilter("all")}>
-                {t("create.groups.all")}
-              </Chip>
-              {used.map(([id, name]) => (
-                <Chip key={id} selected={filter === id} onClick={() => setFilter(id)}>
-                  {name}
-                </Chip>
+        <div className="mt-10 flex flex-col gap-6">
+          {loading && !data && (
+            <ul className={GRID} role="status" aria-label={t("designs.loading")}>
+              {Array.from({ length: 8 }, (_, i) => (
+                <DesignCardSkeleton key={i} />
               ))}
-            </div>
+            </ul>
           )}
-          <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {shown.map((p) => (
-              <DesignCard key={p.id} product={p} category={categories.data?.find((c) => c.id === p.categoryId)} />
-            ))}
-          </ul>
-        </>
-      )}
+          {error && <LoadError message={error} onRetry={retry} />}
+
+          {data && designs.length === 0 && (
+            <EmptyState icon="bookmark" title={t("designs.emptyTitle")} text={t("designs.emptyText")} action={{ href: "#/studios", label: t("designs.emptyAction") }} />
+          )}
+
+          {data && designs.length > 0 && (
+            <>
+              <DesignsToolbar filters={f.filters} search={f.search} onSearch={f.setSearch} onChange={f.set} chips={f.chips} allCount={f.allCount} />
+
+              {f.missingCount > 0 && !bannerHidden && !f.filters.missing && (
+                <MissingPreviewBanner count={f.missingCount} onShow={() => f.set({ missing: true, cat: "all" })} onClose={() => setBannerHidden(true)} />
+              )}
+
+              <p className="text-[13px] text-[#7D879E]" aria-live="polite">
+                {t("designs.summary", { shown: f.shown.length, total: f.filtered.length })}
+              </p>
+
+              {f.filtered.length === 0 ? (
+                <NoResults onClear={f.clear} />
+              ) : list ? (
+                <ul className="flex flex-col gap-2.5">
+                  {f.shown.map((saved) => (
+                    <DesignRow key={saved.id} {...cardProps(saved)} />
+                  ))}
+                </ul>
+              ) : (
+                <ul className={GRID}>
+                  {f.shown.map((saved) => (
+                    <DesignCard key={saved.id} {...cardProps(saved)} />
+                  ))}
+                </ul>
+              )}
+
+              {f.remaining > 0 && (
+                <div className="flex justify-center">
+                  <Button variant="secondary" size="sm" onClick={f.showMore}>
+                    {t("designs.more", { count: f.remaining })}
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Phones: "New design" stays within reach at the bottom of the screen. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/8 bg-background/95 px-4 pt-3 backdrop-blur-md sm:hidden" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        <NewDesignButton className="h-[50px] w-full" />
+      </div>
+
+      <DesignActionsMenu
+        target={menu}
+        onClose={() => setMenu(null)}
+        actions={{
+          editHref,
+          rename: setRenaming,
+          duplicate: (saved) => void actions.duplicate(saved),
+          remove: setDeleting,
+        }}
+      />
+      <RenameDesignDialog saved={renaming} onCancel={() => setRenaming(null)} onSave={(name) => actions.rename(renaming!, name)} />
+      <DeleteDesignDialog
+        saved={deleting}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => {
+          if (deleting) actions.remove(deleting, designs.indexOf(deleting));
+          setDeleting(null);
+        }}
+      />
     </Page>
   );
 }

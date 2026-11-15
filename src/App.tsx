@@ -44,7 +44,7 @@ function renderPage({ segments, query }: Route) {
     case "contact":
       return param ? <NotFoundPage /> : <ContactPage query={query} />;
     case "designs":
-      return param ? <NotFoundPage /> : protect(<DesignsPage />);
+      return param ? <NotFoundPage /> : protect(<DesignsPage query={query} />);
     case "checkout":
       return param ? <NotFoundPage /> : protect(<CheckoutPage query={query} />);
     case "orders":

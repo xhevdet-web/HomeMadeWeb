@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { categories as fetchCategories, type ProductPageQuery } from "../api/catalog";
 import type { Category, Product } from "../api/models";
-import { Button } from "../components/Button";
+import { Button, buttonLook } from "../components/Button";
 import { inputClass } from "../components/Controls";
 import { Icon } from "../components/Icon";
 import { Page, PageHeader, SectionLabel } from "../components/Page";
@@ -59,7 +59,7 @@ function Promo({ className = "" }: { className?: string }) {
     <div className={`rounded-2xl border border-border bg-card p-5 ${className}`}>
       <p className="font-display text-xl font-semibold">{t("products.promoTitle")}</p>
       <p className="mt-2 text-sm text-muted-foreground">{t("products.promoText")}</p>
-      <a href="#/studios" className="mt-4 flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
+      <a href="#/studios" className={`mt-4 flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold ${buttonLook("secondary")}`}>
         {t("products.promoAction")}
       </a>
     </div>
@@ -226,11 +226,8 @@ export default function ProductsPage({ query }: { query: URLSearchParams }) {
       <Breadcrumb />
       <PageHeader
         eyebrow={t("products.eyebrow")}
-        title={
-          <>
-            {t("products.title")} <em className="font-normal text-primary">{t("products.titleAccent")}</em>
-          </>
-        }
+        title={t("products.title")}
+        accent={t("products.titleAccent")}
         intro={t("products.intro")}
       />
 
@@ -326,7 +323,7 @@ export default function ProductsPage({ query }: { query: URLSearchParams }) {
             <div role="alert" className="mt-6 rounded-2xl border border-border bg-card p-10 text-center">
               <p className="font-display text-2xl font-semibold">{t("products.loadError")}</p>
               <p className="mt-2 text-sm text-muted-foreground">{productsApi.error ?? categoriesApi.error}</p>
-              <Button className="mt-6" onClick={retry}>
+              <Button variant="neutral" className="mt-6" onClick={retry}>
                 {t("common.retry")}
               </Button>
             </div>
@@ -349,7 +346,7 @@ export default function ProductsPage({ query }: { query: URLSearchParams }) {
               <p className="mt-5 font-display text-2xl font-semibold">{t("products.emptyTitle")}</p>
               <p className="mt-2 text-sm text-muted-foreground">{t("products.emptyText")}</p>
               {filtering && (
-                <Button className="mt-6" onClick={clearFilters}>
+                <Button variant="secondary" className="mt-6" onClick={clearFilters}>
                   {t("products.clearFilters")}
                 </Button>
               )}

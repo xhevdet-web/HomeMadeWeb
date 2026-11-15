@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Category, Product } from "../api/models";
-import { Icon } from "../components/Icon";
+import { ButtonLink } from "../components/Button";
 import { ProductCard } from "../components/ProductCard";
 import { ProductViewer } from "../components/ProductViewer";
 import { studioSlug } from "../data/homeCategories";
@@ -21,12 +21,9 @@ export function ReadyMade({ products, category }: { products: Product[]; categor
             {t("studio.readyTitle")} <em className="font-normal text-primary">{t("studio.readyTitleAccent")}</em>
           </h2>
         </div>
-        <a
-          href={`#/products?kategoria=${studioSlug(category)}`}
-          className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline-offset-4 hover:underline"
-        >
-          {t("products.seeAll")} <Icon name="arrowRight" size={15} />
-        </a>
+        <ButtonLink href={`#/products?kategoria=${studioSlug(category)}`} variant="tertiary" size="sm" className="min-h-11">
+          {t("products.seeAll")}
+        </ButtonLink>
       </div>
       <ul className="mt-8 grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-6">
         {products.map((p, i) => (

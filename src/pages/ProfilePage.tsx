@@ -8,7 +8,7 @@ import { PasswordChecks } from "../auth/LoginModal";
 import { Button } from "../components/Button";
 import { Toggle, inputClass } from "../components/Controls";
 import { Icon, type IconName } from "../components/Icon";
-import { SectionLabel } from "../components/Page";
+import { PageHeader, SectionLabel } from "../components/Page";
 import { setLanguage } from "../i18n";
 import { initialsOf } from "../lib/format";
 import { navigate } from "../router";
@@ -48,12 +48,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 pt-32 pb-24">
-      <p className="eyebrow animate-rise" style={rise(0)}>
-        {t("nav.profile")}
-      </p>
-      <h1 className="animate-rise mt-5 font-display text-5xl leading-[1.02] font-semibold tracking-tight sm:text-6xl" style={rise(150)}>
-        {user.firstName ? t("profile.hello") : t("profile.helloNoName")} <em className="font-normal text-primary">{user.firstName || t("profile.there")}.</em>
-      </h1>
+      <PageHeader eyebrow={t("nav.profile")} title={user.firstName ? t("profile.hello") : t("profile.helloNoName")} accent={`${user.firstName || t("profile.there")}.`} />
 
       <div className="mt-12 grid items-start gap-8 lg:grid-cols-[340px_minmax(0,1fr)]">
         <aside className="animate-rise rounded-[2rem] border border-border bg-card p-8 lg:sticky lg:top-28" style={rise(300)}>
@@ -62,7 +57,7 @@ export default function ProfilePage() {
             {user.firstName} {user.lastName}
           </h2>
           <p className="mt-2 break-all text-muted-foreground">{user.email}</p>
-          <Button variant="secondary" size="sm" className="mt-6" aria-expanded={editing} onClick={() => setEditing((e) => !e)}>
+          <Button variant="neutral" size="sm" className="mt-6" aria-expanded={editing} onClick={() => setEditing((e) => !e)}>
             <Icon name="pencil" size={15} /> {editing ? t("profile.closeEditor") : t("profile.editDetails")}
           </Button>
         </aside>
@@ -211,7 +206,7 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
         <Button type="submit" disabled={!ok || busy}>
           {busy ? t("common.saving") : t("profile.changePassword")}
         </Button>
-        <Button variant="secondary" onClick={onDone}>
+        <Button variant="neutral" onClick={onDone}>
           {t("common.cancel")}
         </Button>
       </div>

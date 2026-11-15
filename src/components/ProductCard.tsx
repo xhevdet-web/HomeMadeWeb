@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { Category, Product } from "../api/models";
 import { fitsLabel, isCustom, isSoldOut, priceLabel, productAction, productPictures, type ProductAction } from "../lib/products";
 import { corsImage } from "../studio/capture";
+import { buttonLook } from "./Button";
 import { Icon } from "./Icon";
 
 /** The product photo stage: transparent PNGs on the --product-stage colour, always whole. */
@@ -17,15 +18,11 @@ export function ProductBadge({ product, category }: { product: Product; category
   return null;
 }
 
-/** The card's main button: orange (order), orange outline (customise) or grey outline (sold out). */
+/** The card's main button: primary (order), secondary (customise) or neutral (sold out: notify me). */
 export function ActionButton({ action, className = "" }: { action: ProductAction; className?: string }) {
-  const look = {
-    order: "bg-primary text-primary-foreground hover:bg-primary/90",
-    customize: "border border-primary text-primary hover:bg-primary hover:text-primary-foreground",
-    notify: "border border-border text-foreground/85 hover:bg-secondary hover:text-foreground",
-  }[action.kind];
+  const look = buttonLook(({ order: "primary", customize: "secondary", notify: "neutral" } as const)[action.kind]);
   return (
-    <a href={action.href} className={`flex min-h-11 items-center justify-center rounded-xl px-4 text-center text-sm font-semibold transition-colors ${look} ${className}`}>
+    <a href={action.href} className={`flex min-h-11 items-center justify-center rounded-xl px-4 text-center text-sm font-semibold ${look} ${className}`}>
       {action.label}
     </a>
   );

@@ -83,7 +83,7 @@ export function TextTool({ texts, selected, onAdd, onUpdate, onDone, defaultColo
             className={inputClass}
           />
           {editing ? (
-            <Button variant="secondary" size="sm" onClick={onDone}>
+            <Button variant="neutral" size="sm" onClick={onDone}>
               {t("common.done")}
             </Button>
           ) : (

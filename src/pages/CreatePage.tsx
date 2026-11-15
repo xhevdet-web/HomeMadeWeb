@@ -66,11 +66,8 @@ export default function CreatePage() {
     <Page>
       <PageHeader
         eyebrow={t("nav.startCreating")}
-        title={
-          <>
-            {t("create.title")} <em className="font-normal text-primary">{t("create.titleAccent")}</em>
-          </>
-        }
+        title={t("create.title")}
+        accent={t("create.titleAccent")}
         intro={t("create.intro")}
       />
 

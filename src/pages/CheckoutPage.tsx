@@ -224,11 +224,8 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
       <PageHeader
         back={{ href: query.get("design") ? "#/designs" : "#/studios", label: query.get("design") ? t("checkout.backToDesigns") : t("checkout.backToStudios") }}
         eyebrow={t("checkout.eyebrow")}
-        title={
-          <>
-            {t("checkout.title")} <em className="font-normal text-primary">{t("checkout.titleAccent")}</em>
-          </>
-        }
+        title={t("checkout.title")}
+        accent={t("checkout.titleAccent")}
       />
       <StepIndicator steps={[t("checkout.stepDesign"), t("checkout.stepDelivery")]} active={1} className="mt-10" />
 
@@ -240,9 +237,9 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
               action={
                 !needsDelivery &&
                 !locked && (
-                  <button type="button" onClick={openDelivery} className="text-sm font-semibold text-primary hover:underline">
+                  <Button variant="tertiary" size="sm" onClick={openDelivery}>
                     {t("checkout.editDelivery")}
-                  </button>
+                  </Button>
                 )
               }
             >
@@ -418,9 +415,9 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
               </p>
               {belowMinimum && editHref && (
                 <p className="mt-2 text-center">
-                  <a href={editHref} className="text-sm font-semibold text-primary hover:underline">
+                  <ButtonLink href={editHref} variant="tertiary" size="sm">
                     {t("checkout.editDesign")}
-                  </a>
+                  </ButtonLink>
                 </p>
               )}
               {orderError && (

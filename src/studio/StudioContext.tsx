@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { errorMessage } from "../api/client";
-import { createProduct, productFormData, type DesignFiles } from "../api/designs";
+import { ApiError, errorMessage } from "../api/client";
+import { createProduct, createSavedDesign, productFormData, updateSavedDesign, type DesignFiles } from "../api/designs";
 import type { Category, Product, ProductInput } from "../api/models";
 import { useAuth } from "../auth/AuthContext";
 import { invalidate } from "../hooks/useApi";
@@ -12,6 +12,19 @@ import { useToast } from "./Toasts";
 import { applyUpdate, useHistory } from "./useHistory";
 
 const STORAGE_KEY = "hc.drafts.v1";
+/** Which saved design ("My designs") each studio's draft belongs to, per account. */
+const LINKS_KEY = "hc.savedLinks.v1";
+
+type SavedLinks = Record<string, { userId: string; savedId: string }>;
+
+function readLinks(): SavedLinks {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LINKS_KEY) ?? "{}") as SavedLinks;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
 
 interface StoredDrafts {
   [categoryId: string]: { draft: AnyDraft; updatedAt: number };
@@ -41,6 +54,10 @@ interface StudioContextValue {
   markSaved: (categoryId: string, saved: SavedDesign) => void;
   /** After an order: the studio that saved this product starts fresh (keeping its base choice). */
   clearOrdered: (productId: string) => void;
+  /** The saved design this category's draft continues, for the signed-in account. */
+  savedLinkOf: (categoryId: string) => string | null;
+  /** Ties (or with null, unties) the category's draft to a saved design. */
+  linkSaved: (categoryId: string, savedId: string | null) => void;
 }
 
 const StudioContext = createContext<StudioContextValue | null>(null);
@@ -58,10 +75,33 @@ export function useStudio() {
 export function StudioProvider({ children }: { children: ReactNode }) {
   const [drafts, setDrafts] = useState<StoredDrafts>(readStored);
   const [lastSaved, setLastSaved] = useState<Record<string, SavedDesign>>({});
+  const [links, setLinks] = useState<SavedLinks>(readLinks);
   const { user } = useAuth();
 
   // A saved design belongs to the account that saved it.
   useEffect(() => setLastSaved({}), [user?.id]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LINKS_KEY, JSON.stringify(links));
+    } catch {
+      // Storage blocked: the link still lives for this visit.
+    }
+  }, [links]);
+
+  const savedLinkOf = useCallback(
+    (categoryId: string) => {
+      const link = links[categoryId];
+      return link && user && link.userId === user.id ? link.savedId : null;
+    },
+    [links, user],
+  );
+
+  const linkSaved = useCallback(
+    (categoryId: string, savedId: string | null) =>
+      setLinks(({ [categoryId]: _old, ...rest }) => (savedId && user ? { ...rest, [categoryId]: { userId: user.id, savedId } } : rest)),
+    [user],
+  );
 
   useEffect(() => {
     try {
@@ -94,11 +134,15 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       if (!categoryId || !current) return;
       setDraft(categoryId, afterOrder(current));
       setLastSaved(({ [categoryId]: _ordered, ...rest }) => rest);
+      // The studio starts a new design, so the next save must not overwrite the saved one.
+      linkSaved(categoryId, null);
     },
-    [drafts, lastSaved, setDraft],
+    [drafts, lastSaved, setDraft, linkSaved],
   );
 
-  return <StudioContext.Provider value={{ drafts, getDraft, setDraft, lastSaved, markSaved, clearOrdered }}>{children}</StudioContext.Provider>;
+  return (
+    <StudioContext.Provider value={{ drafts, getDraft, setDraft, lastSaved, markSaved, clearOrdered, savedLinkOf, linkSaved }}>{children}</StudioContext.Provider>
+  );
 }
 
 /** Like the app: a mug starts empty, a case keeps its phone, a set keeps its shape and size, a gift its box, jewelry its size. */
@@ -135,10 +179,14 @@ export interface BuiltDesign {
 /**
  * "Save design" and "Continue to order". Signed out, the login modal opens over the studio and
  * the action continues after signing in. An unchanged design reuses the last saved product.
+ *
+ * Only "Save design" puts the design in "My designs": the first save creates a saved design,
+ * later saves (and reopening it from My designs) update that same one. Ordering only creates
+ * the product the order needs; it never adds anything to My designs.
  */
 export function useSaveDesign(category: Category, build: () => Promise<BuiltDesign>, options: { quantity?: number } = {}) {
   const { requireAuth } = useAuth();
-  const { lastSaved, markSaved } = useStudio();
+  const { lastSaved, markSaved, savedLinkOf, linkSaved } = useStudio();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const busy = useRef(false);
@@ -151,8 +199,24 @@ export function useSaveDesign(category: Category, build: () => Promise<BuiltDesi
     if (previous?.signature === signature) return previous.product;
     const product = await createProduct(productFormData(input, files));
     markSaved(category.id, { signature, product });
-    invalidate("my-designs");
     return product;
+  };
+
+  /** Creates the saved design, or moves the linked one to this version. Returns whether it was an update. */
+  const keep = async (productId: string) => {
+    const linked = savedLinkOf(category.id);
+    if (linked) {
+      try {
+        await updateSavedDesign(linked, { productId });
+        return true;
+      } catch (e) {
+        // Deleted from My designs in the meantime: save it as a new one instead.
+        if (!(e instanceof ApiError && e.status === 404)) throw e;
+      }
+    }
+    const saved = await createSavedDesign(productId);
+    linkSaved(category.id, saved.id);
+    return false;
   };
 
   const run = (then: "stay" | "order"): (() => Promise<void>) => async () => {
@@ -161,7 +225,11 @@ export function useSaveDesign(category: Category, build: () => Promise<BuiltDesi
     setSaving(true);
     try {
       const product = await persist();
-      toast(i18n.t("studio.savedToDesigns"));
+      if (then === "stay") {
+        const updated = await keep(product.id);
+        invalidate("saved-designs");
+        toast(i18n.t(updated ? "studio.savedChanges" : "studio.savedToDesigns"));
+      }
       if (then === "order") navigate(`#/checkout?design=${product.id}${options.quantity ? `&qty=${options.quantity}` : ""}`);
     } catch (e) {
       // No preview, no save: nothing was sent and the studio stays as it is.

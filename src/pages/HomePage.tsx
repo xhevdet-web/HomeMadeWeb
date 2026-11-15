@@ -4,8 +4,10 @@ import { publicStats } from "../api/catalog";
 import { communityGallery } from "../api/designs";
 import type { PublicStats } from "../api/models";
 import { useAuth } from "../auth/AuthContext";
+import { ButtonLink } from "../components/Button";
 import { Chip } from "../components/Controls";
-import { STATIC_CATEGORIES, lookByKey, lookFor, studioHref, useStudioCategories } from "../data/homeCategories";
+import { Icon, type IconName } from "../components/Icon";
+import { STATIC_CATEGORIES, lookByKey, lookFor, lookKey, studioHref, useStudioCategories } from "../data/homeCategories";
 import { useApi } from "../hooks/useApi";
 import { EASE, prefersReducedMotion, useInView } from "../hooks/useInView";
 import i18n from "../i18n";
@@ -35,40 +37,25 @@ function Hero() {
         <p className="animate-rise" style={rise(0)}>
           <span className="eyebrow">{t("home.heroEyebrow")}</span>
         </p>
-        <h1
-          style={rise(150)}
-          className="animate-rise mt-5 font-display text-[2.625rem] leading-[1.02] font-extrabold tracking-tight sm:text-6xl lg:text-7xl"
-        >
+        <h1 style={rise(150)} className="animate-rise mt-5 font-display text-[2.625rem] leading-[1.02] font-extrabold tracking-tight sm:text-6xl lg:text-7xl">
           {t("home.heroTitle")}
           <br />
           <em className="font-normal text-primary">{t("home.heroTitleAccent")}</em>
         </h1>
-        <p
-          style={rise(300)}
-          className="animate-rise mt-5 max-w-md text-base text-muted-foreground sm:mt-6 sm:text-lg"
-        >
+        <p style={rise(300)} className="animate-rise mt-5 max-w-md text-base text-muted-foreground sm:mt-6 sm:text-lg">
           {t("home.heroBody")}
         </p>
         <div style={rise(450)} className="animate-rise mt-8 flex flex-wrap gap-3 sm:mt-10">
-          <a
-            href="#/create"
-            className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-glow transition-transform duration-300 hover:scale-105 sm:px-7 sm:py-3.5 sm:text-base"
-          >
+          <ButtonLink href="#/create" size="cta" glow>
             {t("home.createYourOwn")}
-          </a>
-          <a
-            href="#/studios"
-            className="rounded-full border border-border px-6 py-3 text-sm font-semibold backdrop-blur-md transition-colors hover:bg-secondary sm:px-7 sm:py-3.5 sm:text-base"
-          >
+          </ButtonLink>
+          <ButtonLink href="#/studios" variant="secondary" size="cta" className="backdrop-blur-md">
             {t("home.exploreCategories")}
-          </a>
+          </ButtonLink>
         </div>
       </div>
 
-      <a
-        href="#home-categories"
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[11px] font-semibold tracking-[0.3em] text-[var(--page-muted)] uppercase"
-      >
+      <a href="#home-categories" className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[11px] font-semibold tracking-[0.3em] text-[var(--page-muted)] uppercase">
         {t("home.scroll")}
       </a>
     </section>
@@ -94,7 +81,8 @@ function useStackCards(): { cards: StackCard[]; loading: boolean } {
       loading: false,
       cards: data.map((c) => {
         const look = lookFor(c);
-        return { key: c.id, name: c.name, image: look.image, line: look.line, text: look.text, href: studioHref(c) };
+        const known = lookKey(c);
+        return { key: c.id, name: known ? i18n.t(`looks.${known}.name`) : c.name, image: look.image, line: look.line, text: look.text, href: studioHref(c) };
       }),
     };
   if (error)
@@ -204,12 +192,9 @@ function CategoryStack({ cards, loading }: { cards: StackCard[]; loading: boolea
                 <p className="font-display text-lg text-primary italic sm:text-xl">{c.line}</p>
                 <h3 className="mt-2 font-display text-4xl leading-none font-extrabold tracking-tight break-words sm:text-6xl lg:text-7xl">{c.name}</h3>
                 <p className="mt-3 text-sm text-muted-foreground sm:mt-4 sm:text-base">{c.text}</p>
-                <a
-                  href={c.href}
-                  className="mt-5 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-transform duration-300 hover:scale-105 sm:mt-6 sm:text-base"
-                >
+                <ButtonLink href={c.href} variant="secondary" size="cta" className="mt-5 sm:mt-6">
                   {t("home.designCategory", { name: c.name.toLowerCase() })}
-                </a>
+                </ButtonLink>
               </div>
             </div>
           </article>
@@ -247,10 +232,10 @@ function Counter({ value, start }: { value: number; start: boolean }) {
 }
 
 /** Tiles shown in the stats grid; add a tile by adding a field here (labels are translation keys). */
-const STAT_TILES: { label: "home.statUsers" | "home.statOrders" | "home.statProducts"; field: keyof PublicStats }[] = [
-  { label: "home.statUsers", field: "registeredUsers" },
-  { label: "home.statOrders", field: "completedOrders" },
-  { label: "home.statProducts", field: "products" },
+const STAT_TILES: { label: "home.statUsers" | "home.statOrders" | "home.statProducts"; field: keyof PublicStats; icon: IconName }[] = [
+  { label: "home.statUsers", field: "registeredUsers", icon: "user" },
+  { label: "home.statOrders", field: "completedOrders", icon: "package" },
+  { label: "home.statProducts", field: "products", icon: "sparkle" },
 ];
 
 function Stats() {
@@ -268,26 +253,45 @@ function Stats() {
   return (
     <section id="home-stats" ref={ref} className="relative overflow-hidden py-20 sm:py-28 lg:py-32">
       <div className="bg-glow pointer-events-none absolute inset-0" />
-      <div className="relative mx-auto max-w-7xl px-6">
-        <p className="eyebrow" style={reveal(0, "translateY(32px)")}>
-          {t("home.statsEyebrow")}
-        </p>
-        <h2 className="mt-4 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl lg:text-5xl" style={reveal(150, "translateY(32px)")}>
-          {t("home.statsTitle")} <em className="font-normal text-primary">{t("home.statsTitleAccent")}</em>
-        </h2>
-
-        {/* Never a fake number: the grid is hidden if the stats can't be loaded. */}
-        {!error && (
-          <div className="mt-10 grid grid-cols-1 gap-px sm:mt-14 overflow-hidden rounded-[2rem] border border-border bg-border sm:grid-cols-3" aria-busy={!data}>
-            {STAT_TILES.map((s, i) => (
-              <div key={s.label} className="bg-card p-8 sm:p-12" style={reveal(300 + i * 150, "translateY(-64px)", !!data)}>
-                <div className="font-display text-4xl font-extrabold tracking-tight text-primary sm:text-5xl">
-                  {data ? <Counter value={Number(data[s.field]) || 0} start /> : " "}
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground sm:text-base">{t(s.label)}</p>
-              </div>
-            ))}
+      <div className={`relative mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:items-center lg:gap-20 ${error ? "" : "lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]"}`}>
+        <div>
+          <p className="eyebrow" style={reveal(0, "translateY(32px)")}>
+            {t("home.statsEyebrow")}
+          </p>
+          <h2 className="mt-4 font-display text-3xl leading-[1.1] font-semibold tracking-tight sm:text-4xl lg:text-5xl" style={reveal(150, "translateY(32px)")}>
+            {t("home.statsTitle")}
+            <em className="mt-1 block font-normal text-primary">{t("home.statsTitleAccent")}</em>
+          </h2>
+          <p className="mt-6 max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg" style={reveal(250, "translateY(32px)")}>
+            {t("home.statsBody")}
+          </p>
+          {/* The reveal sits on a wrapper so its inline transition doesn't replace the button's hover transition. */}
+          <div className="mt-8" style={reveal(350, "translateY(32px)")}>
+            <ButtonLink href="#/create" variant="secondary" size="cta">
+              {t("home.createYourOwn")}
+            </ButtonLink>
           </div>
+        </div>
+
+        {/* Never a fake number: the cards are hidden if the stats can't be loaded. */}
+        {!error && (
+          <ul className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1" aria-busy={!data}>
+            {STAT_TILES.map((s, i) => (
+              <li
+                key={s.label}
+                className="flex items-center gap-5 rounded-3xl border border-border bg-card p-5 transition-colors duration-300 hover:border-primary/50 sm:flex-col sm:items-start sm:p-6 lg:flex-row lg:items-center lg:p-7"
+                style={reveal(300 + i * 150, "translateY(32px)", !!data)}
+              >
+                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary lg:size-14">
+                  <Icon name={s.icon} size={24} />
+                </span>
+                <div className="min-w-0">
+                  <div className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{data ? <Counter value={Number(data[s.field]) || 0} start /> : " "}</div>
+                  <p className="mt-1 text-sm text-muted-foreground sm:text-base">{t(s.label)}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </section>
@@ -336,45 +340,84 @@ function Community() {
 
 /* ---------------- Steps ---------------- */
 
-const STEPS = ["create", "order", "track", "enjoy"] as const;
+/** The customer journey; `studio` is the main step and is highlighted. */
+const STEPS: { key: "choose" | "options" | "studio" | "order"; icon: IconName }[] = [
+  { key: "choose", icon: "grid" },
+  { key: "options", icon: "layers" },
+  { key: "studio", icon: "pencil" },
+  { key: "order", icon: "bag" },
+];
 
 function Steps() {
   const { t } = useTranslation();
-  const [ref, inView] = useInView<HTMLOListElement>(0.3);
+  const [ref, inView] = useInView<HTMLOListElement>(0.25);
+
+  const reveal = (delay: number) => ({
+    opacity: inView ? 1 : 0,
+    transform: inView ? "none" : "translateY(32px)",
+    transition: `opacity 700ms ${EASE} ${delay}ms, transform 700ms ${EASE} ${delay}ms`,
+  });
 
   return (
     <section id="how-it-works" className="px-4 pb-20 sm:px-6 sm:pb-28 lg:pb-32">
-      <div className="mx-auto max-w-7xl rounded-[2rem] border border-border bg-card p-6 sm:p-12 lg:p-16">
-        <p className="eyebrow">{t("home.howItWorks")}</p>
-        <h2 className="mt-4 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl lg:text-5xl">
-          {t("home.heroTitle")} <em className="font-normal text-primary">{t("home.heroTitleAccent")}</em>
-        </h2>
+      <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-border bg-card p-6 sm:p-12 lg:p-16">
+        <div className="bg-glow pointer-events-none absolute inset-0 opacity-60" />
 
-        <ol ref={ref} className="mt-10 grid grid-cols-1 gap-8 sm:mt-12 sm:grid-cols-2 sm:gap-10 lg:grid-cols-4">
-          {STEPS.map((step) => ({ title: t(`home.steps.${step}.title`), text: t(`home.steps.${step}.text`) })).map((s, i) => (
-            <li
-              key={s.title}
-              style={{
-                opacity: inView ? 1 : 0,
-                transform: inView ? "none" : "translateY(40px)",
-                transition: `opacity 700ms ${EASE} ${i * 120}ms, transform 700ms ${EASE} ${i * 120}ms`,
-              }}
-            >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary font-display text-lg font-bold text-primary-foreground">
-                {i + 1}
-              </span>
-              <h3 className="mt-4 font-display text-xl font-semibold">{s.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground sm:text-base">{s.text}</p>
-            </li>
-          ))}
-        </ol>
+        <div className="relative grid gap-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-x-12 lg:gap-y-14">
+          <div>
+            <p className="eyebrow">{t("home.howItWorks")}</p>
+            <h2 className="mt-4 font-display text-3xl leading-[1.1] font-semibold tracking-tight sm:text-4xl lg:text-5xl">
+              {t("home.stepsTitle")} <em className="font-normal text-primary">{t("home.stepsTitleAccent")}</em>
+            </h2>
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">{t("home.stepsSubtitle")}</p>
+          </div>
 
-        <a
-          href="#/create"
-          className="mt-10 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-glow transition-transform duration-300 hover:scale-105 sm:mt-12 sm:px-7 sm:py-3.5 sm:text-base"
-        >
-          {t("home.createYourOwn")}
-        </a>
+          {/* Phones: one column, a vertical line joins the steps. Desktop: four columns, a horizontal line. */}
+          <ol ref={ref} className="grid gap-4 lg:col-span-2 lg:grid-cols-4">
+            {STEPS.map((s, i) => {
+              const main = s.key === "studio";
+              return (
+                <li key={s.key} className="relative" style={reveal(i * 130)}>
+                  {i < STEPS.length - 1 && (
+                    <span
+                      aria-hidden
+                      className="absolute top-[76px] -bottom-7 left-[44px] w-px bg-linear-to-b from-primary/70 to-primary/10 lg:top-[44px] lg:-right-7 lg:bottom-auto lg:left-[76px] lg:h-px lg:w-auto lg:bg-linear-to-r"
+                    />
+                  )}
+                  <div
+                    className={`group flex h-full gap-5 rounded-3xl border p-5 transition-all duration-300 motion-safe:hover:-translate-y-1 lg:flex-col lg:gap-6 ${
+                      main ? "border-primary/40 bg-primary/[0.07] shadow-glow" : "border-transparent hover:border-border hover:bg-background/40"
+                    }`}
+                  >
+                    <span
+                      className={`grid size-12 shrink-0 place-items-center rounded-2xl transition-transform duration-300 motion-safe:group-hover:scale-110 ${
+                        main ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                      }`}
+                    >
+                      <Icon name={s.icon} size={22} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">{t("home.stepsStep", { n: i + 1 })}</p>
+                      <h3 className="mt-1.5 font-display text-xl font-semibold">{t(`home.steps.${s.key}.title`)}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">{t(`home.steps.${s.key}.text`)}</p>
+                      {main && (
+                        <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+                          <Icon name="sparkle" size={14} />
+                          {t("home.stepsHighlight")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+
+          {/* Beside the title on desktop, after the steps on phones. */}
+          <ButtonLink href="#/create" size="cta" glow className="justify-self-start lg:col-start-2 lg:row-start-1 lg:self-end">
+            {t("home.startCreating")}
+          </ButtonLink>
+        </div>
       </div>
     </section>
   );

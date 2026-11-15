@@ -38,15 +38,12 @@ export default function NotificationsPage() {
     <Page>
       <PageHeader
         eyebrow={t("nav.notifications")}
-        title={
-          <>
-            {t("notifications.title")} <em className="font-normal text-primary">{t("notifications.titleAccent")}</em>
-          </>
-        }
+        title={t("notifications.title")}
+        accent={t("notifications.titleAccent")}
         intro={data ? (unread ? t("notifications.unread", { count: unread }) : t("notifications.caughtUp")) : t("notifications.intro")}
         aside={
           unread > 0 && (
-            <Button variant="secondary" onClick={() => void update((list) => list.map((x) => ({ ...x, isRead: true })), markAllRead)}>
+            <Button variant="neutral" onClick={() => void update((list) => list.map((x) => ({ ...x, isRead: true })), markAllRead)}>
               {t("notifications.markAllRead")}
             </Button>
           )

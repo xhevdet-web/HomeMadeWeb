@@ -22,15 +22,7 @@ export default function StudiosPage() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow={t("studios.eyebrow")}
-        title={
-          <>
-            {data ? t("studios.count", { count: n }) : t("studios.ours")} <em className="font-normal text-primary">{t("studios.titleAccent")}</em>
-          </>
-        }
-        intro={t("studios.intro")}
-      />
+      <PageHeader eyebrow={t("studios.eyebrow")} title={t("studios.title")} accent={t("studios.titleAccent")} intro={t("studios.intro")} />
 
       {loading && <CategorySkeleton />}
       {error && <LoadError className="mt-16" message={error} onRetry={retry} />}

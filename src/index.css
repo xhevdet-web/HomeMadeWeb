@@ -14,6 +14,8 @@
   --border: oklch(1 0 0 / 12%);
   --success: oklch(0.8 0.12 155);
   --destructive: oklch(0.7 0.16 25);
+  /* Notices that need attention but aren't errors (e.g. a design without a preview). */
+  --warning: #f6d365;
 
   --gradient-fade: linear-gradient(
     90deg,
@@ -29,6 +31,11 @@
     transparent 60%
   );
   --shadow-glow: 0 20px 60px -15px oklch(0.78 0.13 55 / 0.5);
+
+  /* Buttons (see components/Button.tsx): primary fill, its hover, and the dark text on orange. */
+  --btn-primary: #fa9f62;
+  --btn-primary-hover: #fcb586;
+  --btn-ink: #10131b;
 }
 
 :root {
@@ -56,8 +63,11 @@
   --border: oklch(0.2 0.03 265 / 13%);
   --success: oklch(0.55 0.13 155);
   --destructive: oklch(0.55 0.19 25);
+  --warning: oklch(0.55 0.13 85);
   --gradient-glow: radial-gradient(ellipse at 70% 20%, oklch(0.78 0.13 55 / 0.22), transparent 60%);
   --shadow-glow: 0 20px 50px -18px oklch(0.66 0.15 48 / 0.55);
+  --btn-primary: oklch(0.66 0.15 48);
+  --btn-primary-hover: oklch(0.71 0.14 50);
 }
 
 @theme inline {
@@ -71,6 +81,10 @@
   --color-border: var(--border);
   --color-success: var(--success);
   --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-btn: var(--btn-primary);
+  --color-btn-hover: var(--btn-primary-hover);
+  --color-btn-ink: var(--btn-ink);
 
   --font-display: "Fraunces", Georgia, serif;
   --font-sans: "Manrope", system-ui, sans-serif;

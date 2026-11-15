@@ -219,11 +219,8 @@ export default function ContactPage({ query }: { query?: URLSearchParams }) {
     <Page>
       <PageHeader
         eyebrow={t("contact.eyebrow")}
-        title={
-          <>
-            {t("contact.title")} <em className="font-normal text-primary">{t("contact.titleAccent")}</em>
-          </>
-        }
+        title={t("contact.title")}
+        accent={t("contact.titleAccent")}
         intro={t("contact.intro")}
       />
 

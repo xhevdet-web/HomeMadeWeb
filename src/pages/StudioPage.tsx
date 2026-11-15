@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import i18n from "../i18n";
 import { product as fetchProduct } from "../api/catalog";
 import { errorMessage } from "../api/client";
+import { savedDesign } from "../api/designs";
 import { useAuth } from "../auth/AuthContext";
 import { Page } from "../components/Page";
 import { studioBuilder, studioHref, studioSlug, useStudioCategories } from "../data/homeCategories";
@@ -17,17 +18,21 @@ import NotFoundPage from "./NotFoundPage";
 /**
  * Routes `#/studios/:slug[/design|/preview]` to the right step of the right studio.
  * The slug comes from the category name; the studio from its builderType, never its name.
- * `?load=<productId>` (Edit copy) restores a saved design and saves edits as a new product.
+ * `?load=<productId>` (Edit copy) restores a design and saves edits as a new design.
+ * `?saved=<savedDesignId>` (My designs → Continue designing) restores a saved design, and
+ * "Save design" then saves the changes back to that same saved design.
  */
 export default function StudioPage({ slug, step, query }: { slug: string; step?: string; query: URLSearchParams }) {
   const categories = useStudioCategories();
   const category = categories.data?.find((c) => studioSlug(c) === slug);
   const mod = category ? moduleFor(studioBuilder(category)) : null;
   const data = useStudioData(mod ? category : undefined);
-  const { getDraft, setDraft } = useStudio();
+  const { getDraft, setDraft, linkSaved } = useStudio();
   const { requireAuth } = useAuth();
   const toast = useToast();
-  const loadId = query.get("load");
+  const savedId = query.get("saved");
+  const copyId = query.get("load");
+  const loadId = savedId ?? copyId;
   const validStep = step === undefined || step === "design" || step === "preview";
   const handled = useRef<string | null>(null);
 
@@ -48,23 +53,26 @@ export default function StudioPage({ slug, step, query }: { slug: string; step?:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
-  // Edit copy: load the saved product (own designs need the session), restore it, open the studio.
+  // Load the design (own designs need the session), restore it, open the studio. A saved design
+  // stays linked so its changes are saved back to it; an edit copy is saved as a new design.
   useEffect(() => {
     if (!loadId || !category || !mod || !data.data || handled.current === loadId) return;
     handled.current = loadId;
     const studioData = data.data;
     requireAuth(async () => {
       try {
-        const saved = await fetchProduct(loadId);
-        setDraft(category.id, await mod.fromProduct(saved, category, studioData));
-        toast(i18n.t("studio.designOpened"));
+        const kept = savedId ? await savedDesign(savedId) : null;
+        const product = kept ? kept.product : await fetchProduct(loadId);
+        setDraft(category.id, await mod.fromProduct(product, category, studioData));
+        linkSaved(category.id, kept?.id ?? null);
+        toast(kept ? i18n.t("studio.savedOpened", { name: kept.name }) : i18n.t("studio.designOpened"));
       } catch (e) {
         toast(errorMessage(e));
       }
       redirect(studioHref(category, "design"));
       // Login closed: open the studio as it is, never leave the customer on a loading screen.
     }, i18n.t("auth.prompts.openDesign"), () => redirect(studioHref(category)));
-  }, [loadId, category, mod, data.data, requireAuth, setDraft, toast]);
+  }, [loadId, savedId, category, mod, data.data, requireAuth, setDraft, linkSaved, toast]);
 
   if (categories.loading || (mod && data.loading)) return <StudioSkeleton />;
   if (categories.error)

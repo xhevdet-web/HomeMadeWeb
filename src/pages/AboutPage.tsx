@@ -4,6 +4,7 @@ import { CreationGuide } from "../about/CreationGuide";
 import { shotSrc } from "../about/guides";
 import { Button, ButtonLink } from "../components/Button";
 import { Icon, type IconName } from "../components/Icon";
+import { heroIntro, heroTitle } from "../components/Page";
 import { lookByKey, type LookKey } from "../data/homeCategories";
 import { prefersReducedMotion, reveal, useInView } from "../hooks/useInView";
 import { useTheme } from "../theme";
@@ -47,18 +48,12 @@ function AboutHero() {
           <p className="eyebrow animate-rise" style={rise(0)}>
             {t("about.eyebrow")}
           </p>
-          <h1
-            id="about-title"
-            className="animate-rise mt-6 font-display text-5xl leading-[0.98] font-extrabold tracking-tight sm:text-7xl xl:text-8xl"
-            style={rise(150)}
-          >
-            {t("about.heroTitle")}
-            <br />
-            {t("about.heroTitle2")}
-            <br />
-            <em className="font-normal text-primary">{t("about.heroTitleAccent")}</em>
+          <h1 id="about-title" className={`animate-rise ${heroTitle}`} style={rise(150)}>
+            {/* Three short sentences: each stays on one line, the title wraps between them. */}
+            <span className="whitespace-nowrap">{t("about.heroTitle")}</span> <span className="whitespace-nowrap">{t("about.heroTitle2")}</span>{" "}
+            <em className="whitespace-nowrap">{t("about.heroTitleAccent")}</em>
           </h1>
-          <p className="animate-rise mt-8 max-w-lg text-lg text-muted-foreground" style={rise(300)}>
+          <p className={`animate-rise ${heroIntro}`} style={rise(300)}>
             {t("about.heroBody")}
           </p>
           <div className="animate-rise mt-10 flex flex-wrap gap-3 sm:gap-4" style={rise(450)}>
@@ -103,57 +98,69 @@ const FORMULA: { key: "creativity" | "personal" | "craft"; icon: IconName }[] = 
   { key: "craft", icon: "hand" },
 ];
 
+/** The + and = between the formula cards, centred under the cards' icons. */
+function Operator({ symbol }: { symbol: string }) {
+  return (
+    <span aria-hidden="true" className="ml-4 flex h-9 w-11 items-center justify-center font-display text-3xl leading-none text-primary">
+      {symbol}
+    </span>
+  );
+}
+
 function BrandStory() {
   const { t } = useTranslation();
   return (
     <section className="px-4 sm:px-6" aria-labelledby="about-story">
-      <div className="mx-auto grid max-w-7xl gap-6 rounded-[2rem] border border-border bg-card p-6 sm:p-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:p-16">
+      <div className="mx-auto grid max-w-7xl gap-12 rounded-[2rem] border border-border bg-card p-6 sm:p-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:p-16">
         <Reveal>
           <p className="eyebrow">{t("about.storyEyebrow")}</p>
-          <SectionTitle id="about-story" title={t("about.storyTitle")} accent={t("about.storyTitleAccent")} className="mt-5" />
-          <p className="mt-6 text-lg text-muted-foreground">{t("about.storyBody")}</p>
-          <p className="mt-4 text-lg text-muted-foreground">{t("about.storyBody2")}</p>
+          <SectionTitle id="about-story" title={t("about.storyTitle")} accent={t("about.storyTitleAccent")} className="mt-4 leading-[1.08] text-balance [&_em]:block" />
+          <div className="mt-6 max-w-xl space-y-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
+            <p>{t("about.storyBody")}</p>
+            <p>{t("about.storyBody2")}</p>
+          </div>
 
+          {/* Shops ask what you want to buy; HM Craft asks what you want to create. Same height side by side. */}
           <div className="mt-10 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-border p-5">
-              <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">{t("about.shopAsks")}</p>
-              <p className="mt-2 font-display text-xl text-muted-foreground italic">{t("about.shopQuestion")}</p>
+            <div className="flex flex-col rounded-2xl border border-border bg-background/30 p-5">
+              <p className="text-[11px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">{t("about.shopAsks")}</p>
+              <p className="mt-3 font-display text-xl leading-snug text-muted-foreground italic">{t("about.shopQuestion")}</p>
             </div>
-            <div className="rounded-2xl border border-primary/50 bg-primary/10 p-5">
-              <p className="text-xs font-semibold tracking-[0.2em] text-primary uppercase">{t("about.weAsk")}</p>
-              <p className="mt-2 font-display text-xl font-semibold italic">{t("about.weQuestion")}</p>
+            <div className="flex flex-col rounded-2xl border border-primary/50 bg-primary/10 p-5">
+              <p className="text-[11px] font-semibold tracking-[0.2em] text-primary uppercase">{t("about.weAsk")}</p>
+              <p className="mt-3 font-display text-xl leading-snug font-semibold italic">{t("about.weQuestion")}</p>
             </div>
           </div>
         </Reveal>
 
-        {/* Creativity + Personalisation + Real craft = the brand. */}
-        <Reveal delay={150} className="flex flex-col justify-center">
+        {/* Creativity + Personalisation + Made with care = a unique creation. */}
+        <Reveal delay={150} className="w-full lg:mx-auto lg:max-w-md">
           <p className="sr-only">{t("about.formulaLabel")}</p>
           <ol className="flex flex-col">
             {FORMULA.map((f, i) => (
               <li key={f.key}>
-                {i > 0 && (
-                  <span aria-hidden="true" className="flex h-10 items-center pl-[1.6rem] font-display text-2xl text-primary">
-                    +
+                {i > 0 && <Operator symbol="+" />}
+                <div className="flex items-center gap-4 rounded-2xl border border-border bg-background/40 p-4 transition-colors duration-200 hover:border-primary/40">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                    <Icon name={f.icon} size={19} />
                   </span>
-                )}
-                <div className="flex items-center gap-4 rounded-2xl border border-border bg-background/40 p-4 sm:p-5">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-                    <Icon name={f.icon} size={20} />
-                  </span>
-                  <div>
-                    <p className="font-display text-xl font-semibold">{t(`about.formula.${f.key}.title`)}</p>
-                    <p className="text-sm text-muted-foreground">{t(`about.formula.${f.key}.text`)}</p>
+                  <div className="min-w-0">
+                    <p className="font-display text-lg leading-tight font-semibold">{t(`about.formula.${f.key}.title`)}</p>
+                    <p className="mt-0.5 text-sm leading-snug text-muted-foreground">{t(`about.formula.${f.key}.text`)}</p>
                   </div>
                 </div>
               </li>
             ))}
           </ol>
-          <div aria-hidden="true" className="flex h-10 items-center pl-[1.6rem] font-display text-2xl text-primary">
-            =
-          </div>
-          <div className="rounded-2xl bg-primary p-5 text-primary-foreground shadow-glow">
-            <p className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">{t("common.brand")}</p>
+          <Operator symbol="=" />
+          {/* The result: tinted and outlined like the "At HM Craft" card, so it reads as an outcome, not a button. */}
+          <div className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-primary/50 bg-linear-to-br from-primary/20 via-primary/10 to-transparent p-4 sm:p-5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-glow">
+              <Icon name="gift" size={19} />
+            </span>
+            <p className="font-display text-2xl leading-tight font-semibold tracking-tight sm:text-[1.75rem]">
+              {t("about.formulaResult")} <em className="font-normal whitespace-nowrap text-primary">{t("about.formulaResultAccent")}</em>
+            </p>
           </div>
         </Reveal>
       </div>

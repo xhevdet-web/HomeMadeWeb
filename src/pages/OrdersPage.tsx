@@ -21,11 +21,8 @@ export default function OrdersPage({ query }: { query: URLSearchParams }) {
     <Page>
       <PageHeader
         eyebrow={t("orders.eyebrow")}
-        title={
-          <>
-            {t("orders.title")} <em className="font-normal text-primary">{t("orders.titleAccent")}</em>
-          </>
-        }
+        title={t("orders.title")}
+        accent={t("orders.titleAccent")}
         intro={data ? t("orders.count", { count: total }) : t("orders.intro")}
       />
 
