@@ -50,7 +50,7 @@ export function DragTile({
         selected ? "border-primary" : "border-border hover:border-foreground/30"
       } ${disabled ? "opacity-45" : ""} ${size === "lg" ? "w-28" : ""}`}
     >
-      <span className="relative flex aspect-square w-full items-center justify-center bg-secondary p-2">
+      <span className="relative flex aspect-square min-h-0 w-full items-center justify-center overflow-hidden bg-secondary p-2">
         {image ? (
           <img {...corsImage} src={image} alt="" loading="lazy" decoding="async" draggable={false} className="img-fade h-full w-full object-contain" />
         ) : (

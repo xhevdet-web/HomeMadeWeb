@@ -10,6 +10,7 @@ import { ContinueButton, Notice, StudioShell, Tabs } from "../../studio/StudioSh
 import type { StudioProps } from "../data";
 import { brandGroups, isSoldOut, modelOf, phoneModels, readyCases } from "./logic";
 import { corsImage } from "../../studio/capture";
+import { productShadow, productStage } from "../../components/ProductCard";
 import { ReadyMade } from "../ReadyMade";
 
 /**
@@ -61,13 +62,20 @@ export function CaseModels({ category, data }: StudioProps) {
                   aria-checked={d.modelId === m.id}
                   disabled={isSoldOut(m)}
                   onClick={() => setDraft(category.id, { ...d, modelId: m.id })}
-                  className={`flex w-full flex-col items-center rounded-[2rem] border p-5 text-center transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-                    d.modelId === m.id ? "border-primary bg-primary/10" : "border-border bg-card hover:border-foreground/30"
+                  className={`flex h-full w-full flex-col overflow-hidden rounded-2xl border text-center transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                    d.modelId === m.id ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border bg-card hover:border-foreground/30"
                   }`}
                 >
-                  {m.imageUrl ? <img {...corsImage} src={m.imageUrl} alt="" loading="lazy" className="h-36 w-auto object-contain" /> : <span className="h-36 w-16 rounded-xl bg-secondary" />}
-                  <span className="mt-4 font-display text-lg leading-tight font-semibold">{m.name}</span>
-                  <span className={`mt-1 text-sm ${isSoldOut(m) ? "text-muted-foreground" : "text-primary"}`}>{isSoldOut(m) ? t("studio.soldOut") : money(m.price)}</span>
+                  {/* The same photo stage as the products page. */}
+                  <span className={`relative block aspect-square w-full ${productStage}`}>
+                    {m.imageUrl ? (
+                      <img {...corsImage} src={m.imageUrl} alt="" loading="lazy" className={`absolute inset-0 h-full w-full object-contain p-[12%] ${productShadow}`} />
+                    ) : (
+                      <span className="absolute inset-[12%] rounded-xl bg-black/5" />
+                    )}
+                  </span>
+                  <span className="mt-4 px-3 font-display text-lg leading-tight font-semibold">{m.name}</span>
+                  <span className={`mt-1 px-3 pb-5 text-sm ${isSoldOut(m) ? "text-muted-foreground" : "text-primary"}`}>{isSoldOut(m) ? t("studio.soldOut") : money(m.price)}</span>
                 </button>
               </li>
             ))}
