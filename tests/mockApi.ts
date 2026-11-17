@@ -193,6 +193,12 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       if (custom) return reply(custom.json, custom.status);
       return reply({ success: true, message: "Your message has been sent." });
     }
+    // "Save design" also keeps the new design in My Designs.
+    if (path === "/saved-designs" && method === "POST") {
+      const { productId, name } = req.postDataJSON() as { productId: string; name?: string };
+      const now = new Date().toISOString();
+      return reply({ id: `saved-${productId}`, name: name ?? "My design", productId, createdAt: now, updatedAt: now, product: design(productId, 0, []) }, 201);
+    }
     if (path === "/notifications/unread-count") return reply({ count: 0 });
     if (path === "/notifications") return reply([]);
     if (path === "/gift-packaging") return reply([]);

@@ -20,7 +20,7 @@ import { useNotice } from "../../studio/ui";
 import { useImageRatio } from "../apparel/logic";
 import { componentById, customUpload, libraryDesigns, type StudioProps } from "../data";
 import { CaseCanvas } from "./CaseCanvas";
-import { areaAspect, captureCase, caseAreas, caseImage, caseInput, casePrice, coverImage, isSoldOut, modelOf } from "./logic";
+import { captureCase, caseFit, caseScaleRange, caseTemplate, caseImage, caseInput, casePrice, coverImage, isSoldOut, modelOf, PLACEHOLDER_RATIO } from "./logic";
 
 /** The app's check: about 450 pixels across the case back at the current zoom. */
 const lowQuality = (el: PlacedElement | undefined, ofArea: number) =>
@@ -39,8 +39,10 @@ export function CaseStudio({ category, data }: StudioProps) {
   const upload = customUpload(data);
   const designs = libraryDesigns(data);
   const ratio = useImageRatio(model?.imageUrl ?? null);
-  const shownRatio = model?.imageUrl ? ratio : 0.49;
-  const ofArea = areaAspect(caseAreas(model).area, shownRatio);
+  const shownRatio = model?.imageUrl ? ratio : PLACEHOLDER_RATIO;
+  // Artwork always covers the printable area plus the model's bleed; customers never set it.
+  const fit = useMemo(() => caseFit(model, shownRatio), [model, shownRatio]);
+  const { ofArea } = fit;
   const image = caseImage(d);
 
   const saver = useSaveDesign(category, async () => {
@@ -52,7 +54,7 @@ export function CaseStudio({ category, data }: StudioProps) {
 
   const onUpload = (img: UploadedImage) => {
     if (!upload) return;
-    const el = coverImage(img.height / img.width, ofArea, { src: img.url, ref: upload.id, name: t("cases.yourPhoto"), pxWidth: img.width, uploaded: true });
+    const el = coverImage(img.height / img.width, fit, { src: img.url, ref: upload.id, name: t("cases.yourPhoto"), pxWidth: img.width, uploaded: true });
     setImage(el);
     setSelectedId(el.id);
     notify(image ? t("mugs.imageReplaced") : t("cases.photoOnCase"));
@@ -62,7 +64,7 @@ export function CaseStudio({ category, data }: StudioProps) {
     const c = designs.find((x) => x.id === id);
     if (!c?.imageUrl) return;
     const size = await imageSize(c.imageUrl);
-    const el = coverImage(size.height / size.width, ofArea, { src: c.imageUrl, ref: c.id, name: c.name });
+    const el = coverImage(size.height / size.width, fit, { src: c.imageUrl, ref: c.id, name: c.name });
     setImage(el);
     setSelectedId(el.id);
     notify(`${c.name} is on your case.`);
@@ -74,7 +76,7 @@ export function CaseStudio({ category, data }: StudioProps) {
     return true;
   });
 
-  const reset = () => image && setImage({ ...image, x: 0.5, y: 0.5, rotation: 0, scale: coverImage(image.aspect, ofArea, {}).scale });
+  const reset = () => image && setImage({ ...image, x: 0.5, y: 0.5, rotation: 0, scale: coverImage(image.aspect, fit, {}).scale });
   const remove = () => {
     setImage(null);
     setSelectedId(null);
@@ -100,7 +102,7 @@ export function CaseStudio({ category, data }: StudioProps) {
       chip={chip}
     >
       <div ref={caseRef} style={{ width: `min(var(--stage-w), calc(var(--stage-h) * ${shownRatio}))` }}>
-        <CaseCanvas model={model}>
+        <CaseCanvas model={model} active={!!selectedId} placeholder={image ? undefined : t("cases.emptyCase")}>
           <PlacementLayer
             elements={d.elements}
             label={t("cases.caseDesign")}
@@ -108,7 +110,9 @@ export function CaseStudio({ category, data }: StudioProps) {
             onSelect={setSelectedId}
             onChange={(el, merge) => setImage(el, merge)}
             onCommand={command}
-            mode="cover"
+            bounds={fit.bounds}
+            mode="fill"
+            scaleRange={(el) => caseScaleRange(el.aspect, fit)}
             wheelZoom
           />
         </CaseCanvas>
@@ -138,7 +142,7 @@ export function CaseStudio({ category, data }: StudioProps) {
     <div className="flex flex-col gap-5">
       {model && isSoldOut(model) && <InfoNotice>{t("cases.modelGone")}</InfoNotice>}
       <QualityWarning show={lowQuality(image, ofArea)} />
-      <p className="text-xs text-muted-foreground">{t("cases.safeArea")}</p>
+      <p className="text-xs text-muted-foreground">{t(caseTemplate(model).safe ? "cases.safeAreaGuide" : "cases.safeArea")}</p>
       {upload && (
         <ToolSection title={t("cases.yourPhoto")} aside={upload.price ? `+${money(upload.price)}` : t("common.free")}>
           <UploadButton onImage={onUpload} label={image?.missing ? t("cases.reuploadPhoto") : image ? t("cases.changeImage") : t("cases.uploadPhoto")} hint={t("upload.hint")} />

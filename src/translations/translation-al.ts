@@ -1046,6 +1046,8 @@ export const translationAL: Translation<TranslationShape> = {
     stageLabelEmpty: "Maskë telefoni, ende pa dizajn",
     caseDesign: "Dizajni i maskës",
     safeArea: "Dizajni printohet brenda vijës së ndërprerë, rreth kamerës. Mbaji pjesët e rëndësishme larg skajeve.",
+    emptyCase: "HM Craft mund ta printojë për ty. Shto diçka këtu.",
+    safeAreaGuide: "Dizajni printohet brenda vijës së ndërprerë, rreth kamerës. Mbaji pjesët e rëndësishme të dizajnit, si fytyrat dhe tekstin, brenda zonës me pika.",
     reuploadPhoto: "Ngarko përsëri fotografinë",
     changeImage: "Ndrysho fotografinë",
     uploadPhoto: "Ngarko fotografinë tënde",

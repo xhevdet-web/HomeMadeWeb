@@ -103,8 +103,13 @@ export function sameGeometry(a: PlacedElement, b: PlacedElement) {
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
+/** How an element relates to its bounds; see `constrain`. */
+export type FitMode = "contain" | "cover" | "fill";
+
 /**
- * Keeps an element inside (`contain`) or covering (`cover`) the bounds.
+ * Keeps an element inside (`contain`) or covering (`cover`) the bounds. `fill` lets it zoom
+ * within `range`: while it is big enough to cover the bounds it can't be dragged to leave a
+ * gap; smaller, it moves freely with its centre on the canvas.
  * `size(scale)` returns the unrotated element size in px at that scale.
  */
 export function constrain(
@@ -112,7 +117,8 @@ export function constrain(
   canvas: { W: number; H: number },
   size: (scale: number) => { w: number; h: number },
   bounds: Bounds,
-  mode: "contain" | "cover",
+  mode: FitMode,
+  range?: { min: number; max: number },
 ): PlacedElement {
   const { W, H } = canvas;
   if (!W || !H) return el;
@@ -123,7 +129,7 @@ export function constrain(
   const rad = (el.rotation * Math.PI) / 180;
   const cos = Math.abs(Math.cos(rad));
   const sin = Math.abs(Math.sin(rad));
-  let scale = clamp(el.scale, MIN_SCALE, MAX_SCALE);
+  let scale = clamp(el.scale, range?.min ?? MIN_SCALE, range?.max ?? MAX_SCALE);
   let { w, h } = size(scale);
   if (!w || !h) return el;
 
@@ -144,6 +150,8 @@ export function constrain(
   // cover: the rotated image must contain the whole bounds rectangle.
   const needW = bw * cos + bh * sin;
   const needH = bw * sin + bh * cos;
+  if (mode === "fill" && (w < needW || h < needH))
+    return { ...el, scale, x: clamp(el.x, 0, 1), y: clamp(el.y, 0, 1) };
   const k = Math.max(1, needW / w, needH / h);
   scale *= k;
   w *= k;

@@ -1042,6 +1042,8 @@ export const translationEN = {
     stageLabelEmpty: "Phone case with your design, no design yet",
     caseDesign: "Case design",
     safeArea: "Your design is printed inside the dashed line, around the camera. Keep important parts away from the edges.",
+    emptyCase: "HM Craft can print it for you. Add something here.",
+    safeAreaGuide: "Your design is printed inside the dashed line, around the camera. Keep important parts of your design, like faces and text, inside the dotted area.",
     reuploadPhoto: "Re-upload your photo",
     changeImage: "Change image",
     uploadPhoto: "Upload your photo",

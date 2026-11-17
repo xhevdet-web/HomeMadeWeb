@@ -19,6 +19,7 @@ import {
   describeElement,
   sameGeometry,
   type Bounds,
+  type FitMode,
   type PlacedElement,
 } from "./elements";
 import { corsImage } from "./capture";
@@ -103,9 +104,11 @@ interface Props {
   /** Commit a moved / resized / rotated element. `merge` folds bursts into one undo step. */
   onChange?: (el: PlacedElement, merge?: string) => void;
   onCommand?: (command: LayerCommand, id: string) => void;
-  /** Elements stay inside (`contain`) or always cover (`cover`) these bounds. */
+  /** Elements stay inside (`contain`), always cover (`cover`) or zoom within `scaleRange` (`fill`) these bounds. */
   bounds?: Bounds;
-  mode?: "contain" | "cover";
+  mode?: FitMode;
+  /** Smallest and largest scale of an element; replaces the studio-wide limits. */
+  scaleRange?: (el: PlacedElement) => { min: number; max: number };
   actions?: LayerAction[];
   readOnly?: boolean;
   wheelZoom?: boolean;
@@ -124,6 +127,7 @@ export function PlacementLayer({
   onCommand,
   bounds = FULL_BOUNDS,
   mode = "contain",
+  scaleRange,
   actions = ALL_ACTIONS,
   readOnly = false,
   wheelZoom = false,
@@ -157,7 +161,9 @@ export function PlacementLayer({
     return { w: (node?.offsetWidth ?? W * 0.4) * s, h: (node?.offsetHeight ?? W * 0.1) * s };
   };
 
-  const fit = (el: PlacedElement) => constrain(el, { W, H }, (s) => dims(el, s), bounds, mode);
+  const fit = (el: PlacedElement) => constrain(el, { W, H }, (s) => dims(el, s), bounds, mode, scaleRange?.(el));
+  // With a per-element range, `fit` applies the limits; otherwise the studio-wide ones.
+  const scaleTo = (s: number) => (scaleRange ? Math.max(MIN_SCALE, s) : clampScale(s));
 
   // Keep every element inside its bounds, e.g. after the box shape or phone model changed.
   useLayoutEffect(() => {
@@ -183,7 +189,7 @@ export function PlacementLayer({
       const el = list.find((x) => x.id === sel) ?? (list.length === 1 ? list[0] : undefined);
       if (!el) return;
       e.preventDefault();
-      change?.(fitEl({ ...el, scale: clampScale(el.scale * Math.exp(-e.deltaY * 0.0015)) }), `wheel-${el.id}`);
+      change?.(fitEl({ ...el, scale: scaleTo(el.scale * Math.exp(-e.deltaY * 0.0015)) }), `wheel-${el.id}`);
     };
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
@@ -246,7 +252,7 @@ export function PlacementLayer({
       const angle = Math.atan2(b.y - a.y, b.x - a.x);
       next = {
         ...g.start,
-        scale: clampScale((g.start.scale * d) / g.d0),
+        scale: scaleTo((g.start.scale * d) / g.d0),
         rotation: snapRotation(g.start.rotation + ((angle - g.a0) * 180) / Math.PI),
         x: g.start.x + ((a.x + b.x) / 2 - g.mx!) / W,
         y: g.start.y + ((a.y + b.y) / 2 - g.my!) / H,
@@ -259,7 +265,7 @@ export function PlacementLayer({
       const d = Math.hypot(e.clientX - g.cx, e.clientY - g.cy);
       next = {
         ...g.start,
-        scale: clampScale((g.start.scale * d) / g.d0),
+        scale: scaleTo((g.start.scale * d) / g.d0),
         rotation: snapRotation(g.start.rotation + ((a - g.a0) * 180) / Math.PI),
       };
     }
@@ -297,9 +303,9 @@ export function PlacementLayer({
   const act = (a: LayerAction, el: PlacedElement) => {
     switch (a) {
       case "smaller":
-        return commit({ ...el, scale: clampScale(el.scale / 1.15) });
+        return commit({ ...el, scale: scaleTo(el.scale / 1.15) });
       case "larger":
-        return commit({ ...el, scale: clampScale(el.scale * 1.15) });
+        return commit({ ...el, scale: scaleTo(el.scale * 1.15) });
       case "rotateLeft":
         return commit({ ...el, rotation: el.rotation - 15 });
       case "rotateRight":
@@ -328,11 +334,11 @@ export function PlacementLayer({
         break;
       case "+":
       case "=":
-        next = { ...el, scale: clampScale(el.scale * 1.08) };
+        next = { ...el, scale: scaleTo(el.scale * 1.08) };
         break;
       case "-":
       case "_":
-        next = { ...el, scale: clampScale(el.scale / 1.08) };
+        next = { ...el, scale: scaleTo(el.scale / 1.08) };
         break;
       case "[":
         next = { ...el, rotation: el.rotation - 15 };

@@ -9,7 +9,7 @@ import { useImageRatio } from "../apparel/logic";
 import { componentById, stockProblem, type StudioProps } from "../data";
 import { CaseCanvas } from "./CaseCanvas";
 import { PlacementLayer } from "../../studio/PlacementLayer";
-import { areaAspect, captureCase, caseAreas, caseImage, caseInput, casePrice, isSoldOut, modelOf } from "./logic";
+import { areaAspect, captureCase, caseImage, caseInput, casePrice, caseTemplate, isSoldOut, modelOf, PLACEHOLDER_RATIO } from "./logic";
 
 export function CasePreview({ category, data }: StudioProps) {
   const d = useStudio().getDraft(category.id, "CASE");
@@ -17,7 +17,7 @@ export function CasePreview({ category, data }: StudioProps) {
   const model = modelOf(d, data);
   const image = caseImage(d);
   const ratio = useImageRatio(model?.imageUrl ?? null);
-  const ofArea = areaAspect(caseAreas(model).area, model?.imageUrl ? ratio : 0.49);
+  const ofArea = areaAspect(caseTemplate(model).area, model?.imageUrl ? ratio : PLACEHOLDER_RATIO);
   const saver = useSaveDesign(category, async () => {
     const { input, uploads } = await caseInput(category, d, model!, ofArea);
     return { input, files: { preview: await captureCase(d, model!), customDesigns: uploads } };

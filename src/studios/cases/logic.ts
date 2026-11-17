@@ -1,12 +1,27 @@
 import i18n from "../../i18n";
-import { parseArea, type Category, type Component, type PrintArea, type Product, type ProductInput } from "../../api/models";
+import type { Category, Component, Product, ProductInput } from "../../api/models";
 import { imageSize, loadImage, renderPng, drawElements } from "../../studio/capture";
 import type { CaseDraft } from "../../studio/drafts";
-import { coverScale, imageElement, newId, type PlacedElement } from "../../studio/elements";
+import { containScale, coverScale, imageElement, newId, type Bounds, type PlacedElement } from "../../studio/elements";
 import { apiFraction, apiRotation, apiScale, designName, uploadsOf, type StudioData } from "../data";
+import {
+  areaAspect,
+  bleedBox,
+  cameraCutPath,
+  coverScaleFor,
+  parseCaseTemplate,
+  pixelFrame,
+  printableShape,
+  shapePath,
+  type CaseArea,
+  type CaseTemplate,
+} from "./geometry";
 
 /** Until a model's printable area is configured, artwork fills the whole template. */
-const FULL_AREA: PrintArea = { x: 0.02, y: 0.01, width: 0.96, height: 0.98, radius: 0.14 };
+const FULL_AREA: CaseArea = { x: 0.02, y: 0.01, width: 0.96, height: 0.98, radius: 0.14 };
+
+/** Template ratio (width ÷ height) drawn before a model has a template photo. */
+export const PLACEHOLDER_RATIO = 0.49;
 
 /**
  * The CASE category's COMPANY products are of two kinds, and the API guarantees which: a phone
@@ -20,15 +35,25 @@ export const readyCases = (data: StudioData) => data.products.filter((p) => !isP
 /** The draft's phone model; never a ready-made case, which can't be designed on. */
 export const modelOf = (d: CaseDraft, data: StudioData) => phoneModels(data).find((p) => p.id === d.modelId) ?? null;
 
-export function caseAreas(model: Product | null) {
-  const raw = (model?.printAreas ?? {}) as { front?: unknown; camera?: unknown };
-  return { area: parseArea(raw.front) ?? FULL_AREA, camera: parseArea(raw.camera) };
+/** The model's template: printable area, camera, bleed and safe area, the same for every screen. */
+export const caseTemplate = (model: Product | null): CaseTemplate => parseCaseTemplate(model?.printAreas, FULL_AREA);
+
+/**
+ * How artwork fits a model at a template ratio: `ofArea` is the printable area's height ÷ width,
+ * `bounds` the box (printable fractions) artwork must always cover, i.e. the area plus its bleed.
+ */
+export interface CaseFit {
+  ofArea: number;
+  bounds: Bounds;
+}
+export function caseFit(model: Product | null, ratio: number): CaseFit {
+  const t = caseTemplate(model);
+  return { ofArea: areaAspect(t.area, ratio), bounds: bleedBox(t, ratio) };
 }
 
 export const isSoldOut = (m: Product) => m.isActive === false || (m.stock ?? 0) <= 0;
 
-/** Height ÷ width of the printable area, given the template's w/h ratio. */
-export const areaAspect = (area: PrintArea, templateRatio: number) => area.height / area.width / templateRatio;
+export { areaAspect };
 
 const BRAND_ORDER = ["APPLE", "SAMSUNG", "GOOGLE", "XIAOMI", "HUAWEI"];
 const BRAND_NAMES: Record<string, string> = { APPLE: "Apple", SAMSUNG: "Samsung", GOOGLE: "Google", XIAOMI: "Xiaomi", HUAWEI: "Huawei" };
@@ -58,9 +83,18 @@ export const caseImage = (d: CaseDraft) => d.elements[0];
 export const casePrice = (d: CaseDraft, model: Product | null, byId: Map<string, Component>) =>
   (model?.price ?? 0) + (byId.get(caseImage(d)?.ref ?? "")?.price ?? 0);
 
-/** The image covers the printable area by default. */
-export const coverImage = (aspect: number, ofArea: number, props: Partial<PlacedElement>) =>
-  imageElement({ ...props, aspect, scale: coverScale(aspect, ofArea) });
+/**
+ * How far a case image can zoom: out until the whole design shows, in to 5× "just covers the
+ * area"; within the API's 0.1–5 (relative to that cover scale). Uncovered parts show the case itself.
+ */
+export function caseScaleRange(aspect: number, fit: CaseFit) {
+  const cover = coverScale(aspect, fit.ofArea);
+  return { min: Math.max(containScale(aspect, fit.ofArea), 0.1 * cover), max: 5 * cover };
+}
+
+/** The image covers the printable area and its bleed by default (centred, cover, never stretched). */
+export const coverImage = (aspect: number, fit: CaseFit, props: Partial<PlacedElement>) =>
+  imageElement({ ...props, aspect, scale: coverScaleFor(aspect, fit.bounds, fit.ofArea) });
 
 /** Exactly one item; API scale 1 means "just covers the printable area". */
 export async function caseInput(category: Category, d: CaseDraft, model: Product, ofArea: number): Promise<{ input: ProductInput; uploads: Blob[] }> {
@@ -88,12 +122,19 @@ export async function caseInput(category: Category, d: CaseDraft, model: Product
   };
 }
 
-/** The flattened case: template + artwork clipped to the printable area + overlay. Throws when it can't be drawn. */
+/**
+ * The flattened case: template + artwork clipped to the printable shape, minus the camera, +
+ * overlay. Uses the same paths as the studio; guides (safe area, outlines) are never drawn.
+ * Throws when it can't be drawn.
+ */
 export async function captureCase(d: CaseDraft, model: Product) {
   const size = model.imageUrl ? await imageSize(model.imageUrl) : { width: 49, height: 100 };
   const W = 600;
   const H = (W * size.height) / size.width;
-  const { area, camera } = caseAreas(model);
+  const ratio = size.width / size.height;
+  const t = caseTemplate(model);
+  const { area } = t;
+  const frame = pixelFrame(W, H);
   return renderPng(W, H, async (ctx) => {
     if (model.imageUrl) ctx.drawImage(await loadImage(model.imageUrl), 0, 0, W, H);
     else {
@@ -104,11 +145,10 @@ export async function captureCase(d: CaseDraft, model: Product) {
       ctx.fill();
     }
     ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(area.x * W, area.y * H, area.width * W, area.height * H, (area.radius ?? 0) * area.width * W);
+    ctx.clip(new Path2D(shapePath(printableShape(t, ratio), frame)));
     // The camera opening is cut out, as in the studio and the app: the template's camera stays visible.
-    if (camera) ctx.roundRect(camera.x * W, camera.y * H, camera.width * W, camera.height * H, (camera.radius ?? 0) * camera.width * W);
-    ctx.clip("evenodd");
+    const cut = cameraCutPath(t, ratio, frame);
+    if (cut) ctx.clip(new Path2D(cut), "evenodd");
     await drawElements(ctx, d.elements, area.width * W, area.height * H, area.x * W, area.y * H);
     ctx.restore();
     if (model.overlayImageUrl) ctx.drawImage(await loadImage(model.overlayImageUrl), 0, 0, W, H);
@@ -119,8 +159,8 @@ export async function caseFromProduct(p: Product, data: StudioData, display = fa
   const model = phoneModels(data).find((m) => m.id === (p.baseProductId ?? p.baseProduct?.id)) ?? null;
   const item = p.items?.[0];
   if (!item) return { kind: "CASE", modelId: model?.id ?? null, elements: [] };
-  const ratio = model?.imageUrl ? await imageSize(model.imageUrl).then((s) => s.width / s.height) : 0.49;
-  const ofArea = areaAspect(caseAreas(model).area, ratio);
+  const ratio = model?.imageUrl ? await imageSize(model.imageUrl).then((s) => s.width / s.height) : PLACEHOLDER_RATIO;
+  const ofArea = areaAspect(caseTemplate(model).area, ratio);
   const uploaded = !!item.customImageUrl;
   // Edit copy needs the upload again (it can't be fetched back); a read-only preview shows the saved one.
     const src = uploaded && !display ? undefined : (item.customImageUrl ?? item.subCategory?.imageUrl ?? undefined);

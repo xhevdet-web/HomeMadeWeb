@@ -1,85 +1,132 @@
 import i18n from "../../i18n";
 import { useId, type ReactNode } from "react";
-import type { PrintArea, Product } from "../../api/models";
+import type { Product } from "../../api/models";
 import type { CaseDraft } from "../../studio/drafts";
 import { PlacementLayer } from "../../studio/PlacementLayer";
 import { useImageRatio } from "../apparel/logic";
 import type { StudioData } from "../data";
-import { caseAreas, modelOf } from "./logic";
+import { caseTemplate, modelOf, PLACEHOLDER_RATIO } from "./logic";
+import { areaFrame, cameraCutPath, cameraShape, printableShape, safeShape, shapePath, templateFrame } from "./geometry";
 import { corsImage } from "../../studio/capture";
 
-/** SVG path of a rounded rectangle; rx / ry may differ (fractions of a box that isn't square). */
-function roundedRect(x: number, y: number, w: number, h: number, rx: number, ry: number) {
-  rx = Math.min(rx, w / 2);
-  ry = Math.min(ry, h / 2);
-  return (
-    `M${x + rx} ${y}H${x + w - rx}A${rx} ${ry} 0 0 1 ${x + w} ${y + ry}V${y + h - ry}A${rx} ${ry} 0 0 1 ${x + w - rx} ${y + h}` +
-    `H${x + rx}A${rx} ${ry} 0 0 1 ${x} ${y + h - ry}V${y + ry}A${rx} ${ry} 0 0 1 ${x + rx} ${y}Z`
-  );
-}
-
-/** A template area (0–1 of the template, radius a share of its width) in uniform units: the template is 100 wide. */
-const areaPath = (a: PrintArea, ratio: number) => {
-  const r = (a.radius ?? 0) * a.width * 100;
-  return roundedRect(a.x * 100, (a.y * 100) / ratio, a.width * 100, (a.height * 100) / ratio, r, r);
-};
-
 /**
- * A phone model's template with the artwork clipped to its printable area, like the app:
- * the camera opening is cut out of the artwork (evenodd), so the template's real camera shows.
- * Then the overlay, and while editing the dashed guides of the printable area and the camera.
+ * A phone model's template with the artwork clipped to its printable shape (per-corner radii),
+ * then the camera opening cut out of it (a second, even-odd clip), so the template's real camera
+ * shows even where the camera reaches past the printable edge. Then the overlay, and while
+ * editing (`safeArea`) the guides: the printable outline and camera (dashed) and the safe area
+ * (dotted, brighter while `active`). Where a zoomed-out design leaves the case uncovered, the
+ * template itself (the case's own colour) shows, as in the saved preview. While the case is
+ * empty, `placeholder` fills the printable shape white with a short prompt. Guides and placeholder are screen-only: never part of the
+ * saved preview.
+ * Geometry comes from ./geometry, the same as the saved preview and the admin editor.
  */
-export function CaseCanvas({ model, children, safeArea = true }: { model: Product | null; children?: ReactNode; safeArea?: boolean }) {
-  const clipId = `case-clip-${useId().replace(/:/g, "")}`;
+export function CaseCanvas({
+  model,
+  children,
+  safeArea = true,
+  active = true,
+  placeholder,
+}: {
+  model: Product | null;
+  children?: ReactNode;
+  safeArea?: boolean;
+  active?: boolean;
+  placeholder?: string;
+}) {
+  const uid = useId().replace(/:/g, "");
+  const clipId = `case-clip-${uid}`;
+  const cutId = `case-cut-${uid}`;
   const ratio = useImageRatio(model?.imageUrl ?? null);
-  const shown = model?.imageUrl ? ratio : 0.49;
-  const { area, camera } = caseAreas(model);
+  const shown = model?.imageUrl ? ratio : PLACEHOLDER_RATIO;
+  const t = caseTemplate(model);
+  const { area } = t;
   const pct = (v: number) => `${v * 100}%`;
 
-  // The clip in the printable area's own box (0–1 both ways): its rounded outline minus the camera.
-  const k = (area.width * shown) / area.height; // area-height units per area-width unit
-  const r = area.radius ?? 0;
-  let clip = roundedRect(0, 0, 1, 1, r, r * k);
-  if (camera) {
-    const cx = (camera.x - area.x) / area.width;
-    const cy = (camera.y - area.y) / area.height;
-    const cr = ((camera.radius ?? 0) * camera.width) / area.width;
-    clip += roundedRect(cx, cy, camera.width / area.width, camera.height / area.height, cr, cr * k);
-  }
-  const guides = [areaPath(area, shown), ...(camera ? [areaPath(camera, shown)] : [])];
+  // Clips in the printable area's own box (0–1 both ways, objectBoundingBox).
+  const local = areaFrame(area);
+  const clip = shapePath(printableShape(t, shown), local);
+  const cut = cameraCutPath(t, shown, local);
+  // Guides in template units: 100 wide, 100 / ratio high, so corners stay round.
+  const view = templateFrame(shown);
+  const camera = cameraShape(t, shown);
+  const safe = safeShape(t, shown);
+  const outlines = [shapePath(printableShape(t, shown), view), ...(camera ? [shapePath(camera, view)] : [])];
 
   return (
     <div className="relative w-full" style={{ aspectRatio: String(shown) }}>
       <svg width="0" height="0" className="absolute" aria-hidden="true">
         <clipPath id={clipId} clipPathUnits="objectBoundingBox">
-          <path d={clip} fillRule="evenodd" clipRule="evenodd" />
+          <path d={clip} />
         </clipPath>
+        {cut && (
+          <clipPath id={cutId} clipPathUnits="objectBoundingBox">
+            <path d={cut} fillRule="evenodd" clipRule="evenodd" />
+          </clipPath>
+        )}
       </svg>
       {model?.imageUrl ? (
         <img {...corsImage} src={model.imageUrl} alt="" draggable={false} className="absolute inset-0 h-full w-full" />
       ) : (
         <div className="absolute inset-0 rounded-[14%/7%] border border-border bg-secondary" />
       )}
-      <div className="absolute" style={{ left: pct(area.x), top: pct(area.y), width: pct(area.width), height: pct(area.height), clipPath: `url(#${clipId})` }}>
-        {children}
+      <div
+        data-case-area=""
+        className="absolute"
+        style={{ left: pct(area.x), top: pct(area.y), width: pct(area.width), height: pct(area.height), clipPath: `url(#${clipId})` }}
+      >
+        <div className="absolute inset-0" style={cut ? { clipPath: `url(#${cutId})` } : undefined}>
+          {placeholder && (
+            <div
+              data-case-placeholder=""
+              className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white px-[12%] text-center"
+              style={{ containerType: "inline-size" }}
+            >
+              <p className="font-semibold leading-snug text-neutral-500" style={{ fontSize: "clamp(11px, 7.5cqw, 18px)" }}>
+                <span aria-hidden="true" className="mx-auto mb-[0.5em] flex size-[2.2em] items-center justify-center rounded-full border border-dashed border-neutral-400 text-[1.3em] leading-none">
+                  +
+                </span>
+                {placeholder}
+              </p>
+            </div>
+          )}
+          {children}
+        </div>
       </div>
       {model?.overlayImageUrl && <img {...corsImage} src={model.overlayImageUrl} alt="" aria-hidden="true" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full" />}
       {safeArea && (
-        <svg viewBox={`0 0 100 ${100 / shown}`} className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
-          {guides.map((d) => (
+        <svg
+          data-case-guides=""
+          viewBox={`0 0 100 ${100 / shown}`}
+          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+          aria-hidden="true"
+        >
+          {outlines.map((d) => (
             <g key={d}>
-              <path d={d} fill="none" stroke="white" strokeOpacity={0.55} strokeWidth={2.5} vectorEffect="non-scaling-stroke" />
               <path
                 d={d}
                 fill="none"
                 stroke="var(--primary)"
-                strokeOpacity={0.85}
-                strokeWidth={1.5}
-                strokeDasharray="7 6"
+                strokeOpacity={0.7}
+                strokeWidth={1}
+                strokeDasharray="4 4"
                 vectorEffect="non-scaling-stroke"
               />
             </g>
           ))}
+          {safe && (
+            <g data-case-safe="" className="transition-opacity duration-300 motion-reduce:transition-none" style={{ opacity: active ? 1 : 0.45 }}>
+              <path
+                d={shapePath(safe, view)}
+                fill="none"
+                stroke="var(--primary)"
+                strokeOpacity={0.55}
+                strokeWidth={1}
+                strokeDasharray="2 4"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </g>
+          )}
         </svg>
       )}
     </div>
