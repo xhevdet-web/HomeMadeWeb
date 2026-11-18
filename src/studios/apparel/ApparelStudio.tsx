@@ -4,20 +4,21 @@ import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
 import { backOrNavigate } from "../../router";
 import { BottomSheet } from "../../studio/BottomSheet";
-import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
+import { elementActions, useCanvasDrop } from "../../studio/canvasKit";
+import { DesignBrowser } from "../../studio/DesignBrowser";
 import { imageSize } from "../../studio/capture";
 import { useActiveDrag } from "../../studio/dnd/hooks";
 import { describeElement, elementsReducer, imageElement, type ElementsAction, type PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
 import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
 import { StageFrame, StudioFrame, StudioToolbar } from "../../studio/StudioFrame";
-import { Tabs, ToolSection } from "../../studio/StudioShell";
+import { Panel, PanelTabs, usePanel, type PanelId } from "../../studio/PickerPanels";
 import { TextTool } from "../../studio/TextTool";
 import { QualityWarning, UploadButton, type UploadedImage } from "../../studio/UploadButton";
 import { useUndoShortcuts } from "../../studio/useHistory";
 import { useIsPhone, useNotice } from "../../studio/ui";
 import { AddTextButton } from "../mugs/MugStudio";
-import { componentById, customUpload, libraryDesigns, typeLabel, type StudioProps } from "../data";
+import { componentById, customUpload, libraryDesigns, type StudioProps } from "../data";
 import { allElements, apparelInput, apparelPrice, apparelSummary, baseOf, boundsOf, apparelPreviews, hasUpload, printArea, useImageRatio, garmentImage, type Side } from "./logic";
 import { GarmentCanvas } from "./silhouettes";
 import i18n from "../../i18n";
@@ -36,7 +37,6 @@ export function ApparelStudio({ category, data }: StudioProps) {
   const phone = useIsPhone();
   const dragging = useActiveDrag();
   const [side, setSide] = useState<Side>("front");
-  const [tab, setTab] = useState("ALL");
   const [textOpen, setTextOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const stageRef = useRef<HTMLElement>(null);
@@ -44,7 +44,8 @@ export function ApparelStudio({ category, data }: StudioProps) {
   const byId = useMemo(() => componentById(data), [data]);
   const upload = customUpload(data);
   const designs = libraryDesigns(data);
-  const types = [...new Set(designs.map((c) => c.type?.trim()).filter((t): t is string => !!t))];
+  const panels: PanelId[] = [...(designs.length ? (["designs"] as const) : []), ...(upload ? (["photo"] as const) : []), "text"];
+  const [panel, setPanel] = usePanel(panels);
   const base = baseOf(d, data);
   const area = printArea(base, side, category);
   const ratio = useImageRatio(garmentImage(base, side));
@@ -106,7 +107,6 @@ export function ApparelStudio({ category, data }: StudioProps) {
 
   const empty = allElements(d).length === 0;
   const missing = allElements(d).some((e) => e.missing);
-  const shown = designs.filter((c) => tab === "ALL" || c.type?.trim() === tab);
   const printCm = Number((base?.printAreas as { front?: { widthCm?: number } } | null)?.front?.widthCm) || 30;
   const textTool = (
     <TextTool
@@ -138,7 +138,10 @@ export function ApparelStudio({ category, data }: StudioProps) {
             elements={elements}
             label={t("apparel.designsOn", { side: t(`apparel.sides.${side}`) })}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={(id) => {
+              setSelectedId(id);
+              if (!phone && elements.find((e) => e.id === id)?.kind === "text") setPanel("text");
+            }}
             onChange={(el, merge) => apply({ type: "update", el }, merge)}
             onCommand={command}
             bounds={boundsOf(area)}
@@ -160,7 +163,7 @@ export function ApparelStudio({ category, data }: StudioProps) {
               image: selected.kind === "text" ? null : (selected.src ?? null),
               onDone: () => setSelectedId(null),
               actions: [
-                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: t("textTool.editText"), onClick: () => (phone ? setTextOpen(true) : setTab("TEXT")) }] : []),
+                ...(selected.kind === "text" ? [{ icon: "pencil" as const, label: t("textTool.editText"), onClick: () => (phone ? setTextOpen(true) : setPanel("text")) }] : []),
                 ...elementActions(selected, (el) => apply({ type: "update", el }), (cmd) => command(cmd, selected.id), { centre, duplicate: !selected.uploaded }),
               ],
             }
@@ -169,43 +172,23 @@ export function ApparelStudio({ category, data }: StudioProps) {
     />
   );
 
+  const texts = allElements(d).filter((e) => e.kind === "text");
   const picker = (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <QualityWarning show={lowQuality(elements, printCm)} />
-      <ToolSection title={t("apparel.designs")} aside={t("apparel.addingTo", { side: t(`apparel.sides.${side}`) })}>
-        <p className="mb-3 text-xs text-muted-foreground">{t("apparel.designsHint", { side: t(`apparel.sides.${side}`) })}</p>
-        <Tabs
-          label={t("apparel.designType")}
-          value={tab}
-          onChange={(id) => (id === "TEXT" && phone ? setTextOpen(true) : setTab(id))}
-          tabs={[{ id: "ALL", label: t("create.groups.all") }, ...types.map((type) => ({ id: type, label: typeLabel(type) })), { id: "TEXT", label: t("mugs.text") }]}
-        />
-        <div className="mt-3">
-          {tab === "TEXT" && !phone ? (
-            textTool
-          ) : shown.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">{t("gifts.emptyGroup")}</p>
-          ) : (
-            <TileRow>
-              {shown.map((c) => (
-                <TileItem key={c.id}>
-                  <DragTile
-                    id={c.id}
-                    name={c.name}
-                    image={c.imageUrl}
-                    price={c.price ? money(c.price) : t("common.free")}
-                    badge={elements.some((e) => e.ref === c.id) ? t("apparel.added") : null}
-                    onTap={() => void addDesign(c)}
-                  />
-                </TileItem>
-              ))}
-            </TileRow>
-          )}
-        </div>
-      </ToolSection>
-      {phone && <AddTextButton count={allElements(d).filter((e) => e.kind === "text").length} onClick={() => setTextOpen(true)} />}
+      <PanelTabs panels={panels} value={panel} onChange={setPanel} counts={{ photo: elements.filter((e) => e.uploaded).length, text: texts.length }} labels={{ photo: t("studio.tabUpload") }} />
+      {designs.length > 0 && (
+        <Panel id="designs" value={panel} label={t("apparel.designs")} hint={t("apparel.designsHint", { side: t(`apparel.sides.${side}`) })}>
+          <DesignBrowser designs={designs} onPick={(id) => void addDesign(byId.get(id)!)} badge={(c) => (elements.some((e) => e.ref === c.id) ? t("apparel.added") : null)} />
+        </Panel>
+      )}
       {upload && (
-        <ToolSection title={t("apparel.uploadTitle")} aside={hasUpload(d) ? t("apparel.chargedOnce") : upload.price ? t("apparel.once", { price: money(upload.price) }) : t("common.free")}>
+        <Panel
+          id="photo"
+          value={panel}
+          label={t("apparel.uploadTitle")}
+          hint={hasUpload(d) ? t("apparel.chargedOnce") : upload.price ? t("apparel.once", { price: money(upload.price) }) : t("common.free")}
+        >
           <UploadButton
             onImage={onUpload}
             accept={["image/png"]}
@@ -213,8 +196,11 @@ export function ApparelStudio({ category, data }: StudioProps) {
             label={missing ? t("apparel.reuploadArtwork") : t("apparel.uploadTitle")}
             hint={upload.price ? t("apparel.uploadHintPaid", { price: money(upload.price) }) : t("apparel.uploadHint")}
           />
-        </ToolSection>
+        </Panel>
       )}
+      <Panel id="text" value={panel} label={t("mugs.text")}>
+        {phone ? <AddTextButton count={texts.length} onClick={() => setTextOpen(true)} /> : textTool}
+      </Panel>
       <BottomSheet title={selected?.kind === "text" ? t("textTool.editText") : t("mugs.addText")} open={phone && textOpen} onClose={() => setTextOpen(false)}>
         {textTool}
       </BottomSheet>

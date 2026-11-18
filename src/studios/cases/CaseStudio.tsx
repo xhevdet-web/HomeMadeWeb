@@ -7,13 +7,15 @@ import { Icon } from "../../components/Icon";
 import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
 import { backIfPrevious, backOrNavigate } from "../../router";
-import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
+import { elementActions, useCanvasDrop } from "../../studio/canvasKit";
+import { DesignBrowser } from "../../studio/DesignBrowser";
 import { imageSize } from "../../studio/capture";
 import type { PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
 import { useSaveDesign, useStudioHistory } from "../../studio/StudioContext";
 import { StageFrame, StudioFrame, StudioToolbar } from "../../studio/StudioFrame";
-import { Notice as InfoNotice, ToolSection } from "../../studio/StudioShell";
+import { Notice as InfoNotice } from "../../studio/StudioShell";
+import { Panel, PanelNote, PanelTabs, usePanel, type PanelId } from "../../studio/PickerPanels";
 import { QualityWarning, UploadButton, type UploadedImage } from "../../studio/UploadButton";
 import { useUndoShortcuts } from "../../studio/useHistory";
 import { useNotice } from "../../studio/ui";
@@ -38,6 +40,8 @@ export function CaseStudio({ category, data }: StudioProps) {
   const model = modelOf(d, data);
   const upload = customUpload(data);
   const designs = libraryDesigns(data);
+  const panels: PanelId[] = [...(designs.length ? (["designs"] as const) : []), ...(upload ? (["photo"] as const) : [])];
+  const [panel, setPanel] = usePanel(panels);
   const ratio = useImageRatio(model?.imageUrl ?? null);
   const shownRatio = model?.imageUrl ? ratio : PLACEHOLDER_RATIO;
   // Artwork always covers the printable area plus the model's bleed; customers never set it.
@@ -139,28 +143,22 @@ export function CaseStudio({ category, data }: StudioProps) {
   );
 
   const picker = (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {model && isSoldOut(model) && <InfoNotice>{t("cases.modelGone")}</InfoNotice>}
       <QualityWarning show={lowQuality(image, ofArea)} />
-      <p className="text-xs text-muted-foreground">{t(caseTemplate(model).safe ? "cases.safeAreaGuide" : "cases.safeArea")}</p>
-      {upload && (
-        <ToolSection title={t("cases.yourPhoto")} aside={upload.price ? `+${money(upload.price)}` : t("common.free")}>
-          <UploadButton onImage={onUpload} label={image?.missing ? t("cases.reuploadPhoto") : image ? t("cases.changeImage") : t("cases.uploadPhoto")} hint={t("upload.hint")} />
-        </ToolSection>
-      )}
+      <PanelTabs panels={panels} value={panel} onChange={setPanel} counts={{ photo: image?.uploaded ? 1 : 0 }} />
       {designs.length > 0 && (
-        <ToolSection title={t("cases.ourDesigns")}>
-          <p className="mb-3 text-xs text-muted-foreground">{t("cases.ourDesignsHint")}</p>
-          <TileRow cols="grid-cols-3">
-            {designs.map((c) => (
-              <TileItem key={c.id}>
-                <DragTile id={c.id} name={c.name} image={c.imageUrl} price={c.price ? t("cases.extra", { price: money(c.price) }) : t("common.free")} selected={image?.ref === c.id} onTap={() => void pick(c.id)} />
-              </TileItem>
-            ))}
-          </TileRow>
-        </ToolSection>
+        <Panel id="designs" value={panel} label={t("cases.ourDesigns")} hint={t("cases.ourDesignsHint")}>
+          <DesignBrowser designs={designs} selectedRef={image?.ref} onPick={(id) => void pick(id)} />
+        </Panel>
+      )}
+      {upload && (
+        <Panel id="photo" value={panel} label={t("cases.yourPhoto")} hint={upload.price ? `+${money(upload.price)}` : t("common.free")}>
+          <UploadButton onImage={onUpload} label={image?.missing ? t("cases.reuploadPhoto") : image ? t("cases.changeImage") : t("cases.uploadPhoto")} hint={t("upload.hint")} />
+        </Panel>
       )}
       {!upload && designs.length === 0 && <p className="text-sm text-muted-foreground">{t("cases.noDesigns")}</p>}
+      <PanelNote>{t(caseTemplate(model).safe ? "cases.safeAreaGuide" : "cases.safeArea")}</PanelNote>
     </div>
   );
 

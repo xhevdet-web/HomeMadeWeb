@@ -10,14 +10,15 @@ import { studioHref } from "../../data/homeCategories";
 import { money } from "../../lib/format";
 import { backIfPrevious, backOrNavigate } from "../../router";
 import { BottomSheet } from "../../studio/BottomSheet";
-import { DragTile, TileItem, TileRow, elementActions, useCanvasDrop } from "../../studio/canvasKit";
+import { elementActions, useCanvasDrop } from "../../studio/canvasKit";
+import { DesignBrowser } from "../../studio/DesignBrowser";
 import { imageSize } from "../../studio/capture";
 import { isDragging } from "../../studio/dnd/controller";
 import type { PlacedElement } from "../../studio/elements";
 import { PlacementLayer, type LayerCommand } from "../../studio/PlacementLayer";
 import { useSaveDesign, useStudio, useStudioHistory } from "../../studio/StudioContext";
 import { StageFrame, StudioFrame, StudioToolbar } from "../../studio/StudioFrame";
-import { ToolSection } from "../../studio/StudioShell";
+import { Panel, PanelTabs, usePanel, type PanelId } from "../../studio/PickerPanels";
 import { QualityWarning, UploadButton, type UploadedImage } from "../../studio/UploadButton";
 import { useUndoShortcuts } from "../../studio/useHistory";
 import { useNotice } from "../../studio/ui";
@@ -47,6 +48,8 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
   const swipe = useRef<{ x: number; y: number; id: number } | null>(null);
   const upload = customUpload(data);
   const designs = libraryDesigns(data);
+  const panels: PanelId[] = [...(designs.length ? (["designs"] as const) : []), ...(upload ? (["photo"] as const) : [])];
+  const [panel, setPanel] = usePanel(panels);
   const saver = useSaveDesign(category, async () => {
     const { input, uploads } = await stickerInput(category, d, size);
     return { input, files: { preview: await captureStickers(d, size), customDesigns: uploads } };
@@ -231,24 +234,18 @@ function StickerDesigner({ category, data, size }: StudioProps & { size: Sticker
   );
 
   const picker = (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <QualityWarning show={lowQuality(image, size)} />
-      {upload && (
-        <ToolSection title={t("stickers.imageFor", { number: active + 1 })} aside={t("stickers.oneImage")}>
-          <UploadButton onImage={onUpload} label={image?.missing ? t("studio.reuploadImage") : image ? t("mugs.replaceImage") : t("upload.label")} hint={t("upload.hint")} />
-        </ToolSection>
-      )}
+      <PanelTabs panels={panels} value={panel} onChange={setPanel} counts={{ photo: image?.uploaded ? 1 : 0 }} />
       {designs.length > 0 && (
-        <ToolSection title={t("mugs.ourDesigns")}>
-          <p className="mb-3 text-xs text-muted-foreground">{t("stickers.ourDesignsHint")}</p>
-          <TileRow cols="grid-cols-4">
-            {designs.map((c) => (
-              <TileItem key={c.id}>
-                <DragTile id={c.id} name={c.name} image={c.imageUrl} selected={image?.ref === c.id} onTap={() => void pick(c.id)} />
-              </TileItem>
-            ))}
-          </TileRow>
-        </ToolSection>
+        <Panel id="designs" value={panel} label={t("mugs.ourDesigns")} hint={t("stickers.ourDesignsHint")}>
+          <DesignBrowser designs={designs} selectedRef={image?.ref} onPick={(id) => void pick(id)} cols="grid-cols-4" price={() => undefined} />
+        </Panel>
+      )}
+      {upload && (
+        <Panel id="photo" value={panel} label={t("stickers.imageFor", { number: active + 1 })} hint={`${t("stickers.imageFor", { number: active + 1 })} · ${t("stickers.oneImage")}`}>
+          <UploadButton onImage={onUpload} label={image?.missing ? t("studio.reuploadImage") : image ? t("mugs.replaceImage") : t("upload.label")} hint={t("upload.hint")} />
+        </Panel>
       )}
       <div className="flex flex-wrap gap-2">
         <Button variant="neutral" size="sm" onClick={deleteDesign}>

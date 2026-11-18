@@ -28,7 +28,8 @@ export function DragTile({
   disabled?: boolean;
   selected?: boolean;
   onTap: () => void;
-  size?: "md" | "lg";
+  /** sm: compact library tiles (one-line name); lg: a fixed-width tile for scrolling rows. */
+  size?: "sm" | "md" | "lg";
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const drag = useDragSource(
@@ -46,20 +47,29 @@ export function DragTile({
       aria-disabled={disabled}
       aria-pressed={selected || undefined}
       aria-label={`${name}${price ? `, ${price}` : ""}${badge ? `, ${badge}` : ""}`}
-      className={`no-callout group flex w-full shrink-0 flex-col overflow-hidden rounded-2xl border text-left transition-colors [touch-action:pan-x_pan-y] ${
+      className={`no-callout group flex w-full shrink-0 flex-col overflow-hidden border text-left transition-colors [touch-action:pan-x_pan-y] ${size === "sm" ? "rounded-xl" : "rounded-2xl"} ${
         selected ? "border-primary" : "border-border hover:border-foreground/30"
       } ${disabled ? "opacity-45" : ""} ${size === "lg" ? "w-28" : ""}`}
     >
-      <span className="relative flex aspect-square min-h-0 w-full items-center justify-center overflow-hidden bg-secondary p-2">
+      <span className={`relative flex aspect-square min-h-0 w-full items-center justify-center overflow-hidden bg-secondary ${size === "sm" ? "p-1.5" : "p-2"}`}>
         {image ? (
           <img {...corsImage} src={image} alt="" loading="lazy" decoding="async" draggable={false} className="img-fade h-full w-full object-contain" />
         ) : (
           <span className="text-xs text-muted-foreground">{i18n.t("studio.noPicture")}</span>
         )}
         {badge && <span className="absolute top-1.5 right-1.5 rounded-full bg-background/85 px-2 py-0.5 text-[10px] font-semibold text-foreground">{badge}</span>}
+        {size === "sm" && price && !badge && <span className="absolute top-1 right-1 rounded-full bg-background/90 px-1.5 py-px text-[10px] font-semibold text-primary">{price}</span>}
       </span>
-      <span className="line-clamp-2 px-2.5 pt-2 text-xs leading-tight font-semibold">{name}</span>
-      {price && <span className="px-2.5 pt-0.5 pb-2.5 text-[11px] text-primary">{price}</span>}
+      {size === "sm" ? (
+        <span className="truncate px-2 py-1.5 text-[11px] leading-tight font-semibold" title={name}>
+          {name}
+        </span>
+      ) : (
+        <>
+          <span className="line-clamp-2 px-2.5 pt-2 text-xs leading-tight font-semibold">{name}</span>
+          {price && <span className="px-2.5 pt-0.5 pb-2.5 text-[11px] text-primary">{price}</span>}
+        </>
+      )}
     </button>
   );
 }
