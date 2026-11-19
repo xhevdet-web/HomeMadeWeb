@@ -93,7 +93,7 @@ export default function StudioPage({ slug, step, query }: { slug: string; step?:
   const Step = !step ? mod.Base! : step === "design" ? mod.Design : mod.Preview;
   return (
     <StudioSteps.Provider value={{ hasBase: !!mod.Base }}>
-      <Step category={category} data={data.data} />
+      <Step category={category} data={data.data} step={step} query={query} />
     </StudioSteps.Provider>
   );
 }

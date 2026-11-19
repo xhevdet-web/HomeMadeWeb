@@ -25,6 +25,8 @@ export function productFormData(input: ProductInput, files: DesignFiles) {
   if (input.baseProductId) data.append("baseProductId", input.baseProductId);
   if (input.giftPackagingId) data.append("giftPackagingId", input.giftPackagingId);
   if (input.giftPackagingColorId) data.append("giftPackagingColorId", input.giftPackagingColorId);
+  if (input.giftRecipient) data.append("giftRecipient", input.giftRecipient);
+  if (input.giftMessage) data.append("giftMessage", input.giftMessage);
   if (input.textLayers?.length) data.append("textLayers", JSON.stringify(input.textLayers));
   data.append("designPreview", preview, "design-preview.png");
   if (files.backPreview) data.append("backDesignPreview", checkPng(files.backPreview), "back-design-preview.png");

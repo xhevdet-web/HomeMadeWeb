@@ -211,6 +211,9 @@ export interface Product {
   giftPackagingColorId?: string | null;
   giftPackaging?: { id: string; name: string; type: string; shape?: string } | null;
   giftPackagingColor?: { id: string; name: string; hex: string } | null;
+  /** GIFT designs: the gift card. Only the creator (and admins) receive it; others get null. */
+  giftRecipient?: string | null;
+  giftMessage?: string | null;
   itemCount?: number;
   createdAt?: string;
   category?: { id: string; name: string; builderType?: string | null; builderConfig?: unknown };
@@ -245,6 +248,12 @@ export interface PackagingColor {
   sortOrder: number;
 }
 
+/** A suggested combination of gift items, as the admin saved it on the packaging. */
+export interface GiftBundle {
+  name: string;
+  items: { subCategoryId: string; quantity: number }[];
+}
+
 export interface GiftPackaging {
   id: string;
   name: string;
@@ -256,7 +265,25 @@ export interface GiftPackaging {
   stock: number;
   isActive: boolean;
   sortOrder: number;
+  /** How many items fit inside (the slots); null: no limit. */
+  capacity: number | null;
+  /** Item types it accepts; empty: every type. */
+  allowedTypes: string[];
+  suggestedBundles: GiftBundle[];
   colors: PackagingColor[];
+}
+
+function parseBundles(value: unknown): GiftBundle[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((b): GiftBundle[] => {
+    if (!isObject(b) || typeof b.name !== "string" || !Array.isArray(b.items)) return [];
+    const items = b.items.flatMap((i) =>
+      isObject(i) && typeof i.subCategoryId === "string" && Number.isSafeInteger(i.quantity) && (i.quantity as number) > 0
+        ? [{ subCategoryId: i.subCategoryId, quantity: i.quantity as number }]
+        : [],
+    );
+    return items.length ? [{ name: b.name, items }] : [];
+  });
 }
 
 export function parsePackagingList(value: unknown): GiftPackaging[] {
@@ -279,6 +306,9 @@ export function parsePackagingList(value: unknown): GiftPackaging[] {
           stock: Number.isSafeInteger(p.stock) ? (p.stock as number) : 0,
           isActive: p.isActive === true,
           sortOrder: Number.isFinite(p.sortOrder) ? (p.sortOrder as number) : 0,
+          capacity: Number.isSafeInteger(p.capacity) && (p.capacity as number) > 0 ? (p.capacity as number) : null,
+          allowedTypes: Array.isArray(p.allowedTypes) ? p.allowedTypes.filter((t): t is string => typeof t === "string" && !!t.trim()) : [],
+          suggestedBundles: parseBundles(p.suggestedBundles),
           colors: colors
             .flatMap((c): PackagingColor[] =>
               isObject(c) && typeof c.id === "string" && typeof c.name === "string" && typeof c.hex === "string" && /^#[0-9A-Fa-f]{6}$/.test(c.hex)
@@ -469,6 +499,8 @@ export interface ProductInput {
   baseProductId?: string;
   giftPackagingId?: string;
   giftPackagingColorId?: string;
+  giftRecipient?: string;
+  giftMessage?: string;
   textLayers?: TextLayerInput[];
 }
 

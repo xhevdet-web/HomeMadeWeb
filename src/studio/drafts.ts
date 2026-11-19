@@ -13,6 +13,9 @@ export interface GiftDraft {
   packagingId: string | null;
   colorId: string | null;
   elements: PlacedElement[];
+  /** The gift card; optional so drafts saved before it still load. */
+  recipient?: string;
+  message?: string;
 }
 
 export interface MugDraft {

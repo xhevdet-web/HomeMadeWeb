@@ -17,6 +17,9 @@ export interface StudioData {
 export interface StudioProps {
   category: Category;
   data: StudioData;
+  /** The route's step (undefined, "design" or "preview") and query, for studios that show more steps on one page. */
+  step?: string;
+  query?: URLSearchParams;
 }
 
 async function load(category: Category, signal: AbortSignal): Promise<StudioData> {

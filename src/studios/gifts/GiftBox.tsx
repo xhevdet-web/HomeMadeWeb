@@ -5,10 +5,43 @@ import type { StudioData } from "../data";
 import { boxGeometry, boxHex, packagingOf } from "./logic";
 import i18n from "../../i18n";
 
-/** The chosen box in its colour. Transparent ones get a glassy front over the items; closed ones show the open lid. */
-export function GiftBox({ shape, transparent, hex, children }: { shape?: "SQUARE" | "RECTANGULAR"; transparent: boolean; hex: string; children?: ReactNode }) {
+/**
+ * The chosen box in its colour. Transparent ones get a glassy front over the items; closed ones
+ * show the open lid, or with `closed` the lid on, tied with a ribbon and a tag for `tag`.
+ */
+export function GiftBox({ shape, transparent, hex, children, closed = false, tag, insideLabel = true }: {
+  shape?: "SQUARE" | "RECTANGULAR";
+  transparent: boolean;
+  hex: string;
+  children?: ReactNode;
+  closed?: boolean;
+  tag?: string;
+  insideLabel?: boolean;
+}) {
   const g = boxGeometry(shape);
   const glass = `glass${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  if (closed && !transparent)
+    return (
+      <div className="relative w-full" style={{ aspectRatio: `${g.w} / ${g.h}` }}>
+        <svg viewBox={`0 0 ${g.w} ${g.h}`} className="absolute inset-0 h-full w-full" aria-hidden="true">
+          <rect x="6" y="22" width={g.w - 12} height="84" rx="4" fill={hex} />
+          <rect x="6" y="22" width={g.w - 12} height="84" rx="4" fill="oklch(0 0 0 / 0.18)" />
+          <rect x="3" y="12" width={g.w - 6} height="18" rx="3" fill={hex} />
+          <rect x="3" y="26" width={g.w - 6} height="4" fill="oklch(0 0 0 / 0.2)" />
+          <rect x={g.w / 2 - 4} y="12" width="8" height="94" fill="var(--color-primary)" />
+          <rect x="6" y="58" width={g.w - 12} height="7" fill="var(--color-primary)" opacity="0.9" />
+          <path d={`M${g.w / 2} 12c-9-10-20-6-14 1zM${g.w / 2} 12c9-10 20-6 14 1z`} fill="var(--color-primary)" />
+        </svg>
+        {tag && (
+          <span
+            className="absolute max-w-[40%] truncate rounded-md bg-background/90 px-2 py-1 text-[11px] font-semibold text-foreground shadow"
+            style={{ left: `${((g.w / 2 + 8) / g.w) * 100}%`, top: `${(70 / g.h) * 100}%`, rotate: "-6deg" }}
+          >
+            {tag}
+          </span>
+        )}
+      </div>
+    );
   return (
     <div className="relative w-full" style={{ aspectRatio: `${g.w} / ${g.h}` }}>
       <svg viewBox={`0 0 ${g.w} ${g.h}`} className="absolute inset-0 h-full w-full" aria-hidden="true">
@@ -30,7 +63,7 @@ export function GiftBox({ shape, transparent, hex, children }: { shape?: "SQUARE
           <path d={`M${g.w * 0.22} 22l-12 80M${g.w * 0.22 + 6} 22l-12 80`} stroke="white" strokeOpacity="0.22" strokeWidth="2" />
         </svg>
       ) : (
-        <span
+        insideLabel && <span
           className="pointer-events-none absolute rounded-full bg-background/75 px-2 py-0.5 text-[10px] font-semibold tracking-[0.2em] text-foreground uppercase"
           style={{ left: `${(14 / g.w) * 100}%`, top: `${(26 / g.h) * 100}%` }}
         >

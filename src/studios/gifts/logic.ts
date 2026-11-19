@@ -1,8 +1,8 @@
-import { parseTextLayers, type Category, type Component, type GiftPackaging, type Product, type ProductInput } from "../../api/models";
+import { parseTextLayers, type Category, type Component, type GiftBundle, type GiftPackaging, type Product, type ProductInput } from "../../api/models";
 import { drawElements, imageSize, renderPng } from "../../studio/capture";
 import type { GiftDraft } from "../../studio/drafts";
 import { imageElement, newId, type Bounds, type PlacedElement } from "../../studio/elements";
-import { apiFraction, apiRotation, apiScale, designName, textElementOf, textLayerOf, texts, type StudioData } from "../data";
+import { apiFraction, apiRotation, apiScale, designName, textElementOf, textLayerOf, texts, typeLabel, type StudioData } from "../data";
 import i18n from "../../i18n";
 
 /** Picker groups, matched by keyword on the admin-set component type (the app's GIFT groups). */
@@ -83,6 +83,8 @@ export function giftInput(category: Category, d: GiftDraft, byId: Map<string, Co
       rotation: apiRotation(e.rotation),
     })),
     textLayers: texts(d.elements).map((e) => textLayerOf(e)),
+    ...(d.recipient?.trim() ? { giftRecipient: d.recipient.trim() } : {}),
+    ...(d.message?.trim() ? { giftMessage: d.message.trim() } : {}),
   };
 }
 
@@ -111,7 +113,14 @@ export async function giftFromProduct(p: Product, data: StudioData): Promise<Gif
       );
   }
   parseTextLayers(p.textLayers).forEach((layer, i) => elements.push(textElementOf(layer, elements.length + 1 + i)));
-  return { kind: "GIFT", packagingId: p.giftPackagingId ?? p.giftPackaging?.id ?? null, colorId: p.giftPackagingColorId ?? null, elements };
+  return {
+    kind: "GIFT",
+    packagingId: p.giftPackagingId ?? p.giftPackaging?.id ?? null,
+    colorId: p.giftPackagingColorId ?? null,
+    elements,
+    recipient: p.giftRecipient ?? "",
+    message: p.giftMessage ?? "",
+  };
 }
 
 /** The scene as the design picture: the box in its colour with every item and message, like GiftBox. */
@@ -162,4 +171,99 @@ export function captureGift(d: GiftDraft, data: StudioData) {
       ctx.stroke();
     }
   });
+}
+
+/* ---------------- Gift Studio flow: slots, types, bundles ---------------- */
+
+/** Item types are typed by the admin, so they match without regard to case or spaces (like the API). */
+export const typeKey = (type: string | null | undefined) => (type ?? "").trim().toLowerCase();
+
+/** Whether the packaging accepts this item; packaging without allowed types accepts everything. */
+export const fits = (c: Pick<Component, "type">, p: GiftPackaging | null) =>
+  !p || !p.allowedTypes.length || p.allowedTypes.some((t) => typeKey(t) === typeKey(c.type));
+
+/**
+ * The filters: each item type once, in catalog order, named in the current language when it is a
+ * known type (ITEM → "Items") and otherwise as the admin wrote it. Untyped items show under "All" only.
+ */
+export function typeFilters(items: Component[]) {
+  const seen = new Map<string, string>();
+  for (const c of items) {
+    const key = typeKey(c.type);
+    if (key && !seen.has(key)) seen.set(key, typeLabel(c.type!));
+  }
+  return [...seen].map(([key, label]) => ({ key, label }));
+}
+
+/**
+ * The slot grid: as many slots as the packaging holds. Without a capacity it grows a row at a
+ * time and always keeps a free slot. Wide boxes get more columns.
+ */
+export function slotGrid(p: GiftPackaging | null, count: number) {
+  const slots = Math.max(p?.capacity ?? Math.max(6, Math.ceil((count + 1) / 3) * 3), count);
+  const wide = p?.shape === "RECTANGULAR";
+  const cols = Math.max(1, Math.min(slots, Math.ceil(Math.sqrt(slots * (wide ? 1.6 : 1)))));
+  return { slots, cols, rows: Math.ceil(slots / cols) };
+}
+
+/** Image elements in slot order (the order they were added). */
+export const slotOrder = (d: GiftDraft) => imageEls(d).sort((a, b) => a.z - b.z);
+
+/**
+ * Puts every item in its slot: centred, sized to fit. The positions are what is saved and drawn
+ * in the design picture, so other apps show the box as it looks here.
+ */
+export function layoutSlots(d: GiftDraft, p: GiftPackaging | null): GiftDraft {
+  const items = slotOrder(d);
+  const { cols, rows } = slotGrid(p, items.length);
+  const g = boxGeometry(p?.shape);
+  const sw = (g.inner.x1 - g.inner.x0) / cols;
+  const sh = (g.inner.y1 - g.inner.y0) / rows;
+  const placed = new Map(
+    items.map((e, i) => {
+      const fitW = sw * 0.72;
+      const fitH = ((sh * 0.72) * g.h) / g.w / Math.max(0.05, e.aspect || 1);
+      return [
+        e.id,
+        { ...e, x: g.inner.x0 + sw * ((i % cols) + 0.5), y: g.inner.y0 + sh * (Math.floor(i / cols) + 0.5), scale: Math.min(fitW, fitH), rotation: 0 },
+      ];
+    }),
+  );
+  return { ...d, elements: d.elements.map((e) => placed.get(e.id) ?? e) };
+}
+
+/** What is in the box, one row per item with its count, in the order first added. */
+export function contentsOf(d: GiftDraft, byId: Map<string, Component>) {
+  const rows: { ref: string; name: string; image: string | null; price: number; count: number }[] = [];
+  for (const e of slotOrder(d)) {
+    const ref = e.ref ?? e.id;
+    const row = rows.find((r) => r.ref === ref);
+    if (row) row.count++;
+    else {
+      const c = byId.get(ref);
+      rows.push({ ref, name: c?.name ?? e.name ?? i18n.t("order.item"), image: c?.imageUrl ?? e.src ?? null, price: c?.price ?? 0, count: 1 });
+    }
+  }
+  return rows;
+}
+
+/**
+ * A bundle as it can be offered now: its items that still exist (deleted or hidden ones are
+ * skipped), and why it can't be added (too many for the box, a type the box refuses, stock).
+ */
+export function usableBundle(b: GiftBundle, p: GiftPackaging | null, byId: Map<string, Component>) {
+  const items = b.items.flatMap((i) => {
+    const c = byId.get(i.subCategoryId);
+    return c ? [{ component: c, quantity: i.quantity }] : [];
+  });
+  const count = items.reduce((n, i) => n + i.quantity, 0);
+  const blocked =
+    !items.length || items.some((i) => !i.component.imageUrl || !fits(i.component, p))
+      ? "hidden"
+      : p?.capacity != null && count > p.capacity
+        ? "hidden"
+        : items.some((i) => i.component.trackStock && i.component.stock < i.quantity)
+          ? "stock"
+          : null;
+  return { name: b.name, items, count, blocked };
 }

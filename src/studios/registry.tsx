@@ -10,8 +10,6 @@ import { CasePreview } from "./cases/CasePreview";
 import { CaseStudio } from "./cases/CaseStudio";
 import { caseFromProduct, modelOf } from "./cases/logic";
 import type { StudioData, StudioProps } from "./data";
-import { GiftPackagingStep } from "./gifts/GiftPackaging";
-import { GiftPreview } from "./gifts/GiftPreview";
 import { GiftStudio } from "./gifts/GiftStudio";
 import { giftFromProduct, packagingOf } from "./gifts/logic";
 import { JewelryBase } from "./jewelry/JewelryBase";
@@ -54,9 +52,11 @@ const MODULES: { [B in Exclude<BuilderType, "BOUQUET">]: StudioModule } = {
   },
   GIFT: {
     kind: "GIFT",
-    Base: GiftPackagingStep,
+    // One page for Box → Fill → Note → Review: the same component on every route keeps its
+    // state, and each step has its own address (base, /design, /design?step=note, /preview).
+    Base: GiftStudio,
     Design: GiftStudio,
-    Preview: GiftPreview,
+    Preview: GiftStudio,
     baseDone: (d, _c, data) => {
       if (d.kind !== "GIFT") return false;
       const p = packagingOf(d, data);
