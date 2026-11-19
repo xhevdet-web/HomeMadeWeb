@@ -20,7 +20,7 @@ const IMAGES: Record<LookKey, string> = {
   bracelet: "/images/bracelet.jpg",
   necklace: "/images/necklace_glass_beads.jpg",
   gifts: "/images/gifts.jpg",
-  mugs: "/images/mugs.jpg",
+  mugs: "/images/mugs.png",
   apparel: "/images/apparel.jpg",
   cases: "/images/cases.jpg",
   stickers: "/images/stickers.jpg",
