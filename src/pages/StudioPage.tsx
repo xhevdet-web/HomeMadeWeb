@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import i18n from "../i18n";
+import { trackDesignPreviewed, trackSavedDesignOpened, trackStudioOpened } from "../analytics/analytics";
 import { product as fetchProduct } from "../api/catalog";
 import { errorMessage } from "../api/client";
 import { savedDesign } from "../api/designs";
@@ -63,8 +64,9 @@ export default function StudioPage({ slug, step, query }: { slug: string; step?:
       try {
         const kept = savedId ? await savedDesign(savedId) : null;
         const product = kept ? kept.product : await fetchProduct(loadId);
-        setDraft(category.id, await mod.fromProduct(product, category, studioData));
+        setDraft(category.id, await mod.fromProduct(product, category, studioData), { restored: true });
         linkSaved(category.id, kept?.id ?? null);
+        if (kept) trackSavedDesignOpened({ category: category.name, studioType: studioBuilder(category) ?? "" });
         toast(kept ? i18n.t("studio.savedOpened", { name: kept.name }) : i18n.t("studio.designOpened"));
       } catch (e) {
         toast(errorMessage(e));
@@ -73,6 +75,18 @@ export default function StudioPage({ slug, step, query }: { slug: string; step?:
       // Login closed: open the studio as it is, never leave the customer on a loading screen.
     }, i18n.t("auth.prompts.openDesign"), () => redirect(studioHref(category)));
   }, [loadId, savedId, category, mod, data.data, requireAuth, setDraft, linkSaved, toast]);
+
+  // GA4: the studio opened (once per visit, whatever step it opens on) and its preview reached.
+  // The Gift Studio shows its review on the same page as `?step=review`.
+  const ready = !!(category && mod && data.data && validStep && !target && !loadId);
+  const previewing = step === "preview" || (mod?.kind === "GIFT" && query.get("step") === "review");
+  useEffect(() => {
+    if (!ready || !category) return;
+    const info = { category: category.name, studioType: studioBuilder(category) ?? "" };
+    trackStudioOpened(slug, info);
+    if (previewing) trackDesignPreviewed(info);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, previewing, category?.id]);
 
   if (categories.loading || (mod && data.loading)) return <StudioSkeleton />;
   if (categories.error)

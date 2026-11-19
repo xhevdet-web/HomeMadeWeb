@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { trackLogin, trackSignUp } from "../analytics/analytics";
 import * as authApi from "../api/auth";
 import { ApiError, onUnauthorized } from "../api/client";
 import type { User } from "../api/models";
@@ -107,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const { user: u, expiresAt } = await authApi.login(email, password);
       signedIn(u, expiresAt);
+      trackLogin("email");
     },
     [signedIn],
   );
@@ -115,6 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (idToken: string, password?: string) => {
       const { user: u, expiresAt, profileComplete } = await authApi.googleLogin(idToken, password);
       signedIn(u, expiresAt);
+      // The API doesn't say whether Google created the account, so every Google sign-in is a login.
+      trackLogin("google");
       return { profileComplete };
     },
     [signedIn],
@@ -123,9 +127,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const registerAndSignIn = useCallback(
     async (input: authApi.RegistrationInput) => {
       await authApi.register(input);
-      await signIn(input.email, input.password);
+      // Signs in directly (not through signIn), so a new account counts as a sign-up only.
+      const { user: u, expiresAt } = await authApi.login(input.email, input.password);
+      signedIn(u, expiresAt);
+      trackSignUp("email");
     },
-    [signIn],
+    [signedIn],
   );
 
   const signOut = useCallback(async () => {

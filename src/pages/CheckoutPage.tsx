@@ -1,4 +1,5 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { gaItem, trackBeginCheckout, trackPurchase } from "../analytics/analytics";
 import { useTranslation } from "react-i18next";
 import { updateProfile } from "../api/auth";
 import { product as fetchProduct } from "../api/catalog";
@@ -119,6 +120,13 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
   const [, rerender] = useState(0);
   const sending = useRef(false);
   const formRef = useRef<HTMLElement>(null);
+  const gaCategory = categories.data?.find((c) => c.id === product?.categoryId) ?? null;
+
+  // GA4: checkout opened for this product (once per product, not on every re-render).
+  useEffect(() => {
+    if (product) trackBeginCheckout(gaItem(product, gaCategory, { quantity: Math.max(1, Number(query.get("qty")) || 1) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
 
   if (!productId)
     return (
@@ -184,6 +192,8 @@ export default function CheckoutPage({ query }: { query: URLSearchParams }) {
     lock(true);
     try {
       const order = await createOrder({ productId: product.id, size: sizes.length ? size : undefined, quantity: rule ? qty : undefined, notes });
+      // Sent once per order id; the order page that follows never sends it again.
+      trackPurchase(order, gaItem(product, category, { quantity: qty }));
       // Stays locked, so the back button can't submit this checkout again.
       clearOrdered(product.id);
       invalidate("orders");

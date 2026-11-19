@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { categories as fetchCategories, type ProductPageQuery } from "../api/catalog";
+import { gaItem, trackItemList, trackSelectItem } from "../analytics/analytics";
 import type { Category, Product } from "../api/models";
 import { Button, buttonLook } from "../components/Button";
 import { inputClass } from "../components/Controls";
@@ -15,6 +16,8 @@ import { updateQuery } from "../router";
 
 /** Products per page. */
 export const PAGE_SIZE = 12;
+/** The GA4 item list name of this page. */
+const LIST_NAME = "Products";
 const SEARCH_DELAY = 250;
 
 // The filters live in the URL (shareable, and Back works): ?kategoria=byzylyk&lloji=gatshme&faqja=2
@@ -161,6 +164,17 @@ export default function ProductsPage({ query }: { query: URLSearchParams }) {
   const pages = Math.max(1, meta?.totalPages ?? 1);
   const from = shown.length ? (page - 1) * PAGE_SIZE + 1 : 0;
   const to = shown.length ? from + shown.length - 1 : 0;
+
+  // GA4: the page of products the customer is looking at, once per filter, sort or page.
+  const listed = productsApi.data;
+  useEffect(() => {
+    if (!listed) return;
+    trackItemList(
+      LIST_NAME,
+      listed.data.map((p, i) => gaItem(p, byId.get(p.categoryId), { index: (page - 1) * PAGE_SIZE + i, item_list_name: LIST_NAME })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listed]);
 
   // An old link to a page that no longer exists: go to the last page instead.
   useEffect(() => {
@@ -334,7 +348,14 @@ export default function ProductsPage({ query }: { query: URLSearchParams }) {
             >
               {shown.map((p, i) => (
                 <li key={p.id}>
-                  <ProductCard product={p} category={categoryOf(p)} onOpen={() => setOpen(i)} />
+                  <ProductCard
+                    product={p}
+                    category={categoryOf(p)}
+                    onOpen={() => {
+                      trackSelectItem(LIST_NAME, gaItem(p, categoryOf(p), { index: (page - 1) * PAGE_SIZE + i, item_list_name: LIST_NAME }));
+                      setOpen(i);
+                    }}
+                  />
                 </li>
               ))}
             </ul>

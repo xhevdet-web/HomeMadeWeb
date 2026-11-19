@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { trackDesignSaved, trackDesignStarted } from "../analytics/analytics";
 import { ApiError, errorMessage } from "../api/client";
 import { createProduct, createSavedDesign, productFormData, updateSavedDesign, type DesignFiles } from "../api/designs";
 import type { Category, Product, ProductInput } from "../api/models";
@@ -7,7 +8,7 @@ import { invalidate } from "../hooks/useApi";
 import { navigate } from "../router";
 import i18n from "../i18n";
 import { CaptureError } from "./capture";
-import { EMPTY_DRAFTS, persistable, type AnyDraft, type DraftKind, type DraftOf } from "./drafts";
+import { EMPTY_DRAFTS, hasContent, persistable, type AnyDraft, type DraftKind, type DraftOf } from "./drafts";
 import { useToast } from "./Toasts";
 import { applyUpdate, useHistory } from "./useHistory";
 
@@ -49,7 +50,8 @@ interface StudioContextValue {
   drafts: StoredDrafts;
   /** The category's draft when it is of this kind, else a fresh one. */
   getDraft: <K extends DraftKind>(categoryId: string, kind: K) => DraftOf<K>;
-  setDraft: (categoryId: string, draft: AnyDraft) => void;
+  /** `restored`: a saved design or edit copy was opened, which is not starting a new design. */
+  setDraft: (categoryId: string, draft: AnyDraft, options?: { restored?: boolean }) => void;
   lastSaved: Record<string, SavedDesign>;
   markSaved: (categoryId: string, saved: SavedDesign) => void;
   /** After an order: the studio that saved this product starts fresh (keeping its base choice). */
@@ -121,7 +123,18 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     [drafts],
   );
 
-  const setDraft = useCallback((categoryId: string, draft: AnyDraft) => {
+  // GA4 design_started: studios whose draft has content. Drafts kept from an earlier visit count
+  // as started; emptying a design (clear, after an order) lets the next one start again.
+  const started = useRef<Set<string> | null>(null);
+  if (!started.current) started.current = new Set(Object.entries(drafts).filter(([, s]) => hasContent(s.draft)).map(([id]) => id));
+
+  const setDraft = useCallback((categoryId: string, draft: AnyDraft, options?: { restored?: boolean }) => {
+    const set = started.current!;
+    if (!hasContent(draft)) set.delete(categoryId);
+    else if (!set.has(categoryId)) {
+      set.add(categoryId);
+      if (!options?.restored) trackDesignStarted(draft.kind);
+    }
     setDrafts((d) => (d[categoryId]?.draft === draft ? d : { ...d, [categoryId]: { draft, updatedAt: Date.now() } }));
   }, []);
 
@@ -228,6 +241,7 @@ export function useSaveDesign(category: Category, build: () => Promise<BuiltDesi
       if (then === "stay") {
         const updated = await keep(product.id);
         invalidate("saved-designs");
+        trackDesignSaved({ category: category.name, studioType: category.builderType ?? "" }, updated);
         toast(i18n.t(updated ? "studio.savedChanges" : "studio.savedToDesigns"));
       }
       if (then === "order") navigate(`#/checkout?design=${product.id}${options.quantity ? `&qty=${options.quantity}` : ""}`);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { gaItem, trackViewItem } from "../analytics/analytics";
 import type { Category, Product } from "../api/models";
 import { fitsLabel, isCustom, isSoldOut, priceLabel, productAction, productPictures } from "../lib/products";
 import { corsImage } from "../studio/capture";
@@ -30,6 +31,9 @@ export function ProductViewer({ products, index, categoryOf, onIndex, onClose }:
   const soldOut = isSoldOut(product);
 
   const go = (step: number) => onIndex((index + step + products.length) % products.length);
+
+  // GA4: each product shown in the viewer, also when stepping with the arrows.
+  useEffect(() => trackViewItem(gaItem(product, category)), [product.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setPic(0);
